@@ -26,7 +26,11 @@ const config: CapacitorConfig = {
   webDir: '../web/out',
 
   server: {
-    url: 'https://eurotrd1-beep.github.io/euro-trade-ts/admin/',
+    // NO trailing slash. `output: 'export'` with the default `trailingSlash`
+    // emits admin.html, not admin/index.html, so GitHub Pages serves /admin
+    // and 404s on /admin/. Nested routes (/admin/vip, /admin/health) work the
+    // same way and are reached by the client router anyway.
+    url: 'https://eurotrd1-beep.github.io/euro-trade-ts/admin',
     cleartext: false,
   },
 
