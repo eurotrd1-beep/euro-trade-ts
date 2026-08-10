@@ -19,8 +19,10 @@
 .chartColumn { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .sideColumn  { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
+/* Square corners by request. `overflow: hidden` is kept — chart.js draws its
+   canvas to the edges and would otherwise paint over the border. */
 .chartCard {
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   background: color-mix(in srgb, var(--card-bg) 82%, transparent);
   border: 1px solid var(--border-glow);
   overflow: hidden;
