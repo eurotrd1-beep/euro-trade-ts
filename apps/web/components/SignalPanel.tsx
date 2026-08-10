@@ -106,27 +106,7 @@ function MonitoringView({ monitoring, onStopMonitoring }: SignalPanelProps) {
           ◎
         </span>
         <h2 className={styles.monTitle}>{tr('جاري المراقبة...', 'Monitoring...')}</h2>
-        <span className={styles.monElapsed} dir="ltr">
-          {formatElapsed(monitoring.elapsedSeconds)}
-        </span>
       </div>
-
-      <div className={styles.countdownRow}>
-        <span className={styles.countdownLabel}>
-          {tr('الشمعة القادمة بعد', 'Next candle in')}
-        </span>
-        <span className={styles.monCountdown} dir="ltr">
-          {mmss(monitoring.countdown)}
-        </span>
-      </div>
-
-      <p className={styles.fired}>
-        <span aria-hidden="true">🔔</span>{' '}
-        {tr(
-          `إشارات صدرت حتى الآن: ${monitoring.signalsFired}`,
-          `Signals fired so far: ${monitoring.signalsFired}`,
-        )}
-      </p>
 
       <p className={monitoring.lastCheckFailed ? styles.notMet : styles.watching}>
         {monitoring.lastCheckFailed
@@ -140,14 +120,58 @@ function MonitoringView({ monitoring, onStopMonitoring }: SignalPanelProps) {
             )}
       </p>
 
-      <p className={styles.checked}>
-        {tr(`شموع تم تحليلها: ${monitoring.checksDone}`, `Candles analysed: ${monitoring.checksDone}`)}
-      </p>
+      {/*
+        The stat row from `_buildMonitoringCard` (main_screen.dart:4133), plus
+        the candles-analysed box: the countdown answers "when", but only the
+        count answers "how long has it been looking without finding anything".
+      */}
+      <div className={styles.monStats}>
+        <MonStat
+          label={tr('الشمعة القادمة بعد', 'Next candle in')}
+          value={mmss(monitoring.countdown)}
+          tone="amber"
+        />
+        <MonStat
+          label={tr('شموع تم تحليلها', 'Candles analysed')}
+          value={String(monitoring.checksDone)}
+          tone="cyan"
+        />
+        <MonStat
+          label={tr('الصفقات الصادرة', 'Signals fired')}
+          value={String(monitoring.signalsFired)}
+          tone="green"
+        />
+        <MonStat
+          label={tr('مدة المراقبة', 'Monitoring time')}
+          value={formatElapsed(monitoring.elapsedSeconds)}
+          tone="cyan"
+        />
+      </div>
 
       <button type="button" onClick={onStopMonitoring} className={styles.stopBtn}>
         {tr('إيقاف المراقبة', 'Stop monitoring')}
       </button>
     </section>
+  );
+}
+
+/** One box in the monitoring stat row. */
+function MonStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'amber' | 'cyan' | 'green';
+}) {
+  return (
+    <div className={`${styles.monStat} ${styles[`mon_${tone}`]}`}>
+      <span className={styles.monStatLabel}>{label}</span>
+      <span className={styles.monStatValue} dir="ltr">
+        {value}
+      </span>
+    </div>
   );
 }
 

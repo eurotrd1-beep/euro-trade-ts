@@ -106,8 +106,6 @@
   display: grid; gap: 7px;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   overflow-y: auto;
-  /* Room for the scrollbar so the last row is never clipped. */
-  padding-inline-end: 4px;
 }
 
 .pair {

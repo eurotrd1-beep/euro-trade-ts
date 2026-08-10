@@ -724,3 +724,137 @@
   border: 1px solid var(--admin-border);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
+
+/* ══ Mobile ═══════════════════════════════════════════════════════════════
+ *
+ * The panel was laid out for a desktop and cramped on a phone: six-column
+ * tables squeezed to unreadable, toolbars pushed past the viewport, and modals
+ * that ran off the bottom. Everything below is phone-only.
+ */
+
+/* Nothing may push the page sideways. */
+.shell { overflow-x: hidden; }
+.content { min-width: 0; }
+
+@media (max-width: 899px) {
+  /* The section list scrolls horizontally and stays reachable while the
+     content behind it scrolls. */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 10px 12px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    border-inline-end: none;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .brand { margin-bottom: 10px; font-size: 12px; }
+
+  .navList {
+    gap: 6px;
+    /* The row is swipeable; the scrollbar itself is hidden globally. */
+    scroll-snap-type: x proximity;
+  }
+
+  .navLink { padding: 8px 11px; font-size: 12.5px; scroll-snap-align: start; }
+
+  /* Sign-out belongs at the end of the strip, not stretched under it. */
+  .signOut { margin-top: 10px; width: auto; padding: 8px 14px; }
+
+  .content {
+    padding: 14px 12px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  .title { font-size: 17px; margin-bottom: 14px; }
+
+  .statRow { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+  .stat { padding: 11px; }
+  .statValue { font-size: 20px; }
+
+  /* A 220px minimum forced the toolbar wider than a small phone. */
+  .toolbar { gap: 8px; }
+  .search { min-width: 0; flex-basis: 100%; }
+  .filters { width: 100%; overflow-x: auto; }
+
+  .card { padding: 13px; }
+
+  /* Two number fields side by side is too tight below ~380px. */
+  .dlgPair { grid-template-columns: 1fr; }
+
+  .modalOverlay { padding: 12px; align-items: end; }
+  .modal { max-height: 92dvh; max-width: none; }
+  .modalTitle { padding: 15px 15px 10px; font-size: 14px; }
+  .modalBody { padding: 0 15px; }
+  .modalActions { padding: 12px 15px; padding-bottom: max(15px, env(safe-area-inset-bottom)); }
+  .modalActions button { flex: 1; }
+
+  .colorGrid { grid-template-columns: 1fr; }
+  .presetGrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+
+  /* Broker rows stack: logo + name on top, controls underneath. */
+  .brokerRow { flex-wrap: wrap; }
+  .brokerInfo { flex-basis: calc(100% - 60px); }
+  .brokerRow .actionBtn, .brokerSwatch { margin-top: 4px; }
+
+  .vipWrap { max-width: none; }
+  .vipValue { font-size: 24px; padding: 13px; }
+
+  .opsRow { justify-content: stretch; }
+  .opBtn { flex: 1 1 45%; }
+
+  /* Comfortable tap targets. */
+  .actionBtn { padding: 9px 12px; font-size: 12px; }
+  .chip { padding: 9px 14px; }
+}
+
+/* ── Tables become cards ──────────────────────────────────────────────────
+ *
+ * A six-column table on a 360px screen is unreadable however it is scrolled.
+ * Below 760px each row is stacked instead, with the column name printed
+ * beside its value from the cell's `data-label`.
+ */
+@media (max-width: 760px) {
+  .tableWrap { border: none; background: none; overflow-x: visible; }
+
+  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+
+  .table thead { display: none; }
+
+  .table tr {
+    margin-bottom: 10px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+  }
+
+  .table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--admin-border) 65%, transparent);
+    text-align: start;
+  }
+
+  .table td:last-child { border-bottom: none; }
+
+  .table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-muted);
+  }
+
+  /* The actions cell gets the full width — no label, buttons wrap freely. */
+  .table td[data-label='إجراءات'] { display: block; }
+  .table td[data-label='إجراءات']::before { content: none; }
+  .table td[data-label='إجراءات'] .actions { justify-content: flex-start; }
+
+  /* Truncation exists to protect a narrow column; here there is a whole row. */
+  .truncate { max-width: 60vw; }
+}

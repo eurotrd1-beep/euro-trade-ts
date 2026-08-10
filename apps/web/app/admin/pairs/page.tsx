@@ -166,21 +166,21 @@ export default function PairsView() {
             <tbody>
               {visible.map((p) => (
                 <tr key={p.id} className={busy ? styles.rowBusy : undefined}>
-                  <td>{p.symbol}</td>
-                  <td dir="ltr" className={styles.mono}>{p.chart_symbol}</td>
-                  <td>{p.category}</td>
-                  <td dir="ltr" className={styles.mono}>
+                  <td data-label="الاسم المعروض">{p.symbol}</td>
+                  <td data-label="رمز الشارت" dir="ltr" className={styles.mono}>{p.chart_symbol}</td>
+                  <td data-label="التصنيف">{p.category}</td>
+                  <td data-label="المصدر" dir="ltr" className={styles.mono}>
                     {p.source}
                     {p.is_otc && <span className={styles.badge} style={{ marginInlineStart: 6 }}>OTC</span>}
                   </td>
-                  <td>
+                  <td data-label="الحالة">
                     {p.enabled ? (
                       <span className={`${styles.badge} ${styles.badgeGreen}`}>ظاهر</span>
                     ) : (
                       <span className={styles.badge}>مخفي</span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="إجراءات">
                     <div className={styles.actions}>
                       <button
                         type="button"
@@ -230,9 +230,9 @@ export default function PairsView() {
                     const already = (pairs ?? []).some((p) => p.chart_symbol === symbol);
                     return (
                       <tr key={`${symbol}-${i}`}>
-                        <td dir="ltr" className={styles.mono}>{symbol}</td>
-                        <td>{String(e['category'] ?? '—')}</td>
-                        <td>
+                        <td data-label="الرمز" dir="ltr" className={styles.mono}>{symbol}</td>
+                        <td data-label="التصنيف">{String(e['category'] ?? '—')}</td>
+                        <td data-label="إجراءات">
                           <button
                             type="button"
                             disabled={busy || already}

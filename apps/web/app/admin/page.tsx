@@ -193,11 +193,11 @@ function UserRowView({
 
   return (
     <tr className={busy ? styles.rowBusy : undefined}>
-      <td dir="ltr" className={styles.mono}>
+      <td data-label="معرف الحساب" dir="ltr" className={styles.mono}>
         {user.id}
       </td>
-      <td>{user.broker || '—'}</td>
-      <td>
+      <td data-label="المنصة">{user.broker || '—'}</td>
+      <td data-label="الحالة">
         {user.is_banned ? (
           <span className={`${styles.badge} ${styles.badgeRed}`}>محظور</span>
         ) : isVip ? (
@@ -209,13 +209,13 @@ function UserRowView({
           <span className={`${styles.badge} ${styles.badgeGreen}`}>ربح مضمون</span>
         )}
       </td>
-      <td dir="ltr" className={styles.mono}>
+      <td data-label="انتهاء VIP" dir="ltr" className={styles.mono}>
         {user.vip_expiry ? new Date(user.vip_expiry).toLocaleDateString() : '—'}
       </td>
-      <td dir="ltr" className={`${styles.mono} ${styles.truncate}`} title={user.device_id}>
+      <td data-label="الجهاز" dir="ltr" className={`${styles.mono} ${styles.truncate}`} title={user.device_id}>
         {user.device_id || '—'}
       </td>
-      <td>
+      <td data-label="إجراءات">
         <div className={styles.actions}>
           <button type="button" disabled={busy} onClick={onVip} className={styles.actionBtn}>
             {isVip ? 'إدارة VIP 👑' : 'تفعيل VIP 👑'}

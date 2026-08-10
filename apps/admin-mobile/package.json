@@ -1,0 +1,24 @@
+{
+  "name": "@euro/admin-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native shell for the EURO TRADE admin panel. Same deployed site, opened at /admin, installed as its own app.",
+  "scripts": {
+    "build:web": "npm --workspace @euro/web run build:static",
+    "sync": "npm run build:web && cap sync",
+    "open:android": "cap open android",
+    "run:android": "npm run sync && cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0",
+    "typescript": "^5.7.2"
+  }
+}

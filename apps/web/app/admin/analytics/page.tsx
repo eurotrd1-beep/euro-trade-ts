@@ -119,17 +119,17 @@ export default function AnalyticsView() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.key}>
-                  <td>{r.name}</td>
-                  <td dir="ltr" className={styles.mono}>
+                  <td data-label="المنصة">{r.name}</td>
+                  <td data-label="المفتاح" dir="ltr" className={styles.mono}>
                     {r.key}
                   </td>
-                  <td dir="ltr" className={styles.mono}>
+                  <td data-label="النقرات" dir="ltr" className={styles.mono}>
                     {r.clicks}
                   </td>
-                  <td dir="ltr" className={styles.mono}>
+                  <td data-label="التسجيلات" dir="ltr" className={styles.mono}>
                     {r.logins}
                   </td>
-                  <td>
+                  <td data-label="معدل التحويل">
                     <span
                       className={`${styles.badge} ${
                         r.rate >= 20 ? styles.badgeGreen : r.rate >= 5 ? styles.badgeGold : ''
