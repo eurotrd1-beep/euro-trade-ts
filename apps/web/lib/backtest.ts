@@ -80,9 +80,15 @@ export interface BacktestReport {
   warnings: string[];
 }
 
-/** Dart's clock convention, derived from a candle instead of the wall clock. */
+/**
+ * Dart's clock convention, derived from a candle instead of the wall clock.
+ *
+ * `Candle.time` is MILLISECONDS (see the type). Multiplying it again put every
+ * replay somewhere around the year 58,000, so kill_zone, session, day_of_week
+ * and the rest were judged against a meaningless hour.
+ */
 function clockFor(candle: Candle): EngineClock {
-  const d = new Date(candle.time * 1000);
+  const d = new Date(candle.time);
   const jsDay = d.getDay();
   return { utcHour: d.getUTCHours(), weekday: jsDay === 0 ? 7 : jsDay };
 }
