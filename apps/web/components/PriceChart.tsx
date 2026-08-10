@@ -1,158 +1,206 @@
 'use client';
 
 /**
- * Candlestick chart — replaces lib/widgets/price_chart_web.dart.
+ * Price chart — drives `public/chart.js`, which is the project's OWN chart,
+ * copied byte-for-byte from euro_trade/web/chart.js (1,431 lines, unchanged).
  *
- * The Dart widget reached a JavaScript chart through `dart:ui_web` platform
- * views and a `dart:js` bridge, splitting Flutter's canvas into layers around a
- * DOM island. Here the chart is simply a DOM element, so that whole bridge —
- * and its scroll/clipping quirks — disappears.
+ * It is the same engine the old app used: live ticks over the `/ws` WebSocket,
+ * an 8-second status poll, sim and OTC modes, the entry line and the trade
+ * overlay. Nothing here re-implements any of that.
  *
- * Behaviour kept from the original:
- *   • an entry line drawn at the signal price, coloured by direction
- *   • the same palette as the rest of the app
- *   • a `priceGetter` handed back to the parent so the engine can read the live
- *     price without prop-drilling it through every render
+ * The Dart widget reached it through `dart:js` + a platform view. This calls
+ * the identical methods with the identical arguments, in the identical order:
+ *
+ *   init(id, symbol, interval, mode)
+ *   update(id, symbol, interval, mode)      on symbol / interval / mode change
+ *   setEntryLine(id, price, direction)
+ *   setTradeState(id, active, dir, entry, secondsLeft, guaranteedWin)
+ *   getLastPrice(id)
+ *   destroy(id)
+ *   setProxy(url)                            main_screen.dart:253, :280
  */
 
 import { useEffect, useRef } from 'react';
-import {
-  createChart,
-  ColorType,
-  CrosshairMode,
-  LineStyle,
-  type IChartApi,
-  type ISeriesApi,
-  type IPriceLine,
-  type CandlestickData,
-  type UTCTimestamp,
-} from 'lightweight-charts';
-import type { Candle } from '@euro/engine';
+import { getProxyUrl, onProxyUrlChange } from '@euro/shared';
+
+/** The global chart.js installs on `window`. */
+interface CandleChartApi {
+  init: (id: string, sym: string, iv: string, mode: string) => void;
+  update: (id: string, sym: string, iv: string, mode: string) => void;
+  destroy: (id: string) => void;
+  getLastPrice: (id: string) => number;
+  setEntryLine: (id: string, price: number | null, direction: string | null) => void;
+  setGlobalEntryLine: (price: number | null, direction: string | null) => void;
+  setTradeState: (
+    id: string,
+    active: boolean,
+    direction: string,
+    entryPrice: number,
+    secondsLeft: number,
+    guaranteedWin: boolean,
+  ) => void;
+  setProxy: (url: string) => void;
+  updateAllSimPrice: (price: number) => void;
+}
+
+declare global {
+  interface Window {
+    CandleChart?: CandleChartApi;
+  }
+}
+
+/** Resolves once chart.js has installed `window.CandleChart`. */
+let loader: Promise<void> | null = null;
+
+function loadChartScript(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (window.CandleChart) return Promise.resolve();
+  if (loader) return loader;
+
+  loader = new Promise<void>((resolve, reject) => {
+    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+    const script = document.createElement('script');
+    // Same cache-busting query the old index.html used.
+    script.src = `${base}/chart.js?v=5`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('failed to load chart.js'));
+    document.head.appendChild(script);
+  });
+
+  return loader;
+}
 
 export interface PriceChartProps {
-  candles: readonly Candle[];
-  /** 'CALL' | 'PUT' | null — null removes the entry line. */
+  /** Pocket Option chart symbol, e.g. `EURUSD_otc`. */
+  symbol: string;
+  /** '1m' | '5m' | '15m' | '1h' */
+  interval: string;
+  /** 'sim' | 'otc' — the mode chart.js expects. */
+  mode: string;
   signalDirection: 'CALL' | 'PUT' | null;
   signalEntryPrice: number | null;
-  /** Called once the chart is live; hands back a reader for the latest close. */
+  signalSecondsRemaining: number;
+  guaranteedWin: boolean;
+  /** Hands back a reader for the chart's last price, as the Dart widget did. */
   onReady?: (priceGetter: () => number) => void;
 }
 
-function cssVar(name: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-}
-
 export function PriceChart({
-  candles,
+  symbol,
+  interval,
+  mode,
   signalDirection,
   signalEntryPrice,
+  signalSecondsRemaining,
+  guaranteedWin,
   onReady,
 }: PriceChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const entryLineRef = useRef<IPriceLine | null>(null);
-  const latestRef = useRef(0);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const idRef = useRef<string>(`cc-${Date.now()}`);
+  const readyRef = useRef(false);
 
-  // Create once. Re-creating on every data change would reset zoom and pan.
+  // ── init / destroy ────────────────────────────────────────────────────────
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const id = idRef.current;
+    let cancelled = false;
 
-    const chart = createChart(container, {
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: cssVar('--text-secondary', '#8B88A0'),
-        fontFamily: 'inherit',
-      },
-      grid: {
-        vertLines: { color: cssVar('--border-glow', '#2C2250'), style: LineStyle.Dotted },
-        horzLines: { color: cssVar('--border-glow', '#2C2250'), style: LineStyle.Dotted },
-      },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: cssVar('--border-glow', '#2C2250') },
-      timeScale: {
-        borderColor: cssVar('--border-glow', '#2C2250'),
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      autoSize: true,
-      handleScale: { axisPressedMouseMove: false },
+    void loadChartScript()
+      .then(() => {
+        if (cancelled || !window.CandleChart) return;
+
+        // main_screen.dart calls setChartProxy before the chart runs, so the
+        // socket and candle fetches use the admin-configured server.
+        window.CandleChart.setProxy(getProxyUrl());
+        window.CandleChart.init(id, symbol, interval, mode);
+
+        readyRef.current = true;
+        onReady?.(() => {
+          try {
+            return window.CandleChart?.getLastPrice(id) ?? 0;
+          } catch {
+            return 0;
+          }
+        });
+      })
+      .catch(() => {
+        // chart.js missing — the rest of the app keeps working.
+      });
+
+    // An admin switching the proxy re-points the chart live, exactly as the
+    // Dart screen does on its ServerConfig listener.
+    const offProxy = onProxyUrlChange((url) => {
+      try {
+        window.CandleChart?.setProxy(url);
+      } catch {
+        // ignored
+      }
     });
-
-    const series = chart.addCandlestickSeries({
-      upColor: cssVar('--call-green', '#00FF7F'),
-      downColor: cssVar('--put-red', '#FF2A6D'),
-      borderUpColor: cssVar('--call-green', '#00FF7F'),
-      borderDownColor: cssVar('--put-red', '#FF2A6D'),
-      wickUpColor: cssVar('--call-green', '#00FF7F'),
-      wickDownColor: cssVar('--put-red', '#FF2A6D'),
-    });
-
-    chartRef.current = chart;
-    seriesRef.current = series;
-
-    onReady?.(() => latestRef.current);
 
     return () => {
-      chart.remove();
-      chartRef.current = null;
-      seriesRef.current = null;
-      entryLineRef.current = null;
+      cancelled = true;
+      offProxy();
+      readyRef.current = false;
+      try {
+        window.CandleChart?.destroy(id);
+      } catch {
+        // ignored
+      }
     };
-    // onReady is intentionally excluded: a parent re-render must not tear the
-    // chart down and lose the user's zoom.
+    // Mount once: symbol/interval/mode changes go through `update`, not a
+    // re-init, so the socket and candle buffer survive — same as Dart.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Feed data.
+  // ── symbol / interval / mode → update ─────────────────────────────────────
   useEffect(() => {
-    const series = seriesRef.current;
-    if (!series || candles.length === 0) return;
-
-    const data: CandlestickData[] = candles.map((c) => ({
-      // lightweight-charts wants seconds, the engine carries milliseconds.
-      time: Math.floor(c.time / 1000) as UTCTimestamp,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
-
-    series.setData(data);
-    latestRef.current = candles[candles.length - 1]!.close;
-  }, [candles]);
-
-  // Entry line — added, moved and removed as the active signal changes.
-  useEffect(() => {
-    const series = seriesRef.current;
-    if (!series) return;
-
-    if (entryLineRef.current) {
-      series.removePriceLine(entryLineRef.current);
-      entryLineRef.current = null;
+    if (!readyRef.current) return;
+    try {
+      window.CandleChart?.update(idRef.current, symbol, interval, mode);
+    } catch {
+      // ignored
     }
+  }, [symbol, interval, mode]);
 
-    if (signalDirection === null || signalEntryPrice === null) return;
+  // ── entry line + trade overlay ────────────────────────────────────────────
+  useEffect(() => {
+    if (!readyRef.current) return;
+    const id = idRef.current;
+    const active = signalDirection !== null && signalDirection !== undefined;
 
-    const isCall = signalDirection === 'CALL';
-    entryLineRef.current = series.createPriceLine({
-      price: signalEntryPrice,
-      color: isCall ? cssVar('--call-green', '#00FF7F') : cssVar('--put-red', '#FF2A6D'),
-      lineWidth: 2,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: signalDirection,
-    });
-  }, [signalDirection, signalEntryPrice]);
+    try {
+      window.CandleChart?.setEntryLine(
+        id,
+        active ? (signalEntryPrice ?? 0) : null,
+        active ? signalDirection : null,
+      );
+      window.CandleChart?.setTradeState(
+        id,
+        active,
+        active ? signalDirection : '',
+        active ? (signalEntryPrice ?? 0) : 0,
+        active ? signalSecondsRemaining : 0,
+        active && guaranteedWin,
+      );
+    } catch {
+      // ignored
+    }
+  }, [signalDirection, signalEntryPrice, signalSecondsRemaining, guaranteedWin]);
 
   return (
     <div
-      ref={containerRef}
-      style={{ width: '100%', height: '100%', minHeight: 260 }}
-      role="img"
-      aria-label="Price chart"
+      ref={hostRef}
+      id={idRef.current}
+      style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#0A0714',
+        // Same guards the Dart view factory set on its container.
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
+      onContextMenu={(e) => e.preventDefault()}
     />
   );
 }

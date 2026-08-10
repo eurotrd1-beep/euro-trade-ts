@@ -115,12 +115,23 @@ export default function MainScreen() {
   // Only meaningful in scraping mode; the simulator has no real market hours.
   const market = useOtcStatus(chartSymbol, config.priceSystem !== 'simulator');
 
+  // main_screen.dart:2717
+  //   _priceSystemRaw ?? (_chartMode == 'sim' ? 'simulator' : 'scraping')
+  const effectivePriceSystem =
+    config.priceSystem ?? (config.chartMode === 'sim' ? 'simulator' : 'scraping');
+
+  // main_screen.dart:4537 — the mode chart.js is given.
+  const activePairData = visiblePairs.find((p) => p.symbol === activePair);
+  const isPo = (activePairData?.source ?? 'po') === 'po';
+  const effectiveMode =
+    effectivePriceSystem === 'simulator' ? 'sim' : isPo ? 'otc' : 'sim';
+
   const strategyJson = isVip ? config.strategyVip : config.strategyStandard;
 
   const engine = useSignalEngine({
     chartSymbol,
     timeframe,
-    priceSystem: config.priceSystem,
+    priceSystem: effectivePriceSystem,
     role: isVip ? 'vip' : 'standard',
     guaranteedWin: user.guaranteedWin,
     strategyJson,
@@ -186,9 +197,17 @@ export default function MainScreen() {
 
             <div className={styles.chartBody}>
               <PriceChart
-                candles={engine.candles}
-                signalDirection={engine.activeSignal?.status === 'ACTIVE' ? engine.activeSignal.direction : null}
+                symbol={chartSymbol}
+                interval={timeframe}
+                mode={effectiveMode}
+                guaranteedWin={user.guaranteedWin}
+                signalDirection={
+                  engine.activeSignal?.status === 'ACTIVE' ? engine.activeSignal.direction : null
+                }
                 signalEntryPrice={engine.activeSignal?.entryPrice ?? null}
+                signalSecondsRemaining={
+                  engine.activeSignal?.status === 'ACTIVE' ? engine.secondsRemaining : 0
+                }
                 onReady={engine.setLivePriceGetter}
               />
             </div>
