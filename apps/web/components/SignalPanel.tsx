@@ -40,6 +40,7 @@ export interface SignalPanelProps {
   waitNotice: string;
   analysing: boolean;
   analysisStage: string;
+  candleSecondsLeft: number;
   marketClosed: boolean;
   pair: string;
   timeframe: string;
@@ -64,11 +65,29 @@ export function SignalPanel(props: SignalPanelProps) {
 
 /* ── Analysing ─────────────────────────────────────────────────────────────── */
 
-function AnalysisView({ analysisStage }: SignalPanelProps) {
+function AnalysisView({ analysisStage, candleSecondsLeft }: SignalPanelProps) {
   return (
     <section className={styles.panel}>
       <div className={styles.analysing}>
         <div className={styles.spinner} aria-hidden="true" />
+
+        {/* Answered from the first press: the trade opens with the NEXT
+            candle, so this is when the signal actually arrives. */}
+        <div className={styles.candleBox}>
+          <p className={styles.candleLabel}>
+            {tr(
+              'الإشارة هتيجي بعد إغلاق الشمعة الحالية',
+              'The signal arrives after the current candle closes',
+            )}
+          </p>
+          <p className={styles.candleCountdown} dir="ltr">
+            {mmss(candleSecondsLeft)}
+          </p>
+          <p className={styles.candleHint}>
+            {tr('متبقي على إغلاق الشمعة', 'left until the candle closes')}
+          </p>
+        </div>
+
         <p className={styles.stageText} aria-live="polite">
           {analysisStage}
         </p>

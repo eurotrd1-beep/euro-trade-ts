@@ -229,6 +229,7 @@ export default function MainScreen() {
             waitNotice={engine.waitNotice}
             analysing={engine.analysing}
             analysisStage={engine.analysisStage}
+            candleSecondsLeft={engine.candleSecondsLeft}
             marketClosed={marketClosed}
             pair={activePair}
             timeframe={timeframe}

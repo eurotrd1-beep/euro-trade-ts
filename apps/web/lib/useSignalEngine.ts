@@ -59,6 +59,13 @@ export interface EngineState {
   analysing: boolean;
   /** Live text of the current analysis stage. */
   analysisStage: string;
+  /**
+   * Seconds until the CURRENT candle closes, ticked throughout the whole
+   * analysis. The trade opens with the next candle, so this is the honest
+   * answer to "when do I get my signal?" — shown from the first press rather
+   * than only after the twelve stages finish.
+   */
+  candleSecondsLeft: number;
   /** Weekend forex, or a price that never moved during analysis. */
   marketClosed: boolean;
 }
@@ -120,6 +127,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     waitNotice: '',
     analysing: false,
     analysisStage: '',
+    candleSecondsLeft: 0,
     marketClosed: false,
   });
 
@@ -297,6 +305,21 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       };
       sample();
 
+      // The candle boundary is fixed the moment the button is pressed, so the
+      // countdown shown during the stages is the same one the wait phase uses —
+      // the user sees one number that only goes down.
+      const cs = timeframeSeconds(argsRef.current.timeframe);
+      const startSec = Math.floor(Date.now() / 1000);
+      const currentCandleEnd = (Math.floor(startSec / cs) + 1) * cs;
+      const secondsLeft = () => Math.max(0, currentCandleEnd - Math.floor(Date.now() / 1000));
+
+      // Tick it every second for the whole analysis, not just the wait phase,
+      // so "when do I get my signal?" is answered from the first press.
+      setState((s) => ({ ...s, candleSecondsLeft: secondsLeft() }));
+      const countdownTimer = setInterval(() => {
+        setState((s) => ({ ...s, candleSecondsLeft: secondsLeft() }));
+      }, 1000);
+
       // ── 12 analysis stages ────────────────────────────────────────────────
       const stages = buildStages({
         candles: current.candles,
@@ -314,11 +337,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // The trade opens with the NEXT candle. Display formula matches the
       // chart.js badge exactly: currentCandleEnd - now.
       {
-        const cs = timeframeSeconds(argsRef.current.timeframe);
-        const startSec = Math.floor(Date.now() / 1000);
-        const currentCandleEnd = (Math.floor(startSec / cs) + 1) * cs;
         let lastRem = -1;
-
         for (;;) {
           const rem = currentCandleEnd - Math.floor(Date.now() / 1000);
           if (rem <= 0) break;
@@ -332,8 +351,15 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       }
 
       const finish = (patch: Partial<EngineState>) => {
+        clearInterval(countdownTimer);
         analysingRef.current = false;
-        setState((s) => ({ ...s, analysing: false, analysisStage: '', ...patch }));
+        setState((s) => ({
+          ...s,
+          analysing: false,
+          analysisStage: '',
+          candleSecondsLeft: 0,
+          ...patch,
+        }));
       };
 
       // ── Market closed: weekend, forex only ────────────────────────────────

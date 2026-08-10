@@ -222,3 +222,32 @@
 .durationBtn:focus-visible, .clearBtn:focus-visible, .stopBtn:focus-visible {
   outline: 2px solid var(--accent-cyan); outline-offset: 2px;
 }
+
+/* Candle countdown shown for the whole analysis, not just the wait phase. */
+.candleBox {
+  width: 100%;
+  padding: 14px 12px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  background: color-mix(in srgb, var(--accent-cyan) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 30%, transparent);
+}
+
+.candleLabel {
+  margin: 0;
+  font-size: 11.5px; font-weight: 700; line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.candleCountdown {
+  margin: 8px 0 0;
+  font-size: 34px; font-weight: 800; letter-spacing: 1px;
+  color: var(--accent-cyan);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.candleHint {
+  margin: 6px 0 0;
+  font-size: 10.5px; color: var(--text-secondary);
+}
