@@ -25,6 +25,14 @@ import {
   type LoginResult,
 } from '@/lib/auth';
 import { LiveTicker } from '@/components/LiveTicker';
+import { TelegramIcon, YouTubeIcon } from '@/components/BrandIcons';
+import {
+  BASE_STATS,
+  communityStats,
+  compactMembers,
+  compactUsd,
+  type CommunityStats,
+} from '@/lib/communityStats';
 import styles from './login.module.css';
 
 /** The chat VIP subscriptions go through. */
@@ -44,6 +52,10 @@ export default function LoginPage() {
   const [promo, setPromo] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [social, setSocial] = useState<Social>({ telegram: '', youtube: '' });
+  // Prerendered HTML must not depend on "today", or hydration mismatches.
+  const [stats, setStats] = useState<CommunityStats>(BASE_STATS);
+
+  useEffect(() => setStats(communityStats()), []);
 
   const [verifying, setVerifying] = useState(false);
   const [stepText, setStepText] = useState('');
@@ -265,10 +277,17 @@ export default function LoginPage() {
             </p>
 
             <div className={styles.stats}>
+              <Stat value={compactMembers(stats.members)} label={tr('مشترك معانا', 'Members')} />
+              <Stat value={compactUsd(stats.profitUsd)} label={tr('إجمالي الأرباح', 'Total profits')} />
               <Stat value="359" label={tr('مؤشر فني', 'Indicators')} />
               <Stat value="183" label={tr('زوج تداول', 'Instruments')} />
               <Stat value="24/7" label={tr('أسواق OTC', 'OTC markets')} />
             </div>
+
+            <p className={styles.urgency}>
+              <span aria-hidden="true">🔥</span>
+              {tr('الحق مكانك — الأرقام بتزيد كل يوم', 'Claim your spot — the numbers grow daily')}
+            </p>
 
             {/* VIP offer → the owner's chat */}
             <a
@@ -299,7 +318,7 @@ export default function LoginPage() {
               {social.telegram && (
                 <ChannelCard
                   href={social.telegram}
-                  icon="✈️"
+                  icon={<TelegramIcon size={18} />}
                   title={tr('قناة تيليجرام', 'Telegram channel')}
                   sub={tr('إشارات وتحديثات', 'Signals and updates')}
                   tone="telegram"
@@ -308,7 +327,7 @@ export default function LoginPage() {
               {social.youtube && (
                 <ChannelCard
                   href={social.youtube}
-                  icon="▶"
+                  icon={<YouTubeIcon size={18} />}
                   title={tr('قناة يوتيوب', 'YouTube channel')}
                   sub={tr('شروحات وتحليلات', 'Tutorials and analysis')}
                   tone="youtube"
@@ -339,7 +358,7 @@ function ChannelCard({
   tone,
 }: {
   href: string;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   sub: string;
   tone: 'telegram' | 'youtube';

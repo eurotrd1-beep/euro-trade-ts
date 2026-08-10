@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { TelegramIcon } from './BrandIcons';
 import { tr, KEY_USER_VERIFIED, KEY_USER_ACCOUNT_ID, KEY_USER_BROKER } from '@euro/shared';
 import { hardNavigate } from '@/lib/nav';
 import { clearSession } from '@/lib/session';
@@ -92,10 +93,10 @@ export function AppHeader({ accountId, broker, isVip, vipExpiry, telegram }: App
             href={telegram}
             target="_blank"
             rel="noopener noreferrer"
-            className={styles.iconBtn}
+            className={`${styles.iconBtn} ${styles.telegramBtn}`}
             title={tr('قناة تيليجرام', 'Telegram channel')}
           >
-            <span aria-hidden="true">✈️</span>
+            <TelegramIcon size={18} />
             <span className="sr-only">{tr('قناة تيليجرام', 'Telegram channel')}</span>
           </a>
         )}

@@ -236,3 +236,16 @@
 .chip:focus-visible, .submit:focus-visible, .vipCard:focus-visible, .channel:focus-visible {
   outline: 2px solid var(--accent-cyan); outline-offset: 2px;
 }
+
+/* Five figures need to wrap on a phone; three-up was a fixed grid. */
+.stats { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+
+.urgency {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin: 14px 0 0; padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px; font-weight: 700;
+  color: #ffd666;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 191, 66, 0.35);
+}
