@@ -67,14 +67,25 @@ jobs:
 
       - run: npm ci
 
+      # Diagnostics, so a "command not found" says WHICH command instead of
+      # just exit 127. Cheap, and it turns a guessing game into a fact.
+      - name: Environment
+        run: |
+          echo "node:  $(node -v)"
+          echo "npm:   $(npm -v)"
+          echo "next:  $(node -e "console.log(require.resolve('next/dist/bin/next'))" || echo 'NOT RESOLVABLE')"
+          ls -d node_modules/next apps/web/node_modules 2>/dev/null || true
+
       - name: Build static site
-        working-directory: apps/web
         env:
-          EURO_STATIC_EXPORT: '1'
           # GitHub Pages serves project sites from /<repo>/, so every asset URL
           # needs that prefix. Without it the page loads blank.
           EURO_BASE_PATH: /${{ github.event.repository.name }}
-        run: node scripts/build-static.mjs
+        # Run through npm rather than `node scripts/...` directly: npm puts the
+        # workspace's and the root's node_modules/.bin on PATH, which removes
+        # the whole class of "binary not found" failures regardless of how the
+        # dependency happens to be hoisted.
+        run: npm --workspace @euro/web run build:static
 
       # `_next/` starts with an underscore, which Jekyll would skip. The Pages
       # Actions pipeline does not run Jekyll, but this costs nothing and removes
