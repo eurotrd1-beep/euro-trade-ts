@@ -1,104 +1,98 @@
-.card {
+/* One compact row — deliberately short so it costs almost no vertical space. */
+.strip {
   position: relative;
   overflow: hidden;
-  padding: 16px;
-  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
   border: 1px solid;
 }
 
 /* Standard — silver. */
 .silver {
-  border-color: rgba(203, 213, 225, 0.42);
+  border-color: rgba(203, 213, 225, 0.4);
   background:
-    linear-gradient(135deg, rgba(226, 232, 240, 0.16) 0%, rgba(148, 163, 184, 0.07) 55%, rgba(100, 116, 139, 0.12) 100%),
+    linear-gradient(120deg, rgba(226, 232, 240, 0.14) 0%, rgba(148, 163, 184, 0.06) 60%, rgba(100, 116, 139, 0.1) 100%),
     var(--card-bg);
   box-shadow:
-    0 0 0 1px rgba(226, 232, 240, 0.09),
-    0 0 22px rgba(203, 213, 225, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    0 0 16px rgba(203, 213, 225, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* VIP — gold. */
 .gold {
   border-color: rgba(245, 191, 66, 0.55);
   background:
-    linear-gradient(135deg, rgba(255, 214, 102, 0.2) 0%, rgba(245, 158, 11, 0.09) 55%, rgba(180, 116, 6, 0.16) 100%),
+    linear-gradient(120deg, rgba(255, 214, 102, 0.18) 0%, rgba(245, 158, 11, 0.08) 60%, rgba(180, 116, 6, 0.14) 100%),
     var(--card-bg);
   box-shadow:
-    0 0 0 1px rgba(245, 191, 66, 0.14),
-    0 0 30px rgba(245, 158, 11, 0.26),
-    inset 0 1px 0 rgba(255, 236, 179, 0.22);
+    0 0 22px rgba(245, 158, 11, 0.24),
+    inset 0 1px 0 rgba(255, 236, 179, 0.2);
 }
 
-/* A slow sheen sweeping across the card. */
 .sheen {
   position: absolute;
   top: 0;
-  inset-inline-start: -60%;
-  width: 45%;
+  inset-inline-start: -50%;
+  width: 40%;
   height: 100%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.11), transparent);
-  animation: sweep 5.5s ease-in-out infinite;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: sweep 6s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes sweep {
   0%   { transform: translateX(0); opacity: 0; }
   35%  { opacity: 1; }
-  100% { transform: translateX(340%); opacity: 0; }
-}
-
-.top {
-  position: relative;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
+  100% { transform: translateX(360%); opacity: 0; }
 }
 
 .plan {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 17px; font-weight: 900; letter-spacing: 1.5px;
-}
-
-.silver .plan { color: #e2e8f0; text-shadow: 0 0 12px rgba(226, 232, 240, 0.4); }
-.gold   .plan { color: #ffd666; text-shadow: 0 0 14px rgba(245, 158, 11, 0.55); }
-
-.crown { font-size: 16px; }
-
-.countdown {
-  font-size: 13px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: #ffd666;
-}
-
-.countdown small { font-size: 9px; font-weight: 600; opacity: 0.75; margin-inline-start: 1px; }
-
-.bottom {
   position: relative;
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 10px; margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 900; letter-spacing: 1px;
+  flex-shrink: 0;
 }
 
-.label { font-size: 10.5px; color: var(--text-secondary); }
+.silver .plan { color: #e2e8f0; text-shadow: 0 0 10px rgba(226, 232, 240, 0.35); }
+.gold   .plan { color: #ffd666; text-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
 
 .account {
-  font-size: 15px; font-weight: 700; letter-spacing: 1px;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.broker {
   position: relative;
-  display: inline-block; margin-top: 8px;
-  font-size: 10.5px; font-weight: 600; color: var(--text-secondary);
-}
-
-.upsell {
-  position: relative;
-  margin: 10px 0 0;
-  font-size: 10.5px; line-height: 1.6;
+  flex: 1; min-width: 0;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.remaining {
+  position: relative;
+  font-size: 11.5px; font-weight: 700;
+  color: #ffd666;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.subscribe {
+  position: relative;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 800;
+  color: var(--space-bg);
+  background: linear-gradient(90deg, #ffd666, var(--warning-orange));
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.subscribe:hover { filter: brightness(1.08); }
+
+.subscribe:focus-visible {
+  outline: 2px solid var(--warning-orange);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
