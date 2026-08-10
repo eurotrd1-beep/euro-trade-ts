@@ -7,53 +7,68 @@
 
 .head { display: flex; align-items: center; justify-content: space-between; }
 
-.title {
-  display: flex; align-items: center; gap: 8px;
-  margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary);
+.title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+
+.live {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--text-secondary);
 }
 
 .dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
   background: var(--call-green);
-  box-shadow: 0 0 8px var(--call-green);
-  animation: blink 1.6s ease-in-out infinite;
+  animation: pulse 2.4s ease-in-out infinite;
 }
 
-@keyframes blink {
+@keyframes pulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+  50%      { opacity: 0.35; }
 }
 
+/* A plain list with hairline separators — no per-row card, no badge column. */
 .list {
-  list-style: none; margin: 13px 0 0; padding: 0;
-  display: flex; flex-direction: column; gap: 6px;
-  max-height: 260px; overflow-y: auto;
+  list-style: none; margin: 8px 0 0; padding: 0;
+  max-height: 250px; overflow-y: auto;
 }
 
 .row {
-  display: flex; align-items: center; gap: 9px;
-  padding: 9px 11px; border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--call-green) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--call-green) 20%, transparent);
-  animation: slideIn 260ms ease-out;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--border-glow) 55%, transparent);
+  animation: fadeIn 240ms ease-out;
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-6px); }
+.row:first-child { border-top: none; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: none; }
 }
 
-.check {
-  display: grid; place-items: center; flex-shrink: 0;
-  width: 20px; height: 20px; border-radius: 50%;
-  font-size: 11px; font-weight: 800;
-  color: var(--call-green);
-  background: color-mix(in srgb, var(--call-green) 16%, transparent);
+.who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.name {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 12.5px; font-weight: 600; color: var(--text-primary);
 }
 
-.text {
-  font-size: 11.5px; line-height: 1.5; color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.userId { font-size: 10px; font-weight: 400; color: var(--text-secondary); opacity: 0.65; }
+
+.meta {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.call { color: var(--call-green); font-weight: 600; }
+.put  { color: var(--put-red);   font-weight: 600; }
+
+.profit {
+  flex-shrink: 0;
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--call-green);
 }
 
 .empty { margin: 18px 0; text-align: center; font-size: 12px; color: var(--text-secondary); }

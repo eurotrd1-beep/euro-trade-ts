@@ -31,6 +31,20 @@ const IDS = [
 
 const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
 
+/**
+ * One feed entry. `text` is the exact line the Dart engine builds, kept
+ * verbatim; the other fields are the same values before they were joined, so
+ * the UI can lay them out without parsing the string back apart.
+ */
+export interface SocialWin {
+  text: string;
+  name: string;
+  userId: string;
+  profit: number;
+  asset: string;
+  direction: 'CALL' | 'PUT';
+}
+
 export interface UseSocialFeedArgs {
   /** Symbols to draw from — the app's visible pair list. */
   pairs: readonly string[];
@@ -38,8 +52,8 @@ export interface UseSocialFeedArgs {
   marketClosed: boolean;
 }
 
-export function useSocialFeed({ pairs, marketClosed }: UseSocialFeedArgs): string[] {
-  const [logs, setLogs] = useState<string[]>([]);
+export function useSocialFeed({ pairs, marketClosed }: UseSocialFeedArgs): SocialWin[] {
+  const [logs, setLogs] = useState<SocialWin[]>([]);
 
   useEffect(() => {
     if (marketClosed) {
@@ -54,13 +68,21 @@ export function useSocialFeed({ pairs, marketClosed }: UseSocialFeedArgs): strin
       // Dart: `50 + _random.nextInt(250)` → 50..299 inclusive.
       const profit = 50 + Math.floor(Math.random() * 250);
       const asset = pick(pairs).replace(' (OTC)', '');
-      const direction = Math.random() < 0.5 ? 'CALL 🟢' : 'PUT 🔴';
+      const direction = Math.random() < 0.5 ? 'CALL' : 'PUT';
+      const suffix = direction === 'CALL' ? 'CALL 🟢' : 'PUT 🔴';
 
       setLogs((prev) =>
-        [`VIP ${name} (${userId}***) won +$${profit} on ${asset} ${direction}`, ...prev].slice(
-          0,
-          MAX_ENTRIES,
-        ),
+        [
+          {
+            text: `VIP ${name} (${userId}***) won +$${profit} on ${asset} ${suffix}`,
+            name,
+            userId,
+            profit,
+            asset,
+            direction,
+          } satisfies SocialWin,
+          ...prev,
+        ].slice(0, MAX_ENTRIES),
       );
     }, TICK_MS);
 
