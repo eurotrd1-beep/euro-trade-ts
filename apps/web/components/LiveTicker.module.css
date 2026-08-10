@@ -1,0 +1,55 @@
+.ticker {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 9px 0;
+  border-block: 1px solid var(--border-glow);
+  background: color-mix(in srgb, var(--space-bg) 70%, transparent);
+  /* Fade both ends so items enter and leave instead of being cut off. */
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.track {
+  display: flex;
+  gap: 26px;
+  width: max-content;
+  /* Always left-to-right: prices are LTR data even on an RTL page. */
+  direction: ltr;
+  animation: scroll 42s linear infinite;
+}
+
+/* Duplicated content means -50% lands exactly on the seam. */
+@keyframes scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.ticker:hover .track { animation-play-state: paused; }
+
+.item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.label {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.price {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.up   { color: var(--call-green); font-size: 8px; }
+.down { color: var(--put-red);    font-size: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .track { animation: none; }
+  .ticker { mask-image: none; overflow-x: auto; }
+}
