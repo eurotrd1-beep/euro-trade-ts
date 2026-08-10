@@ -5,7 +5,9 @@
  * (admin_dashboard.dart:4051).
  *
  * Grants or revokes VIP for EVERY user at once, and sets the `globalVip` config
- * row so newly registering users inherit it (see `globalVipGrant` in lib/auth).
+ * row so newly registering users inherit it while it is active — that config
+ * write happens FIRST, so an account created mid-run already comes out VIP
+ * (`globalVipGrant` in lib/auth reads it on registration).
  *
  * One deliberate change, same result: the Dart version updates users ONE ROW
  * AT A TIME in a loop (`for (final uid in batch) await ...update().eq('id', uid)`),
@@ -16,6 +18,15 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@euro/shared';
+import {
+  VIP_PRESETS,
+  VIP_UNITS,
+  durationText,
+  formatExpiry,
+  unitLabel,
+  vipDurationMs,
+  type VipUnit,
+} from '@/lib/vipDuration';
 import styles from '../admin.module.css';
 
 const BATCH_SIZE = 100;
@@ -26,19 +37,16 @@ interface GlobalVipState {
   durationText: string;
 }
 
-const PRESETS: Array<{ days: number; label: string }> = [
-  { days: 1, label: 'يوم واحد' },
-  { days: 7, label: 'أسبوع' },
-  { days: 30, label: 'شهر' },
-  { days: 90, label: '3 شهور' },
-];
-
 export default function GlobalVipView() {
   const [state, setState] = useState<GlobalVipState | null>(null);
   const [userCount, setUserCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
-  const [customDays, setCustomDays] = useState('30');
+
+  // Exactly one unit is ever selected — the chips are a radio group, not toggles.
+  const [unit, setUnit] = useState<VipUnit>('days');
+  const [value, setValue] = useState('30');
+  const [confirming, setConfirming] = useState(false);
 
   async function load(): Promise<void> {
     try {
@@ -72,11 +80,12 @@ export default function GlobalVipView() {
     }
   }
 
-  async function activate(days: number, label: string): Promise<void> {
+  /** `_activateGlobalVipForAll`. */
+  async function activate(ms: number, label: string): Promise<void> {
     setBusy(true);
     setMessage(null);
     try {
-      const expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+      const expiry = new Date(Date.now() + ms).toISOString();
 
       // Config first, so anyone registering mid-run already inherits VIP.
       const { error: cfgErr } = await supabase().from('configs').upsert({
@@ -94,16 +103,24 @@ export default function GlobalVipView() {
       const ids = ((data as Array<{ id: string }> | null) ?? []).map((r) => r.id);
       await patchAllUsers(ids, { role: 'vip', vip_expiry: expiry });
 
-      setMessage({ kind: 'ok', text: `تم تفعيل VIP لجميع المستخدمين (${ids.length}) لمدة ${label} ✅` });
+      setMessage({
+        kind: 'ok',
+        text: `تم تفعيل VIP لجميع المستخدمين (${ids.length} مستخدم) لمدة ${label} ✅`,
+      });
       await load();
-    } catch {
-      setMessage({ kind: 'error', text: 'خطأ أثناء تفعيل VIP العام' });
+    } catch (e) {
+      setMessage({
+        kind: 'error',
+        text: `خطأ أثناء تفعيل VIP العام: ${e instanceof Error ? e.message : String(e)}`,
+      });
     } finally {
       setBusy(false);
     }
   }
 
+  /** `_deactivateGlobalVip`. */
   async function deactivate(): Promise<void> {
+    if (!confirm('إيقاف VIP العام؟ سيتم تحويل كل حسابات VIP الحالية إلى standard.')) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -113,108 +130,188 @@ export default function GlobalVipView() {
       });
       if (cfgErr) throw cfgErr;
 
-      // Only current VIPs are touched, so individually granted accounts that
-      // were already standard stay untouched.
       const { data } = await supabase().from('users').select('id').eq('role', 'vip');
       const ids = ((data as Array<{ id: string }> | null) ?? []).map((r) => r.id);
       await patchAllUsers(ids, { role: 'standard', vip_expiry: null });
 
-      setMessage({ kind: 'ok', text: `تم إلغاء VIP العام وخفض ${ids.length} حساب ✅` });
+      setMessage({
+        kind: 'ok',
+        text: `تم إيقاف VIP العام. تم تحويل ${ids.length} مستخدم إلى standard ✅`,
+      });
       await load();
     } catch {
-      setMessage({ kind: 'error', text: 'خطأ أثناء إلغاء VIP العام' });
+      setMessage({ kind: 'error', text: 'خطأ أثناء إيقاف VIP العام' });
     } finally {
       setBusy(false);
     }
   }
 
+  const parsed = Number.parseInt(value, 10) || 0;
   const expiryDate = state?.expiry ? new Date(state.expiry) : null;
   const expired = expiryDate !== null && expiryDate < new Date();
+  const active = (state?.enabled ?? false) && !expired;
 
   return (
-    <section>
-      <h1 className={styles.title}>التحكم في VIP العام</h1>
+    <section className={styles.vipWrap}>
+      <div className={`${styles.card} ${active ? styles.vipCardOn : ''}`}>
+        {/* Header */}
+        <div className={styles.vipHead}>
+          <span className={styles.vipIcon} aria-hidden="true">
+            ✨
+          </span>
+          <div>
+            <h1 className={styles.vipTitle}>تفعيل VIP العام للجميع 👑</h1>
+            <p className={styles.vipSub}>يشمل المستخدمين الحاليين والجدد عند التسجيل</p>
+          </div>
+        </div>
 
-      <div className={styles.warn}>
-        <strong>انتبه:</strong> الأزرار دي بتأثر على <strong>كل</strong> المستخدمين
-        {userCount !== null && ` (${userCount} حساب)`} مرة واحدة، مش على حساب واحد.
-      </div>
+        {/* Current status */}
+        <div
+          className={`${styles.vipStatus} ${
+            active ? styles.vipStatusOn : expired ? styles.vipStatusExpired : ''
+          }`}
+        >
+          <span aria-hidden="true">{active ? '✅' : '⛔'}</span>
+          <div>
+            <strong>
+              {state === null
+                ? 'جاري التحميل...'
+                : active
+                  ? 'VIP العام مفعّل حالياً'
+                  : expired
+                    ? 'VIP العام منتهي الصلاحية'
+                    : 'VIP العام غير مفعّل'}
+            </strong>
+            {expiryDate && (state?.enabled ?? false) && (
+              <span className={styles.vipStatusLine}>
+                {expired
+                  ? `انتهت صلاحية VIP العام في ${formatExpiry(expiryDate)} ⚠️`
+                  : `ينتهي في: ${formatExpiry(expiryDate)}`}
+              </span>
+            )}
+            {(state?.durationText ?? '') !== '' && ((state?.enabled ?? false) || expired) && (
+              <span className={styles.vipStatusDuration}>المدة المضبوطة: {state?.durationText}</span>
+            )}
+            {userCount !== null && <span className={styles.vipStatusLine}>{userCount} حساب مسجّل حالياً</span>}
+          </div>
+        </div>
 
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>الحالة الحالية</h2>
-        {state === null ? (
-          <p className={styles.muted}>جاري التحميل...</p>
-        ) : state.enabled ? (
-          <>
-            <p className={expired ? styles.error : styles.ok}>
-              {expired
-                ? `انتهت صلاحية VIP العام في ${expiryDate?.toLocaleString()} ⚠️`
-                : `مفعّل — ينتهي في ${expiryDate?.toLocaleString()}`}
-            </p>
-            {state.durationText && <p className={styles.muted}>المدة: {state.durationText}</p>}
-          </>
-        ) : (
-          <p className={styles.muted}>غير مفعّل</p>
-        )}
-      </div>
-
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>تفعيل لمدة</h2>
-        <div className={styles.actions}>
-          {PRESETS.map((p) => (
+        {/* Duration picker */}
+        <p className={styles.vipLabel}>اختر وحدة المدة:</p>
+        <div className={styles.filters} style={{ flexWrap: 'wrap' }}>
+          {VIP_UNITS.map((u) => (
             <button
-              key={p.days}
+              key={u.unit}
               type="button"
-              disabled={busy}
-              onClick={() => void activate(p.days, p.label)}
-              className={styles.actionBtn}
+              aria-pressed={unit === u.unit}
+              onClick={() => setUnit(u.unit)}
+              className={`${styles.chip} ${unit === u.unit ? styles.chipGold : ''}`}
+            >
+              {u.chip}
+            </button>
+          ))}
+        </div>
+
+        <p className={styles.vipLabel}>أدخل عدد {unitLabel(unit)}:</p>
+        <div className={styles.vipValueWrap}>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value.replace(/[^0-9]/g, ''))}
+            placeholder="مثال: 30"
+            inputMode="numeric"
+            className={styles.vipValue}
+            aria-label={`عدد ${unitLabel(unit)}`}
+          />
+          <span className={styles.vipValueSuffix}>{unitLabel(unit)}</span>
+        </div>
+
+        {/* Quick shortcuts */}
+        <p className={styles.vipHint}>اختصارات سريعة:</p>
+        <div className={styles.filters} style={{ flexWrap: 'wrap' }}>
+          {VIP_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => {
+                setUnit(p.unit);
+                setValue(String(p.value));
+              }}
+              className={styles.chipSmall}
             >
               {p.label}
             </button>
           ))}
         </div>
 
-        <div className={styles.field} style={{ marginTop: 14 }}>
-          <label className={styles.label} htmlFor="days">
-            مدة مخصّصة (بالأيام)
-          </label>
-          <input
-            id="days"
-            value={customDays}
-            onChange={(e) => setCustomDays(e.target.value)}
-            className={styles.input}
-            inputMode="numeric"
-            dir="ltr"
-          />
-        </div>
-
-        <button
-          type="button"
-          disabled={busy || !(Number(customDays) > 0)}
-          onClick={() => void activate(Number(customDays), `${customDays} يوم`)}
-          className={styles.primaryBtn}
-        >
-          {busy ? 'جاري التنفيذ...' : 'تفعيل بالمدة المخصّصة'}
-        </button>
-      </div>
-
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>إلغاء</h2>
-        <p className={styles.muted} style={{ padding: '0 0 12px', textAlign: 'start' }}>
-          بيوقف VIP العام ويخفض <strong>كل</strong> حسابات VIP الحالية للعادي — بما فيها اللي
-          فعّلتها يدويًا.
-        </p>
         <button
           type="button"
           disabled={busy}
-          onClick={() => void deactivate()}
-          className={`${styles.actionBtn} ${styles.actionDanger}`}
+          onClick={() => {
+            if (parsed <= 0) {
+              setMessage({ kind: 'error', text: 'يرجى إدخال قيمة صحيحة أكبر من 0' });
+              return;
+            }
+            setMessage(null);
+            setConfirming(true);
+          }}
+          className={styles.vipActivate}
         >
-          إلغاء VIP العام وخفض الجميع
+          {busy ? 'جاري التنفيذ...' : 'تفعيل VIP للجميع الآن 👑'}
         </button>
+
+        {active && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void deactivate()}
+            className={styles.vipDeactivate}
+          >
+            إيقاف VIP العام للمستخدمين الجدد
+          </button>
+        )}
+
+        {message && (
+          <p className={message.kind === 'ok' ? styles.ok : styles.error} style={{ marginTop: 14 }}>
+            {message.text}
+          </p>
+        )}
       </div>
 
-      {message && <p className={message.kind === 'ok' ? styles.ok : styles.error}>{message.text}</p>}
+      {/* `_showGlobalVipConfirmDialog` */}
+      {confirming && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modal} style={{ maxWidth: 400 }}>
+            <h2 className={`${styles.modalTitle} ${styles.gold}`}>تأكيد تفعيل VIP العام 👑</h2>
+            <div className={styles.modalBody}>
+              <p style={{ margin: '0 0 12px', fontSize: 13 }}>
+                هل تريد تفعيل عضوية VIP لمدة {durationText(unit, parsed)} لـ:
+              </p>
+              <p className={styles.confirmPoint}>✅ جميع المستخدمين المسجلين حالياً في قاعدة البيانات</p>
+              <p className={styles.confirmPoint}>✅ أي مستخدم جديد سيسجل لاحقاً خلال هذه الفترة</p>
+              <p className={styles.vipExpiryBox}>
+                تاريخ انتهاء VIP: {formatExpiry(new Date(Date.now() + vipDurationMs(unit, parsed)))}
+              </p>
+            </div>
+            <div className={styles.modalActions}>
+              <button type="button" onClick={() => setConfirming(false)} className={styles.actionBtn}>
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setConfirming(false);
+                  void activate(vipDurationMs(unit, parsed), durationText(unit, parsed));
+                }}
+                className={styles.vipActivate}
+                style={{ margin: 0, width: 'auto', padding: '11px 18px' }}
+              >
+                تفعيل VIP للجميع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
