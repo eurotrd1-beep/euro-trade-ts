@@ -29,6 +29,7 @@ import { AssetSelector } from '@/components/AssetSelector';
 import { SignalPanel } from '@/components/SignalPanel';
 import { SignalHistory } from '@/components/SignalHistory';
 import { LiveFeed } from '@/components/LiveFeed';
+import { PromoOverlay } from '@/components/PromoOverlay';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import styles from './app.module.css';
@@ -124,6 +125,8 @@ export default function MainScreen() {
     role: isVip ? 'vip' : 'standard',
     guaranteedWin: user.guaranteedWin,
     strategyJson,
+    monitoringStandardJson: config.monitoringStandard,
+    monitoringVipJson: config.monitoringVip,
     pair: activePair,
     onTakeOverMonitoring: takeOverMonitoring,
   });
@@ -148,6 +151,9 @@ export default function MainScreen() {
 
   return (
     <main className={styles.screen}>
+      {/* The ad gates itself; it renders nothing unless all four conditions hold. */}
+      <PromoOverlay accountId={accountId} telegram={config.social.telegram} />
+
       <AppHeader
         accountId={accountId}
         broker={broker}

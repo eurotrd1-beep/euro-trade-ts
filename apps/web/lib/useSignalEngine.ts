@@ -79,6 +79,13 @@ export interface UseSignalEngineArgs {
   guaranteedWin: boolean;
   /** Raw `configs` row; null means fall back to the parametric V2 scorer. */
   strategyJson: Record<string, unknown> | null;
+  /**
+   * `monitoring_standard` / `monitoring_vip`. Monitoring runs its OWN strategy
+   * in the Dart engine (`_activeMonitoringDynamic`), not the instant one — the
+   * format and the scorer are identical, only the trigger differs.
+   */
+  monitoringStandardJson: Record<string, unknown> | null;
+  monitoringVipJson: Record<string, unknown> | null;
   pair: string;
   /** Called when the button takes over from a running monitoring session. */
   onTakeOverMonitoring?: () => void;
@@ -211,9 +218,21 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * Produces the signal itself — Dart's `_generateNextSignal`. Returns null
    * when a gate blocked it, with the reason already written into state.
    */
-  const generate = useCallback((selectedMinutes: number): TradingSignal | null => {
+  const generate = useCallback(
+    (selectedMinutes: number, forMonitoring = false): TradingSignal | null => {
     const { candles, currentPrice } = stateRef.current;
-    const strategy = parseStrategy(argsRef.current.strategyJson);
+    const a = argsRef.current;
+
+    // Dart `_activeDynamic` / `_activeMonitoringDynamic`. Monitoring falls back
+    // through the other role's monitoring strategy and finally to the instant
+    // one, so a signal can still fire when the admin uploaded only one file.
+    const instant = parseStrategy(a.strategyJson);
+    const monStd = parseStrategy(a.monitoringStandardJson);
+    const monVip = parseStrategy(a.monitoringVipJson);
+    const strategy = forMonitoring
+      ? ((a.role === 'vip' ? monVip : monStd) ?? monStd ?? monVip ?? instant)
+      : instant;
+
     const ctx = { candles, currentPrice, clock: systemClock() };
 
     let netScore: number;
@@ -267,9 +286,11 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       candlesSnapshot: null,
       marketCondition: '',
       recommendation: '',
-      origin: 'instant',
+      origin: forMonitoring ? 'monitoring' : 'instant',
     };
-  }, []);
+    },
+    [],
+  );
 
   /**
    * The button. Runs the full Dart sequence and resolves to true when a signal
@@ -430,13 +451,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       if (stateRef.current.activeSignal?.status === 'ACTIVE') return false;
       if (stateRef.current.candles.length === 0) return false;
 
-      const signal = generate(selectedMinutes);
+      const signal = generate(selectedMinutes, true);
       if (!signal) return false;
 
       const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
       setState((s) => ({
         ...s,
-        activeSignal: { ...signal, origin: 'monitoring' },
+        activeSignal: signal,
         secondsRemaining: secs,
         waitNotice: '',
       }));
