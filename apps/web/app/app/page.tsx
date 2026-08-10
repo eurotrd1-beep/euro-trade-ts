@@ -18,6 +18,7 @@ import {
   KEY_USER_BROKER,
   type PairRow,
 } from '@euro/shared';
+import { loadSession } from '@/lib/session';
 import { useAppConfig, usePairs, useLiveUser } from '@/lib/useAppConfig';
 import { useOtcStatus } from '@/lib/useOtcStatus';
 import { useSignalEngine } from '@/lib/useSignalEngine';
@@ -46,17 +47,13 @@ export default function MainScreen() {
   const [activePair, setActivePair] = useState<string>('EUR/USD OTC');
 
   useEffect(() => {
-    try {
-      const id = localStorage.getItem(KEY_USER_ACCOUNT_ID);
-      if (!id) {
-        router.replace('/');
-        return;
-      }
-      setAccountId(id);
-      setBroker(localStorage.getItem(KEY_USER_BROKER) ?? '');
-    } catch {
+    const session = loadSession();
+    if (!session) {
       router.replace('/');
+      return;
     }
+    setAccountId(session.accountId);
+    setBroker(session.broker);
   }, [router]);
 
   const user = useLiveUser(accountId);

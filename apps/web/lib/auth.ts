@@ -7,6 +7,7 @@
  * shared VIP id, which is why its rules are reproduced exactly.
  */
 
+import { saveSession } from './session';
 import {
   supabase,
   getDeviceId,
@@ -163,15 +164,9 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
   }
 }
 
-/** Persists the verified session, exactly the keys the splash reads back. */
+/** Persists the verified session. Delegates to the durable store. */
 export function persistSession(accountId: string, broker: string): void {
-  try {
-    localStorage.setItem(KEY_USER_VERIFIED, 'true');
-    localStorage.setItem(KEY_USER_ACCOUNT_ID, accountId);
-    localStorage.setItem(KEY_USER_BROKER, broker);
-  } catch {
-    // Session survives only this tab if storage is unavailable.
-  }
+  saveSession(accountId, broker);
 }
 
 /**

@@ -11,7 +11,8 @@
  *   4. destination  — main screen if verified, otherwise the notice screen
  */
 
-import { supabase, KEY_USER_VERIFIED, KEY_USER_ACCOUNT_ID, hasChosen } from '@euro/shared';
+import { supabase, hasChosen } from '@euro/shared';
+import { loadSession } from './session';
 
 export type BootDestination =
   | { kind: 'maintenance'; message: string; endsAt: string | null }
@@ -60,18 +61,12 @@ async function fetchBanState(accountId: string): Promise<{ banned: boolean; reas
   }
 }
 
-function readLocal(key: string): string | null {
-  try {
-    return globalThis.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /** Resolves where the app should go after the splash. */
 export async function resolveBootDestination(): Promise<BootDestination> {
-  const isVerified = readLocal(KEY_USER_VERIFIED) === 'true';
-  const accountId = readLocal(KEY_USER_ACCOUNT_ID);
+  // Reads from localStorage OR the cookie, and repairs whichever was lost.
+  const session = loadSession();
+  const isVerified = session !== null;
+  const accountId = session?.accountId ?? null;
 
   const maintenance = await fetchMaintenance();
 

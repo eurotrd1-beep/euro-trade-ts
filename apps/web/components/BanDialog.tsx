@@ -11,16 +11,13 @@
 
 import { tr, KEY_USER_VERIFIED, KEY_USER_ACCOUNT_ID, KEY_USER_BROKER } from '@euro/shared';
 import { hardNavigate } from '@/lib/nav';
+import { clearSession } from '@/lib/session';
 
 export function BanDialog({ reason }: { reason: string }) {
   function signOut(): void {
-    try {
-      localStorage.removeItem(KEY_USER_VERIFIED);
-      localStorage.removeItem(KEY_USER_ACCOUNT_ID);
-      localStorage.removeItem(KEY_USER_BROKER);
-    } catch {
-      // Storage unavailable — the reload still drops the in-memory session.
-    }
+    // Must clear BOTH stores — leaving either one would resurrect the session
+    // on the next load, since loadSession() repairs from whichever survived.
+    clearSession();
     hardNavigate('/');
   }
 
