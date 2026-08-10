@@ -5,9 +5,10 @@
   "description": "Native shell for the EURO TRADE admin panel. Same deployed site, opened at /admin, installed as its own app.",
   "scripts": {
     "build:web": "npm --workspace @euro/web run build:static",
-    "sync": "npm run build:web && cap sync",
+    "sync": "npm run build:web && cap sync && npm run postsync",
     "open:android": "cap open android",
-    "run:android": "npm run sync && cap run android"
+    "run:android": "npm run sync && cap run android",
+    "postsync": "node ../../scripts/disable-webview-scrollbars.mjs android"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

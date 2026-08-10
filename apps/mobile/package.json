@@ -5,10 +5,11 @@
   "description": "Native shell for the EURO TRADE web app. Replaces the Flutter WebView project (euroapp).",
   "scripts": {
     "build:web": "npm --workspace @euro/web run build:static",
-    "sync": "npm run build:web && cap sync",
+    "sync": "npm run build:web && cap sync && npm run postsync",
     "open:android": "cap open android",
     "open:ios": "cap open ios",
-    "run:android": "npm run sync && cap run android"
+    "run:android": "npm run sync && cap run android",
+    "postsync": "node ../../scripts/disable-webview-scrollbars.mjs android"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
