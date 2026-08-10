@@ -39,3 +39,6 @@ Thumbs.db
 # logs
 *.log
 npm-debug.log*
+
+# Built APKs — artefacts, not source.
+*.apk

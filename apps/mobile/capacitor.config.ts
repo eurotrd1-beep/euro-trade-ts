@@ -24,14 +24,25 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * only the shell differs.
  */
 const config: CapacitorConfig = {
-  appId: 'com.eurotrade.signals',
+  // Kept identical to the Flutter build so this app UPDATES the installed one
+  // rather than sitting beside it. That also means it must be signed with the
+  // same key as the old release, or Android refuses the update.
+  appId: 'com.eurotrade.euro_trade',
   appName: 'EURO TRADE',
+
+  // The bundled copy is still built and shipped; `server.url` simply takes
+  // precedence while it is reachable.
   webDir: '../web/out',
 
-  // server: {
-  //   url: 'https://eurotrd1-beep.github.io/euro_trade/',
-  //   cleartext: false,
-  // },
+  // REMOTE, as the Flutter shell was: a web release reaches users immediately,
+  // with no store review and no new APK.
+  //
+  // NOTE the repo name. `github.io/euro_trade/` is the OLD Flutter site and is
+  // still live; the TypeScript app is published under `euro-trade-ts`.
+  server: {
+    url: 'https://eurotrd1-beep.github.io/euro-trade-ts/',
+    cleartext: false,
+  },
 
   backgroundColor: '#0A0714',
 
