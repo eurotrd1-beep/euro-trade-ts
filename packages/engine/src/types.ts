@@ -41,6 +41,12 @@ export interface StrategyRule {
   slow: number;
   smooth: number;
   stddev: number;
+  /**
+   * Proximity band, as a percentage. Used by the level indicators to decide
+   * how close counts as "at" a level. Not read by any ported Dart indicator —
+   * it exists for the TypeScript-only level family. See PENDING_DART_PORT.
+   */
+  tolerance: number;
   value: number | null;
   valueMin: number | null;
   valueMax: number | null;
@@ -60,6 +66,7 @@ export function makeRule(
     slow: 21,
     smooth: 3,
     stddev: 2.0,
+    tolerance: 0.15,
     value: null,
     valueMin: null,
     valueMax: null,
@@ -89,6 +96,7 @@ export function ruleFromJson(j: Record<string, unknown>): StrategyRule {
     slow: num(j['slow']) ?? 21,
     smooth: num(j['smooth']) ?? 3,
     stddev: num(j['stddev']) ?? 2.0,
+    tolerance: num(j['tolerance']) ?? 0.15,
     value: num(j['value']) ?? num(j['level']),
     valueMin: num(j['value_min']),
     valueMax: num(j['value_max']),

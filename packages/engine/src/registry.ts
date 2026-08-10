@@ -88,9 +88,20 @@ export function indicatorFor(name: string): IndicatorFn | undefined {
  * Dart parity: the cache key folds in the rule params, so two rules that differ
  * only in, say, `period` do not share a cached value.
  * Source: `'${r.indicator}_${r.period}_${r.fast}_${r.slow}_${r.smooth}_${r.stddev}'`
+ *
+ * `value` and `tolerance` are appended here, and the Dart key is missing both.
+ * That is a FIX, not a divergence — see test/cache-key.test.ts. Most indicators
+ * treat `value` as the threshold `checkCondition` applies afterwards, so it has
+ * no business in the key; but supertrend reads it as the ATR multiplier,
+ * fibonacci as the retracement level, and monte_carlo_risk_simulation as the
+ * risk threshold. For those three, two rules differing only in `value` shared
+ * one entry and the first to run answered for both.
+ *
+ * It stayed invisible because it only bites when the two parameters actually
+ * disagree on the data at hand. Dart needs the same fix — PENDING_DART_PORT.
  */
 export function cacheKey(r: StrategyRule): string {
-  return `${r.indicator}_${r.period}_${r.fast}_${r.slow}_${r.smooth}_${r.stddev}`;
+  return `${r.indicator}_${r.period}_${r.fast}_${r.slow}_${r.smooth}_${r.stddev}_${r.tolerance}_${r.value}`;
 }
 
 /**
