@@ -1,0 +1,98 @@
+.screen { position: relative; min-height: 100dvh; overflow-x: hidden; }
+
+.scroll {
+  position: relative; z-index: 1;
+  display: grid; place-items: center;
+  min-height: 100dvh; padding: 40px 20px;
+}
+
+.card {
+  width: 100%; max-width: 460px; padding: 28px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  border: 1.5px solid var(--border-glow);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+}
+
+.title { margin: 0; font-size: 22px; font-weight: 800; text-align: center; color: var(--text-primary); }
+
+.subtitle {
+  margin: 10px 0 0; font-size: 13px; line-height: 1.7;
+  text-align: center; color: var(--text-secondary);
+}
+
+.form { margin-top: 26px; display: flex; flex-direction: column; gap: 18px; }
+
+.field { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0; }
+
+.label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+
+.brokerRow { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.brokerChip {
+  padding: 9px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: color-mix(in srgb, var(--space-bg) 70%, transparent);
+  border: 1px solid var(--border-glow); color: var(--text-secondary);
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.chipActive {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
+}
+
+.input {
+  padding: 13px 14px; border-radius: var(--radius-sm);
+  background: var(--space-bg);
+  border: 1px solid var(--border-glow);
+  font-size: 15px; letter-spacing: 0.5px;
+  transition: border-color 150ms ease;
+}
+
+.input:focus { outline: none; border-color: var(--accent-cyan); }
+
+.input:disabled { opacity: 0.6; }
+
+.error {
+  margin: 0; padding: 11px 13px; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--put-red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--put-red) 34%, transparent);
+  color: var(--put-red); font-size: 12.5px; line-height: 1.6;
+}
+
+.submit {
+  margin-top: 4px; padding: 14px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 700; color: var(--space-bg);
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+}
+
+.submit:focus-visible, .brokerChip:focus-visible {
+  outline: 2px solid var(--accent-cyan); outline-offset: 2px;
+}
+
+.progressWrap { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+
+.progressTrack {
+  height: 6px; border-radius: 999px; overflow: hidden;
+  background: color-mix(in srgb, var(--border-glow) 70%, transparent);
+}
+
+.progressBar {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  transition: width 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stepText {
+  margin: 0; font-size: 12.5px; line-height: 1.7;
+  text-align: center; color: var(--accent-cyan); min-height: 2.6em;
+}
+
+.backLink {
+  display: block; margin-top: 26px; text-align: center;
+  font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+}
+
+.backLink:hover { color: var(--accent-cyan); }

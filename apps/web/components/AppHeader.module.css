@@ -1,0 +1,53 @@
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 16px;
+  border-bottom: 1px solid var(--border-glow);
+  background: color-mix(in srgb, var(--space-bg) 80%, transparent);
+  backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 10;
+}
+
+.identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.brand {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.14em;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.account {
+  font-size: 11.5px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.right { display: flex; align-items: center; gap: 8px; }
+
+.vipBadge, .standardBadge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+}
+
+.vipBadge {
+  color: var(--warning-orange);
+  background: color-mix(in srgb, var(--warning-orange) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning-orange) 36%, transparent);
+}
+
+.vipRemaining { font-weight: 600; opacity: 0.85; }
+
+.standardBadge {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--border-glow) 50%, transparent);
+  border: 1px solid var(--border-glow);
+}
+
+.iconBtn {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  font-size: 14px;
+  border: 1px solid var(--border-glow);
+  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+}
+
+.iconBtn:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; }

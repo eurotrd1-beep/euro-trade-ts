@@ -1,0 +1,98 @@
+name: Deploy to GitHub Pages
+
+# ⚠️ MANUAL TRIGGER ONLY, on purpose.
+#
+# The old Flutter workflow deployed on every push to master. This one does not,
+# because publishing here REPLACES the live site users are on right now. The
+# TypeScript app is verified where it matters — the signal engine is proven
+# identical to the Dart one by 405 parity tests — but a few presentation
+# sections of the main screen (AI analysis card, live feed, social cards) are
+# not ported yet, so going live is a decision, not a side effect of a commit.
+#
+# To publish: Actions → "Deploy to GitHub Pages" → Run workflow.
+# To go back to push-on-commit later, uncomment the `push:` block below.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; the newer one wins.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Parity tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The gate: every indicator and the whole pyramid must still match the
+      # values recorded from the live Dart engine. A failure here means the
+      # signals users receive would change — the deploy must not proceed.
+      - name: Engine parity suite
+        run: npm --workspace @euro/engine run test
+
+      - name: Typecheck
+        run: |
+          npm --workspace @euro/engine run typecheck
+          npm --workspace @euro/shared run typecheck
+          npm --workspace @euro/web run typecheck
+
+  build:
+    name: Build
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build static site
+        working-directory: apps/web
+        env:
+          EURO_STATIC_EXPORT: '1'
+          # GitHub Pages serves project sites from /<repo>/, so every asset URL
+          # needs that prefix. Without it the page loads blank.
+          EURO_BASE_PATH: /${{ github.event.repository.name }}
+        run: node scripts/build-static.mjs
+
+      # `_next/` starts with an underscore, which Jekyll would skip. The Pages
+      # Actions pipeline does not run Jekyll, but this costs nothing and removes
+      # a classic blank-page failure mode.
+      - name: Disable Jekyll
+        run: touch apps/web/out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/out
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

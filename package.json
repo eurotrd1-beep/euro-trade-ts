@@ -1,0 +1,8 @@
+{
+  "name": "euro-trade",
+  "private": true,
+  "version": "1.0.0",
+  "description": "EURO TRADE — unified TypeScript monorepo (web, admin, mobile, backend).",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,162 @@
+.screen { position: relative; min-height: 100dvh; overflow-x: hidden; }
+
+/* The diagonal neon halo from the Dart layout. */
+.ambientGlow {
+  position: absolute;
+  top: 10%;
+  inset-inline-start: 10%;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-cyan) 12%, transparent) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.scroll {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  min-height: 100dvh;
+}
+
+.card {
+  width: 100%;
+  max-width: 550px;
+  padding: 28px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--card-bg) 86%, transparent);
+  border: 1.5px solid var(--border-glow);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.intro {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning-orange) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning-orange) 32%, transparent);
+}
+
+.warning p { margin: 0; font-size: 12.5px; line-height: 1.7; color: var(--warning-orange); }
+
+.loading { margin: 26px 0; text-align: center; font-size: 13px; color: var(--text-secondary); }
+
+.brokers { list-style: none; margin: 26px 0 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+
+.broker {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--space-bg) 60%, transparent);
+  border: 1px solid var(--border-glow);
+}
+
+.brokerHead { display: flex; gap: 12px; align-items: flex-start; }
+
+.logo {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-cyan) 8%, transparent);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.logo img { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; }
+
+.brokerText { display: flex; flex-direction: column; gap: 3px; }
+
+.brokerName { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+
+.recommended {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--call-green);
+}
+
+.brokerDesc { font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+
+.promo {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--call-green) 7%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--call-green) 34%, transparent);
+}
+
+.promoHeadline {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0; font-size: 12px; font-weight: 600; color: var(--call-green);
+}
+
+.promoRow { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+.promoLabel { font-size: 11px; color: var(--text-secondary); }
+
+.promoCode {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--space-bg);
+  border: 1px solid var(--border-glow);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent-cyan);
+}
+
+.copyBtn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 32%, transparent);
+}
+
+.registerBtn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--space-bg);
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+}
+
+.registerBtn:focus-visible, .copyBtn:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+.loginLink {
+  display: block;
+  margin-top: 30px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+
+.loginLink:hover { text-decoration: underline; }

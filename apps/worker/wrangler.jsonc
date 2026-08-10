@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "euro-trade-cache",
+  "main": "src/index.ts",
+  // Matches the deployed Worker exactly — changing this changes runtime
+  // semantics, so it stays pinned to what was live.
+  "compatibility_date": "2025-06-01",
+  "vars": {
+    "ORIGIN_URL": "https://euro-trade-proxy-1.onrender.com"
+  },
+  "observability": { "enabled": true }
+}

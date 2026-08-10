@@ -1,0 +1,90 @@
+.screen {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.iconRing {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-glow);
+  background: color-mix(in srgb, var(--accent-cyan) 8%, transparent);
+}
+
+.title {
+  margin: 28px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.options {
+  margin-top: 40px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  border: 1px solid var(--border-glow);
+  transition: border-color 160ms ease, transform 160ms ease;
+  text-align: start;
+}
+
+.tile:hover { transform: translateY(-1px); }
+
+.tile:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+.tileSelected { border-color: var(--accent-cyan); }
+
+.flag { font-size: 30px; line-height: 1; }
+
+.tileText { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+
+.tileTitle { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+
+.tileSubtitle { font-size: 12px; color: var(--text-secondary); }
+
+.chevron { color: var(--accent-cyan); font-size: 18px; }
+
+/* The chevron points along the reading direction; the tick never flips. */
+[dir='rtl'] .tile:not(.tileSelected) .chevron { transform: scaleX(-1); }

@@ -1,0 +1,142 @@
+/**
+ * Signal lifecycle — confidence, expiry alignment and the WIN/LOSS/TIE call.
+ *
+ * Ported from `_generateNextSignal` and `_evaluateSignalResult` in
+ * signal_engine.dart. These are the numbers the user sees on every trade, so
+ * they are kept as pure functions: easy to test, no hidden engine state.
+ */
+
+import type { Candle } from './types.js';
+
+export type Direction = 'CALL' | 'PUT';
+export type SignalStatus = 'ACTIVE' | 'PENDING' | 'WIN' | 'LOSS' | 'TIE';
+
+export interface TradingSignal {
+  pair: string;
+  direction: Direction;
+  durationMinutes: number;
+  entryPrice: number;
+  currentPrice: number;
+  confidence: number;
+  /** Epoch ms. */
+  entryTime: number;
+  /** Epoch ms. */
+  expiryTime: number;
+  status: SignalStatus;
+  exitPrice: number | null;
+  candlesSnapshot: Candle[] | null;
+  marketCondition: string;
+  recommendation: string;
+  origin: 'instant' | 'monitoring';
+}
+
+/**
+ * signal_engine.dart — the confidence curve for non-VIP signals:
+ * `base + (|score| / 45) × (max − base)`, clamped to [base, max].
+ *
+ * The 45 is a hard-coded normaliser in the original: a strategy whose scores
+ * never approach 45 can never reach `confidenceMax`.
+ */
+export function confidenceFor(absScore: number, base: number, max: number): number {
+  const c = base + (absScore / 45.0) * (max - base);
+  return c < base ? base : c > max ? max : c;
+}
+
+export interface AlignedExpiry {
+  /** Epoch ms of the candle open the trade is anchored to. */
+  entryTime: number;
+  /** Epoch ms the trade expires. */
+  expiryTime: number;
+  /** Seconds remaining from `nowMs` to expiry. */
+  durationSeconds: number;
+}
+
+/**
+ * signal_engine.dart — expiry alignment.
+ *
+ * The duration is REAL minutes regardless of the chart timeframe; the trade is
+ * snapped back to the start of the current 1-minute candle so it always ends on
+ * a clean close. (A previous version multiplied by the chart frame, which made
+ * a "5 min" trade run 75 minutes on a 15m chart.)
+ */
+export function alignExpiry(nowMs: number, selectedMinutes: number): AlignedExpiry {
+  const nowSec = Math.trunc(nowMs / 1000);
+  const cs = 60;
+  const cStartSec = Math.trunc(nowSec / cs) * cs;
+  const expirySec = cStartSec + selectedMinutes * cs;
+
+  const raw = expirySec - nowSec;
+  const lo = 1;
+  const hi = selectedMinutes * cs + cs;
+  const durationSeconds = raw < lo ? lo : raw > hi ? hi : raw;
+
+  return {
+    entryTime: cStartSec * 1000,
+    expiryTime: expirySec * 1000,
+    durationSeconds,
+  };
+}
+
+/**
+ * signal_engine.dart — the tie tolerance.
+ * A flat close counts as TIE (stake refunded) rather than a loss. Judged at
+ * real price precision — about half a tick — not exact float equality.
+ */
+export function tieEpsilon(entryPrice: number): number {
+  return Math.abs(entryPrice) * 5e-6 + 1e-12;
+}
+
+/**
+ * signal_engine.dart — `_evaluateSignalResult`, the non-guaranteed path.
+ * Returns WIN, LOSS or TIE for a completed trade.
+ */
+export function outcomeFor(
+  direction: Direction,
+  entryPrice: number,
+  exitPrice: number,
+): 'WIN' | 'LOSS' | 'TIE' {
+  const diff = exitPrice - entryPrice;
+  if (Math.abs(diff) <= tieEpsilon(entryPrice)) return 'TIE';
+  if (direction === 'CALL') return diff > 0 ? 'WIN' : 'LOSS';
+  return diff < 0 ? 'WIN' : 'LOSS';
+}
+
+/**
+ * signal_engine.dart — the exit price the review dialog shows.
+ *
+ * The live chart price is only trusted when it is within 1% of entry. That
+ * guard exists because a stale or null price getter returns a value on a
+ * completely different scale, which used to make the dialog show an entry and a
+ * close from two different worlds.
+ */
+export function resolveExitPrice(entryPrice: number, livePrice: number | null): number {
+  const live = livePrice ?? 0;
+  const sane = live > 0 && Math.abs(live - entryPrice) / entryPrice < 0.01;
+  return sane ? live : entryPrice;
+}
+
+/**
+ * signal_engine.dart — the admin-controlled guaranteed-win exit.
+ *
+ * If the live price already wins on the same scale it is kept, so the number
+ * still matches the chart; otherwise the close is snapped to a small margin on
+ * the winning side.
+ *
+ * `rng` is injectable because the margin is randomised in the original — that
+ * randomness is why this path cannot be value-matched against a fixture.
+ */
+export function guaranteedWinExit(
+  direction: Direction,
+  entryPrice: number,
+  livePrice: number | null,
+  rng: () => number = Math.random,
+): number {
+  const live = livePrice ?? 0;
+  const sane = live > 0 && Math.abs(live - entryPrice) / entryPrice < 0.01;
+  const winning =
+    sane && (direction === 'CALL' ? live > entryPrice : live < entryPrice);
+  if (winning) return live;
+
+  const margin = entryPrice * 0.00008 * (0.6 + rng() * 0.8);
+  return direction === 'CALL' ? entryPrice + margin : entryPrice - margin;
+}
