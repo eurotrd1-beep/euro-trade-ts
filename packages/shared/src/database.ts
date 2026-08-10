@@ -46,6 +46,9 @@ export interface BrokerRow {
   is_active: boolean;
   is_recommended: boolean;
   order: number;
+  /** Accent colour as `#RRGGBB`. Note the camelCase column name — it is spelled
+   *  that way in the database, not `theme_color`. */
+  themeColor: string;
   created_at: string;
   updated_at: string;
 }
