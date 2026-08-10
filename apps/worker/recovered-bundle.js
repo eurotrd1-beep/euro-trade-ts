@@ -3,7 +3,7 @@ var __name = (target, value) => __defProp(target, "name", { value, configurable:
 
 // worker.js
 var CACHE_TTL = {
-  "/api/otc/candles": 5,
+  "/api/otc/candles": 15,
   // seconds
   "/api/otc/status": 10
   // seconds

@@ -22,7 +22,7 @@ export interface Env {
 
 /** Cache lifetime per path, in seconds. Paths absent here are never cached. */
 const CACHE_TTL: Record<string, number> = {
-  '/api/otc/candles': 5,
+  '/api/otc/candles': 15,
   '/api/otc/status': 10,
 };
 
