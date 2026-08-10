@@ -76,6 +76,15 @@ export function registeredNames(): string[] {
 }
 
 /**
+ * The implementation behind a name, or undefined. Exposed so tooling can
+ * inspect an indicator — `scripts/build-strategy-reference.mts` reads the
+ * function source to work out which rule parameters it consults.
+ */
+export function indicatorFor(name: string): IndicatorFn | undefined {
+  return registry.get(name);
+}
+
+/**
  * Dart parity: the cache key folds in the rule params, so two rules that differ
  * only in, say, `period` do not share a cached value.
  * Source: `'${r.indicator}_${r.period}_${r.fast}_${r.slow}_${r.smooth}_${r.stddev}'`
