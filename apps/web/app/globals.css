@@ -51,6 +51,26 @@ body {
   overflow-x: hidden;
 }
 
+/*
+ * No scrollbars anywhere — the page still scrolls, the bar is just never drawn.
+ * The Flutter shell injected exactly this into its WebView (main.dart:206); it
+ * belongs in the stylesheet now that there is no WebView in between.
+ *
+ * `*` rather than only html/body: the chart column, the signal history and the
+ * live feed each scroll inside their own box and would otherwise show a bar.
+ */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
+}
+
 /* Arabic is RTL; the <html dir> attribute is set from the language service. */
 [dir='rtl'] {
   text-align: right;
