@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { tr, KEY_USER_VERIFIED, KEY_USER_ACCOUNT_ID, KEY_USER_BROKER } from '@euro/shared';
+import { hardNavigate } from '@/lib/nav';
 import styles from './AppHeader.module.css';
 
 export interface AppHeaderProps {
@@ -59,7 +60,7 @@ export function AppHeader({ accountId, broker, isVip, vipExpiry, telegram }: App
     } catch {
       // The redirect still drops the session for this tab.
     }
-    window.location.href = '/';
+    hardNavigate('/');
   }
 
   return (

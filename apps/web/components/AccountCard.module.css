@@ -1,0 +1,106 @@
+.card {
+  position: relative;
+  overflow: hidden;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid;
+}
+
+/* Standard — silver. */
+.silver {
+  border-color: rgba(203, 213, 225, 0.42);
+  background:
+    linear-gradient(135deg, rgba(226, 232, 240, 0.16) 0%, rgba(148, 163, 184, 0.07) 55%, rgba(100, 116, 139, 0.12) 100%),
+    var(--card-bg);
+  box-shadow:
+    0 0 0 1px rgba(226, 232, 240, 0.09),
+    0 0 22px rgba(203, 213, 225, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* VIP — gold. */
+.gold {
+  border-color: rgba(245, 191, 66, 0.55);
+  background:
+    linear-gradient(135deg, rgba(255, 214, 102, 0.2) 0%, rgba(245, 158, 11, 0.09) 55%, rgba(180, 116, 6, 0.16) 100%),
+    var(--card-bg);
+  box-shadow:
+    0 0 0 1px rgba(245, 191, 66, 0.14),
+    0 0 30px rgba(245, 158, 11, 0.26),
+    inset 0 1px 0 rgba(255, 236, 179, 0.22);
+}
+
+/* A slow sheen sweeping across the card. */
+.sheen {
+  position: absolute;
+  top: 0;
+  inset-inline-start: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.11), transparent);
+  animation: sweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  0%   { transform: translateX(0); opacity: 0; }
+  35%  { opacity: 1; }
+  100% { transform: translateX(340%); opacity: 0; }
+}
+
+.top {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+
+.plan {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 17px; font-weight: 900; letter-spacing: 1.5px;
+}
+
+.silver .plan { color: #e2e8f0; text-shadow: 0 0 12px rgba(226, 232, 240, 0.4); }
+.gold   .plan { color: #ffd666; text-shadow: 0 0 14px rgba(245, 158, 11, 0.55); }
+
+.crown { font-size: 16px; }
+
+.countdown {
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #ffd666;
+}
+
+.countdown small { font-size: 9px; font-weight: 600; opacity: 0.75; margin-inline-start: 1px; }
+
+.bottom {
+  position: relative;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.label { font-size: 10.5px; color: var(--text-secondary); }
+
+.account {
+  font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.broker {
+  position: relative;
+  display: inline-block; margin-top: 8px;
+  font-size: 10.5px; font-weight: 600; color: var(--text-secondary);
+}
+
+.upsell {
+  position: relative;
+  margin: 10px 0 0;
+  font-size: 10.5px; line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheen { animation: none; opacity: 0; }
+}

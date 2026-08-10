@@ -10,6 +10,7 @@
  */
 
 import { tr, KEY_USER_VERIFIED, KEY_USER_ACCOUNT_ID, KEY_USER_BROKER } from '@euro/shared';
+import { hardNavigate } from '@/lib/nav';
 
 export function BanDialog({ reason }: { reason: string }) {
   function signOut(): void {
@@ -20,7 +21,7 @@ export function BanDialog({ reason }: { reason: string }) {
     } catch {
       // Storage unavailable — the reload still drops the in-memory session.
     }
-    window.location.href = '/';
+    hardNavigate('/');
   }
 
   const body = reason

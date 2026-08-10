@@ -3,15 +3,12 @@
 /**
  * Main trading screen — ported from lib/screens/main_screen.dart.
  *
- * The Dart screen is one 6,690-line State class holding ~15 subscriptions and
- * ~30 build methods. Here the live data lives in hooks (`useAppConfig`,
- * `usePairs`, `useLiveUser`, `useSignalEngine`) and each section is its own
- * component, so a change to the history list cannot break the chart.
- *
- * Behaviour, thresholds and copy are unchanged.
+ * Layout follows the original: the account card, the asset selector, the
+ * chart, then ONE panel holding both the instant-signal and smart-monitoring
+ * buttons stacked, then the live win feed and the signal history.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   tr,
@@ -25,11 +22,13 @@ import { useAppConfig, usePairs, useLiveUser } from '@/lib/useAppConfig';
 import { useOtcStatus } from '@/lib/useOtcStatus';
 import { useSignalEngine } from '@/lib/useSignalEngine';
 import { useMonitoring, timeframeSeconds } from '@/lib/useMonitoring';
+import { useSocialFeed } from '@/lib/useSocialFeed';
 import { PriceChart } from '@/components/PriceChart';
 import { AssetSelector } from '@/components/AssetSelector';
 import { SignalPanel } from '@/components/SignalPanel';
-import { MonitoringPanel } from '@/components/MonitoringPanel';
 import { SignalHistory } from '@/components/SignalHistory';
+import { LiveFeed } from '@/components/LiveFeed';
+import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import styles from './app.module.css';
 
@@ -46,8 +45,6 @@ export default function MainScreen() {
   const [selectedMinutes, setSelectedMinutes] = useState(1);
   const [activePair, setActivePair] = useState<string>('EUR/USD OTC');
 
-  // Session comes from local storage; no session means back to the splash,
-  // which re-runs the whole boot decision.
   useEffect(() => {
     try {
       const id = localStorage.getItem(KEY_USER_ACCOUNT_ID);
@@ -64,27 +61,21 @@ export default function MainScreen() {
 
   const user = useLiveUser(accountId);
 
-  // An admin ban or deletion takes effect while the app is open.
   useEffect(() => {
     if (user.isBanned || user.deleted) router.replace('/');
   }, [user.isBanned, user.deleted, router]);
 
-  // Maintenance switched on mid-session evicts everyone.
   useEffect(() => {
     if (config.maintenance.isActive) router.replace('/maintenance');
   }, [config.maintenance.isActive, router]);
 
-  /**
-   * VIP expires client-side the moment the timestamp passes, without waiting
-   * for the admin to downgrade the row.
-   */
+  /** VIP lapses client-side the moment the timestamp passes. */
   const isVip = useMemo(() => {
     if (user.role !== 'vip') return false;
     if (!user.vipExpiry) return true;
     return user.vipExpiry > new Date();
   }, [user.role, user.vipExpiry]);
 
-  // The Supabase list replaces the bundled fallback as soon as it lands.
   const pairs: PairRow[] = useMemo(() => {
     if (livePairs && livePairs.length > 0) return livePairs.filter((p) => p.enabled);
     return DEFAULT_CURRENCY_PAIRS.map((p, i) => ({
@@ -101,7 +92,6 @@ export default function MainScreen() {
     }));
   }, [livePairs]);
 
-  // 'po' hides every non-Pocket-Option pair from users.
   const visiblePairs = useMemo(
     () => (config.displaySource === 'po' ? pairs.filter((p) => p.source === 'po') : pairs),
     [pairs, config.displaySource],
@@ -112,21 +102,23 @@ export default function MainScreen() {
     return match?.chart_symbol ?? chartSymbolFor(activePair);
   }, [visiblePairs, activePair]);
 
-  // Only meaningful in scraping mode; the simulator has no real market hours.
   const market = useOtcStatus(chartSymbol, config.priceSystem !== 'simulator');
 
   // main_screen.dart:2717
-  //   _priceSystemRaw ?? (_chartMode == 'sim' ? 'simulator' : 'scraping')
   const effectivePriceSystem =
     config.priceSystem ?? (config.chartMode === 'sim' ? 'simulator' : 'scraping');
 
-  // main_screen.dart:4537 — the mode chart.js is given.
+  // main_screen.dart:4537
   const activePairData = visiblePairs.find((p) => p.symbol === activePair);
   const isPo = (activePairData?.source ?? 'po') === 'po';
-  const effectiveMode =
-    effectivePriceSystem === 'simulator' ? 'sim' : isPo ? 'otc' : 'sim';
+  const effectiveMode = effectivePriceSystem === 'simulator' ? 'sim' : isPo ? 'otc' : 'sim';
 
   const strategyJson = isVip ? config.strategyVip : config.strategyStandard;
+
+  // The instant button takes over from monitoring, as requestNextSignal does.
+  // A ref breaks the circular dependency between the two hooks.
+  const stopMonitoringRef = useRef<(() => void) | null>(null);
+  const takeOverMonitoring = useCallback(() => stopMonitoringRef.current?.(), []);
 
   const engine = useSignalEngine({
     chartSymbol,
@@ -136,16 +128,24 @@ export default function MainScreen() {
     guaranteedWin: user.guaranteedWin,
     strategyJson,
     pair: activePair,
+    onTakeOverMonitoring: takeOverMonitoring,
   });
 
-  // Monitoring drives the SAME request path as the manual button, so a fired
-  // signal behaves identically no matter which started it.
+  const marketClosed = !market.open || engine.marketClosed;
+
   const monitoring = useMonitoring({
     timeframeSeconds: timeframeSeconds(timeframe),
-    marketClosed: !market.open,
-    evaluate: () => engine.requestSignal(selectedMinutes),
+    marketClosed,
+    // Monitoring already waited for the candle close, so it fires directly
+    // instead of re-running the analysis sequence.
+    evaluate: () => engine.fireMonitoringSignal(selectedMinutes),
     signalPending: engine.activeSignal !== null,
   });
+
+  stopMonitoringRef.current = monitoring.stop;
+
+  const socialPairs = useMemo(() => visiblePairs.map((p) => p.symbol), [visiblePairs]);
+  const socialLogs = useSocialFeed({ pairs: socialPairs, marketClosed });
 
   if (!accountId) return <main className={styles.screen} />;
 
@@ -161,6 +161,13 @@ export default function MainScreen() {
 
       <div className={styles.layout}>
         <section className={styles.chartColumn}>
+          <AccountCard
+            accountId={accountId}
+            broker={broker}
+            isVip={isVip}
+            vipExpiry={user.vipExpiry}
+          />
+
           <AssetSelector
             pairs={visiblePairs}
             active={activePair}
@@ -170,17 +177,18 @@ export default function MainScreen() {
 
           {!market.healthy && (
             <div className={styles.reconnecting} role="status">
-              {tr(
-                'جاري إعادة الاتصال بمزوّد الأسعار...',
-                'Reconnecting to the price provider…',
-              )}
+              {tr('جاري إعادة الاتصال بمزوّد الأسعار...', 'Reconnecting to the price provider…')}
             </div>
           )}
 
           <div className={styles.chartCard}>
             <div className={styles.chartHead}>
               <span className={styles.pairName}>{activePair}</span>
-              <div className={styles.timeframes} role="group" aria-label={tr('الإطار الزمني', 'Timeframe')}>
+              <div
+                className={styles.timeframes}
+                role="group"
+                aria-label={tr('الإطار الزمني', 'Timeframe')}
+              >
                 {TIMEFRAMES.map((tf) => (
                   <button
                     key={tf}
@@ -220,21 +228,21 @@ export default function MainScreen() {
             secondsRemaining={engine.secondsRemaining}
             waitNotice={engine.waitNotice}
             analysing={engine.analysing}
+            analysisStage={engine.analysisStage}
+            marketClosed={marketClosed}
+            pair={activePair}
+            timeframe={timeframe}
             selectedMinutes={selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
-            onRequest={() => engine.requestSignal(selectedMinutes)}
+            onRequest={() => void engine.requestSignal(selectedMinutes)}
             onClear={engine.clearSignal}
             hasCandles={engine.candles.length > 0}
-            isVip={isVip}
+            monitoring={monitoring}
+            onStartMonitoring={monitoring.start}
+            onStopMonitoring={monitoring.stop}
           />
 
-          <MonitoringPanel
-            state={monitoring}
-            onStart={monitoring.start}
-            onStop={monitoring.stop}
-            disabled={engine.candles.length === 0}
-            marketClosed={!market.open}
-          />
+          <LiveFeed logs={socialLogs} />
 
           <SignalHistory history={engine.history} />
         </aside>

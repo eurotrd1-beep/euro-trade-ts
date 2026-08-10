@@ -73,3 +73,14 @@ export {
   type TradingSignal,
   type AlignedExpiry,
 } from './signal.js';
+
+// Individual indicator maths — the analysis sequence in the app prints live
+// values from these, so they are part of the public surface.
+export {
+  rsi, sma, ema, atr, vwap, obv, cmf, cci, mfi, roc,
+  williamsR, volumeDelta, stochastic, bollingerBands, fullMacd,
+  adxFull, supportResistance, clamp,
+} from './indicators/math.js';
+
+export { liquidityZones, volumeProfileStats, rsiDivergence, marketStructure } from './indicators/structure.js';
+export { candlePatterns, swingPoints, avgBodySize } from './indicators/patterns.js';

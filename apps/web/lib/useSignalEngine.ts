@@ -1,13 +1,19 @@
 'use client';
 
 /**
- * Signal engine binding — the runtime half of `SignalEngine` that lived in the
- * Dart class alongside the maths.
+ * Signal engine binding — the runtime half of `SignalEngine`.
  *
- * The maths itself is `@euro/engine`, already proven identical to Dart. What
- * lives here is only the orchestration the Flutter widget used to own: holding
- * the candle buffer, deciding when to score, counting a trade down, and
- * settling it.
+ * The maths lives in `@euro/engine` and is proven identical to Dart by the
+ * parity suite. This file reproduces the ORCHESTRATION the Flutter widget
+ * owned, and in particular `requestNextSignal` (signal_engine.dart:2301),
+ * which is what the button actually runs:
+ *
+ *   1. refuse if already analysing or a trade is open
+ *   2. stop monitoring if it was running (the button takes over)
+ *   3. twelve analysis stages, 400 ms apart, printing live indicator values
+ *   4. WAIT for the current candle to close, counting down
+ *   5. market-closed checks (weekend forex, frozen price on non-OTC)
+ *   6. generate the signal — with a fallback if scoring throws
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,11 +22,11 @@ import {
   confidenceFor,
   evaluateRules,
   evaluateStrategyPro,
-  outcomeFor,
-  resolveExitPrice,
   guaranteedWinExit,
-  ruleFromJson,
+  outcomeFor,
   pyramidFromJson,
+  resolveExitPrice,
+  ruleFromJson,
   scoreStandard,
   systemClock,
   type Candle,
@@ -29,6 +35,15 @@ import {
   type TradingSignal,
 } from '@euro/engine';
 import { fetchCandles } from './candles';
+import {
+  buildStages,
+  isForexPair,
+  isWeekend,
+  STAGE_DELAY_MS,
+  waitingText,
+  WAIT_TICK_MS,
+} from './analysis';
+import { timeframeSeconds } from './useMonitoring';
 
 /** Dart refreshes the real-candle buffer on this cadence. */
 const CANDLE_POLL_MS = 15_000;
@@ -39,21 +54,27 @@ export interface EngineState {
   activeSignal: TradingSignal | null;
   secondsRemaining: number;
   history: TradingSignal[];
-  /** Set when a request produced no valid setup; shown as a banner. */
+  /** 'strategy' | 'min_score' | '' — the "no opportunity now" banner. */
   waitNotice: string;
   analysing: boolean;
+  /** Live text of the current analysis stage. */
+  analysisStage: string;
+  /** Weekend forex, or a price that never moved during analysis. */
+  marketClosed: boolean;
 }
 
 export interface UseSignalEngineArgs {
   chartSymbol: string;
   timeframe: string;
   /** 'simulator' skips the real feed entirely, as `disableRealCandles` does. */
-  priceSystem: string | null;
+  priceSystem: string;
   role: string;
   guaranteedWin: boolean;
-  /** Raw `configs` rows; null means fall back to the parametric V2 scorer. */
+  /** Raw `configs` row; null means fall back to the parametric V2 scorer. */
   strategyJson: Record<string, unknown> | null;
   pair: string;
+  /** Called when the button takes over from a running monitoring session. */
+  onTakeOverMonitoring?: () => void;
 }
 
 /** Builds a DynamicStrategy from a raw config row, or null when unusable. */
@@ -63,15 +84,17 @@ function parseStrategy(json: Record<string, unknown> | null): DynamicStrategy | 
   if (!Array.isArray(rawRules)) return null;
 
   const rules = rawRules
-    // The master reference file interleaves `_section` markers that carry no
+    // The master reference file interleaves `_section` markers with no
     // indicator; Dart's fromJson would throw on them.
-    .filter((r): r is Record<string, unknown> =>
-      typeof r === 'object' && r !== null && typeof (r as Record<string, unknown>)['indicator'] === 'string',
+    .filter(
+      (r): r is Record<string, unknown> =>
+        typeof r === 'object' &&
+        r !== null &&
+        typeof (r as Record<string, unknown>)['indicator'] === 'string',
     )
     .map(ruleFromJson);
 
   if (rules.length === 0) return null;
-
   const num = (k: string, d: number): number => (json[k] == null ? d : Number(json[k]));
 
   return {
@@ -85,6 +108,8 @@ function parseStrategy(json: Record<string, unknown> | null): DynamicStrategy | 
   };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export function useSignalEngine(args: UseSignalEngineArgs) {
   const [state, setState] = useState<EngineState>({
     candles: [],
@@ -94,13 +119,18 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     history: [],
     waitNotice: '',
     analysing: false,
+    analysisStage: '',
+    marketClosed: false,
   });
 
   const livePriceRef = useRef<(() => number) | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const argsRef = useRef(args);
+  argsRef.current = args;
+  /** Guards re-entry, as Dart's `_isAnalyzing` does. */
+  const analysingRef = useRef(false);
 
-  /** Lets the chart supply the live price, as `_livePriceGetter` did in Dart. */
   const setLivePriceGetter = useCallback((getter: () => number) => {
     livePriceRef.current = getter;
   }, []);
@@ -144,12 +174,11 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       clearInterval(id);
 
       const live = livePriceRef.current?.() ?? null;
-      const exit = args.guaranteedWin
+      const gw = argsRef.current.guaranteedWin;
+      const exit = gw
         ? guaranteedWinExit(signal.direction, signal.entryPrice, live)
         : resolveExitPrice(signal.entryPrice, live);
-      const result = args.guaranteedWin
-        ? 'WIN'
-        : outcomeFor(signal.direction, signal.entryPrice, exit);
+      const result = gw ? 'WIN' : outcomeFor(signal.direction, signal.entryPrice, exit);
 
       const settled: TradingSignal = {
         ...signal,
@@ -163,97 +192,247 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         ...s,
         activeSignal: settled,
         secondsRemaining: 0,
-        // Newest first, capped at 50 like the Dart history.
         history: [settled, ...s.history].slice(0, 50),
       }));
     }, 250);
 
     return () => clearInterval(id);
-  }, [state.activeSignal, args.guaranteedWin]);
+  }, [state.activeSignal]);
 
-  // ── Request a signal ──────────────────────────────────────────────────────
-  /** Returns true when a signal actually fired — monitoring needs to know. */
+  /**
+   * Produces the signal itself — Dart's `_generateNextSignal`. Returns null
+   * when a gate blocked it, with the reason already written into state.
+   */
+  const generate = useCallback((selectedMinutes: number): TradingSignal | null => {
+    const { candles, currentPrice } = stateRef.current;
+    const strategy = parseStrategy(argsRef.current.strategyJson);
+    const ctx = { candles, currentPrice, clock: systemClock() };
+
+    let netScore: number;
+    let blocked = false;
+
+    if (strategy?.pyramid) {
+      const pro = evaluateStrategyPro(strategy, ctx);
+      blocked = pro.result !== 'SIGNAL';
+      netScore = blocked ? 0 : pro.finalScore.CALL - pro.finalScore.PUT;
+    } else if (strategy) {
+      netScore = evaluateRules(strategy, ctx);
+    } else {
+      netScore = scoreStandard(ctx, null);
+    }
+
+    const absScore = Math.abs(netScore);
+    const minScore = strategy?.minScore ?? 0;
+
+    // Dart respects the strategy's gates and does NOT force a signal.
+    if (blocked || absScore < minScore) {
+      setState((s) => ({
+        ...s,
+        activeSignal: null,
+        secondsRemaining: 0,
+        waitNotice: blocked ? 'strategy' : 'min_score',
+      }));
+      return null;
+    }
+
+    const isCall = netScore >= 0;
+    const confidence = confidenceFor(
+      absScore,
+      strategy?.confidenceBase ?? 92.5,
+      strategy?.confidenceMax ?? 98.9,
+    );
+    const aligned = alignExpiry(Date.now(), selectedMinutes);
+    const live = livePriceRef.current?.() ?? 0;
+    const entryPrice = live > 0 ? live : currentPrice;
+
+    return {
+      pair: argsRef.current.pair,
+      direction: (isCall ? 'CALL' : 'PUT') as Direction,
+      durationMinutes: selectedMinutes,
+      entryPrice,
+      currentPrice: entryPrice,
+      confidence,
+      entryTime: aligned.entryTime,
+      expiryTime: aligned.expiryTime,
+      status: 'ACTIVE',
+      exitPrice: null,
+      candlesSnapshot: null,
+      marketCondition: '',
+      recommendation: '',
+      origin: 'instant',
+    };
+  }, []);
+
+  /**
+   * The button. Runs the full Dart sequence and resolves to true when a signal
+   * was opened.
+   */
   const requestSignal = useCallback(
-    (selectedMinutes: number): boolean => {
-      const { candles, currentPrice } = stateRef.current;
-      if (candles.length === 0) return false;
+    async (selectedMinutes: number): Promise<boolean> => {
+      const current = stateRef.current;
 
-      setState((s) => ({ ...s, analysing: true, waitNotice: '' }));
+      // Dart: refuse while analysing or while a trade is open.
+      if (analysingRef.current) return false;
+      if (current.activeSignal?.status === 'ACTIVE') return false;
+      if (current.candles.length === 0) return false;
 
-      const strategy = parseStrategy(args.strategyJson);
-      const ctx = { candles, currentPrice, clock: systemClock() };
+      // The instant button takes over from monitoring if it was running.
+      argsRef.current.onTakeOverMonitoring?.();
 
-      // Mirrors `_generateNextSignal`: the pyramid's rejection blocks outright,
-      // and min_score gates the rest. Neither forces a signal.
-      let netScore: number;
-      let blocked = false;
+      analysingRef.current = true;
+      setState((s) => ({
+        ...s,
+        analysing: true,
+        marketClosed: false,
+        waitNotice: '',
+        activeSignal: null,
+        secondsRemaining: 0,
+      }));
 
-      if (strategy?.pyramid) {
-        const pro = evaluateStrategyPro(strategy, ctx);
-        blocked = pro.result !== 'SIGNAL';
-        netScore = blocked ? 0 : pro.finalScore.CALL - pro.finalScore.PUT;
-      } else if (strategy) {
-        netScore = evaluateRules(strategy, ctx);
-      } else {
-        netScore = scoreStandard(ctx, null);
+      // Track live price across every stage to spot a frozen market.
+      const samples = new Set<number>();
+      const sample = () => {
+        const p = livePriceRef.current?.();
+        if (p && p > 0) samples.add(p);
+      };
+      sample();
+
+      // ── 12 analysis stages ────────────────────────────────────────────────
+      const stages = buildStages({
+        candles: current.candles,
+        currentPrice: current.currentPrice,
+        pair: argsRef.current.pair,
+      });
+
+      for (const text of stages) {
+        setState((s) => ({ ...s, analysisStage: text }));
+        await sleep(STAGE_DELAY_MS);
+        sample();
       }
 
-      const absScore = Math.abs(netScore);
-      const minScore = strategy?.minScore ?? 0;
+      // ── Wait for the current candle to close ──────────────────────────────
+      // The trade opens with the NEXT candle. Display formula matches the
+      // chart.js badge exactly: currentCandleEnd - now.
+      {
+        const cs = timeframeSeconds(argsRef.current.timeframe);
+        const startSec = Math.floor(Date.now() / 1000);
+        const currentCandleEnd = (Math.floor(startSec / cs) + 1) * cs;
+        let lastRem = -1;
 
-      if (blocked || absScore < minScore) {
-        setState((s) => ({
-          ...s,
-          analysing: false,
-          activeSignal: null,
-          secondsRemaining: 0,
-          waitNotice: blocked ? 'strategy' : 'min_score',
-        }));
+        for (;;) {
+          const rem = currentCandleEnd - Math.floor(Date.now() / 1000);
+          if (rem <= 0) break;
+          if (rem !== lastRem) {
+            lastRem = rem;
+            setState((s) => ({ ...s, analysisStage: waitingText(rem) }));
+            sample();
+          }
+          await sleep(WAIT_TICK_MS);
+        }
+      }
+
+      const finish = (patch: Partial<EngineState>) => {
+        analysingRef.current = false;
+        setState((s) => ({ ...s, analysing: false, analysisStage: '', ...patch }));
+      };
+
+      // ── Market closed: weekend, forex only ────────────────────────────────
+      if (isForexPair(argsRef.current.pair) && isWeekend()) {
+        finish({ activeSignal: null, secondsRemaining: 0, marketClosed: true });
         return false;
       }
 
-      const isCall = netScore >= 0;
-      const base = strategy?.confidenceBase ?? 92.5;
-      const max = strategy?.confidenceMax ?? 98.9;
-      const confidence = confidenceFor(absScore, base, max);
+      // ── Frozen price on a non-OTC pair ────────────────────────────────────
+      // Skipped for OTC (24/7): a quiet second there is not a closed market.
+      const isOtc = !isForexPair(argsRef.current.pair);
+      if (!isOtc && livePriceRef.current !== null && samples.size <= 1 && samples.size > 0) {
+        finish({ activeSignal: null, secondsRemaining: 0, marketClosed: true });
+        return false;
+      }
 
-      const aligned = alignExpiry(Date.now(), selectedMinutes);
-      const live = livePriceRef.current?.() ?? 0;
-      const entryPrice = live > 0 ? live : currentPrice;
+      // ── Generate ──────────────────────────────────────────────────────────
+      let signal: TradingSignal | null = null;
+      try {
+        signal = generate(selectedMinutes);
+      } catch {
+        // Scoring threw — fall back to a direction from the last two candles,
+        // exactly as Dart does rather than leaving the user with nothing.
+        const c = stateRef.current.candles;
+        const isCall = c.length >= 2 ? c[c.length - 1]!.close >= c[c.length - 2]!.close : true;
+        const aligned = alignExpiry(Date.now(), selectedMinutes);
+        const entry = livePriceRef.current?.() || stateRef.current.currentPrice;
 
-      const signal: TradingSignal = {
-        pair: args.pair,
-        direction: (isCall ? 'CALL' : 'PUT') as Direction,
-        durationMinutes: selectedMinutes,
-        entryPrice,
-        currentPrice: entryPrice,
-        confidence,
-        entryTime: aligned.entryTime,
-        expiryTime: aligned.expiryTime,
-        status: 'ACTIVE',
-        exitPrice: null,
-        candlesSnapshot: null,
-        marketCondition: '',
-        recommendation: '',
-        origin: 'instant',
-      };
+        signal = {
+          pair: argsRef.current.pair,
+          direction: (isCall ? 'CALL' : 'PUT') as Direction,
+          durationMinutes: selectedMinutes,
+          entryPrice: entry,
+          currentPrice: entry,
+          confidence: 75.0,
+          entryTime: aligned.entryTime,
+          expiryTime: aligned.expiryTime,
+          status: 'ACTIVE',
+          exitPrice: null,
+          candlesSnapshot: null,
+          marketCondition: 'تحليل مباشر',
+          recommendation: isCall ? 'CALL ✅' : 'PUT ✅',
+          origin: 'instant',
+        };
+      }
 
-      setState((s) => ({
-        ...s,
-        analysing: false,
-        activeSignal: signal,
-        secondsRemaining: aligned.durationSeconds,
-        waitNotice: '',
-      }));
+      if (!signal) {
+        // A gate blocked it; `generate` already set the wait notice.
+        finish({});
+        return false;
+      }
 
+      const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
+      finish({ activeSignal: signal, secondsRemaining: secs, waitNotice: '' });
       return true;
     },
-    [args.strategyJson, args.pair],
+    [generate],
+  );
+
+  /**
+   * Monitoring's own fire path — Dart's `_fireMonitoringSignal`. No analysis
+   * theatre and no candle wait: monitoring already waited for the close, so it
+   * scores the freshly opened candle immediately.
+   */
+  const fireMonitoringSignal = useCallback(
+    (selectedMinutes: number): boolean => {
+      if (analysingRef.current) return false;
+      if (stateRef.current.activeSignal?.status === 'ACTIVE') return false;
+      if (stateRef.current.candles.length === 0) return false;
+
+      const signal = generate(selectedMinutes);
+      if (!signal) return false;
+
+      const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
+      setState((s) => ({
+        ...s,
+        activeSignal: { ...signal, origin: 'monitoring' },
+        secondsRemaining: secs,
+        waitNotice: '',
+      }));
+      return true;
+    },
+    [generate],
   );
 
   const clearSignal = useCallback(() => {
     setState((s) => ({ ...s, activeSignal: null, secondsRemaining: 0, waitNotice: '' }));
   }, []);
 
-  return { ...state, requestSignal, clearSignal, setLivePriceGetter };
+  const clearMarketClosed = useCallback(() => {
+    setState((s) => ({ ...s, marketClosed: false }));
+  }, []);
+
+  return {
+    ...state,
+    requestSignal,
+    fireMonitoringSignal,
+    clearSignal,
+    clearMarketClosed,
+    setLivePriceGetter,
+  };
 }
