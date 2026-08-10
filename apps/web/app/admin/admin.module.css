@@ -18,16 +18,24 @@
 
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1fr;
+  /*
+   * `minmax(0, 1fr)`, NOT `1fr`. A grid track's default minimum is its content,
+   * so the ten-item nav strip (~1100px laid out in a row) was forcing the whole
+   * shell to 1123px inside a 360px phone — and since the page cannot scroll
+   * sideways, two thirds of every admin screen was simply cut off out of reach.
+   * This one keyword is what let it clip; nothing below it could compensate.
+   */
+  grid-template-columns: minmax(0, 1fr);
   background: var(--admin-bg);
   color: var(--admin-text);
 }
 
 @media (min-width: 900px) {
-  .shell { grid-template-columns: 236px 1fr; }
+  .shell { grid-template-columns: 236px minmax(0, 1fr); }
 }
 
 .nav {
+  min-width: 0;
   padding: 16px;
   border-inline-end: 1px solid var(--admin-border);
   background: var(--admin-surface);
@@ -42,7 +50,7 @@
   margin-bottom: 18px;
 }
 
-.navList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.navList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
 @media (max-width: 899px) {
   .navList { flex-direction: row; overflow-x: auto; }
@@ -62,7 +70,7 @@
   color: var(--admin-primary);
 }
 
-.content { padding: 20px; min-width: 0; }
+.content { padding: 20px; min-width: 0; overflow-x: clip; }
 
 .title { margin: 0 0 18px; font-size: 19px; font-weight: 800; }
 
@@ -769,7 +777,9 @@
 
   .title { font-size: 17px; margin-bottom: 14px; }
 
-  .statRow { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+  /* A fixed pair, not auto-fit: four stats auto-fitted at 96px land 3 + 1,
+     which reads as a mistake. Two by two is even. */
+  .statRow { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .stat { padding: 11px; }
   .statValue { font-size: 20px; }
 
