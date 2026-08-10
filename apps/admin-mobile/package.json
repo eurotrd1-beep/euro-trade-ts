@@ -8,7 +8,7 @@
     "sync": "npm run build:web && cap sync && npm run postsync",
     "open:android": "cap open android",
     "run:android": "npm run sync && cap run android",
-    "postsync": "node ../../scripts/disable-webview-scrollbars.mjs android"
+    "postsync": "node ../../scripts/patch-android-shell.mjs android"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

@@ -30,6 +30,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   // The app is a full-screen trading UI; pinch-zoom fights the chart.
   maximumScale: 1,
+  // Android 15 (targetSdk 35) forces edge-to-edge, so the WebView draws under
+  // the status and navigation bars. Without `cover` the env(safe-area-inset-*)
+  // values stay 0 and the padding that keeps content clear of them does
+  // nothing — which is why the top of the screen looked bitten off.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

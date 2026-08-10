@@ -59,8 +59,18 @@ export async function initStatusBar(): Promise<void> {
   if (!isNative()) return;
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
+
+    // Android 15 draws the WebView edge to edge by default, so the page starts
+    // BEHIND the status bar. Push it back below. The CSS safe-area padding is
+    // still there as a second line of defence — and carries the gesture bar at
+    // the bottom, which this does not.
+    await StatusBar.setOverlaysWebView({ overlay: false });
+
     await StatusBar.setStyle({ style: Style.Dark });
-    await StatusBar.setBackgroundColor({ color: '#0A0714' });
+    // The admin panel keeps its own near-black; the two apps stay tellable
+    // apart right down to the status bar.
+    const isAdmin = location.pathname.includes('/admin');
+    await StatusBar.setBackgroundColor({ color: isAdmin ? '#030712' : '#0A0714' });
   } catch {
     // Not fatal — the app just uses the platform default.
   }

@@ -49,6 +49,19 @@ body {
   background: var(--bg-gradient);
   background-attachment: fixed;
   overflow-x: hidden;
+
+  /*
+   * Android 15 forces edge-to-edge, so the page would otherwise start behind
+   * the status bar and end behind the gesture bar. `setOverlaysWebView(false)`
+   * handles the top on Android; these carry the bottom, and the whole thing on
+   * iOS and on notched devices.
+   *
+   * Zero in a browser, where the insets are 0.
+   */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-inline-start: env(safe-area-inset-left);
+  padding-inline-end: env(safe-area-inset-right);
 }
 
 /*
