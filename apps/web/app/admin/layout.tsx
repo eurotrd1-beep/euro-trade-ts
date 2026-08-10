@@ -17,6 +17,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { AdminGate } from '@/components/AdminGate';
+import { signOutAdmin } from '@/lib/adminAuth';
+import { hardNavigate } from '@/lib/nav';
 import styles from './admin.module.css';
 
 const VIEWS: Array<{ href: string; label: string; icon: string }> = [
@@ -28,6 +31,7 @@ const VIEWS: Array<{ href: string; label: string; icon: string }> = [
   { href: '/admin/strategy', label: 'الاستراتيجيات', icon: '🧠' },
   { href: '/admin/control', label: 'تحكم التطبيق', icon: '⚙️' },
   { href: '/admin/updates', label: 'إشعارات التحديث', icon: '🔔' },
+  { href: '/admin/theme', label: 'ثيم التطبيق', icon: '🎨' },
   { href: '/admin/health', label: 'صحة النظام', icon: '🩺' },
 ];
 
@@ -35,31 +39,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className={styles.shell} dir="rtl">
-      <nav className={styles.nav} aria-label="أقسام لوحة التحكم">
-        <span className={styles.brand}>EURO ADMIN</span>
+    <AdminGate>
+      <div className={styles.shell} dir="rtl">
+        <nav className={styles.nav} aria-label="أقسام لوحة التحكم">
+          <span className={styles.brand}>EURO ADMIN</span>
 
-        <ul className={styles.navList}>
-          {VIEWS.map((v) => {
-            // `/admin` must not match every child route.
-            const active = v.href === '/admin' ? pathname === '/admin' : pathname.startsWith(v.href);
-            return (
-              <li key={v.href}>
-                <Link
-                  href={v.href}
-                  className={`${styles.navLink} ${active ? styles.navActive : ''}`}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  <span aria-hidden="true">{v.icon}</span>
-                  {v.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+          <ul className={styles.navList}>
+            {VIEWS.map((v) => {
+              // `/admin` must not match every child route.
+              const active = v.href === '/admin' ? pathname === '/admin' : pathname.startsWith(v.href);
+              return (
+                <li key={v.href}>
+                  <Link
+                    href={v.href}
+                    className={`${styles.navLink} ${active ? styles.navActive : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <span aria-hidden="true">{v.icon}</span>
+                    {v.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
 
-      <main className={styles.content}>{children}</main>
-    </div>
+          <button
+            type="button"
+            onClick={() => { signOutAdmin(); hardNavigate('/admin'); }}
+            className={styles.signOut}
+          >
+            تسجيل الخروج
+          </button>
+        </nav>
+
+        <main className={styles.content}>{children}</main>
+      </div>
+    </AdminGate>
   );
 }
