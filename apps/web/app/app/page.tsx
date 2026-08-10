@@ -30,6 +30,8 @@ import { SignalPanel } from '@/components/SignalPanel';
 import { SignalHistory } from '@/components/SignalHistory';
 import { LiveFeed } from '@/components/LiveFeed';
 import { PromoOverlay } from '@/components/PromoOverlay';
+import { requestNotificationPermission } from '@/lib/signalNotify';
+import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import styles from './app.module.css';
@@ -132,6 +134,16 @@ export default function MainScreen() {
   });
 
   const marketClosed = !market.open || engine.marketClosed;
+
+  /**
+   * Both buttons run this first. Browsers only unlock audio and only grant
+   * notification permission from inside a user gesture, so pressing the button
+   * is the one moment it can be asked for.
+   */
+  const armAlerts = useCallback(() => {
+    unlockAudio();
+    void requestNotificationPermission();
+  }, []);
 
   const monitoring = useMonitoring({
     timeframeSeconds: timeframeSeconds(timeframe),
@@ -238,11 +250,17 @@ export default function MainScreen() {
             timeframe={timeframe}
             selectedMinutes={selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
-            onRequest={() => void engine.requestSignal(selectedMinutes)}
+            onRequest={() => {
+              armAlerts();
+              void engine.requestSignal(selectedMinutes);
+            }}
             onClear={engine.clearSignal}
             hasCandles={engine.candles.length > 0}
             monitoring={monitoring}
-            onStartMonitoring={monitoring.start}
+            onStartMonitoring={() => {
+              armAlerts();
+              monitoring.start();
+            }}
             onStopMonitoring={monitoring.stop}
           />
 

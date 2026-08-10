@@ -35,6 +35,14 @@ import {
   type TradingSignal,
 } from '@euro/engine';
 import { fetchCandles } from './candles';
+import { notify } from './signalNotify';
+import {
+  playCallSound,
+  playLossSound,
+  playNewSignalSound,
+  playPutSound,
+  playWinSound,
+} from './sounds';
 import {
   buildStages,
   isForexPair,
@@ -124,6 +132,27 @@ function parseStrategy(json: Record<string, unknown> | null): DynamicStrategy | 
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Every signal, whatever fired it, makes a sound and drops a line in the
+ * notification shade. The Dart engine already used a different tone per path
+ * (a rising two-oscillator chime for the button, the CALL/PUT alerts for
+ * monitoring); the notification is the same for both.
+ */
+function announceSignal(signal: TradingSignal): void {
+  if (signal.origin === 'monitoring') {
+    if (signal.direction === 'CALL') playCallSound();
+    else playPutSound();
+  } else {
+    playNewSignalSound();
+  }
+
+  const arrow = signal.direction === 'CALL' ? '🟢 صعود CALL' : '🔴 هبوط PUT';
+  notify(
+    `إشارة جديدة — ${signal.pair.replaceAll(' (OTC)', '')}`,
+    `${arrow} · الثقة ${signal.confidence.toFixed(1)}% · ${signal.durationMinutes} دقيقة`,
+  );
+}
+
 export function useSignalEngine(args: UseSignalEngineArgs) {
   const [state, setState] = useState<EngineState>({
     candles: [],
@@ -202,6 +231,10 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         currentPrice: exit,
         candlesSnapshot: stateRef.current.candles.slice(),
       };
+
+      // Dart plays an outcome tone here; a tie is silent.
+      if (result === 'WIN') playWinSound();
+      else if (result === 'LOSS') playLossSound();
 
       setState((s) => ({
         ...s,
@@ -434,6 +467,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       }
 
       const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
+      announceSignal(signal);
       finish({ activeSignal: signal, secondsRemaining: secs, waitNotice: '' });
       return true;
     },
@@ -455,6 +489,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       if (!signal) return false;
 
       const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
+      announceSignal(signal);
       setState((s) => ({
         ...s,
         activeSignal: signal,

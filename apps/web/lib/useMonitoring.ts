@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { playActivateSound } from './sounds';
 
 /** Dart polls the countdown at this rate. */
 const TICK_MS = 250;
@@ -92,6 +93,8 @@ export function useMonitoring(args: UseMonitoringArgs) {
     activeRef.current = true;
     startedAtRef.current = Date.now();
     scheduleNextBoundary();
+    // Dart's `startMonitoring` opens with the soft two-note confirmation.
+    playActivateSound();
     setState({ ...IDLE, active: true, phase: 'waiting' });
   }, [scheduleNextBoundary]);
 
