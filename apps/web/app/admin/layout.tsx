@@ -29,6 +29,7 @@ const VIEWS: Array<{ href: string; label: string; icon: string }> = [
   { href: '/admin/brokers', label: 'المنصات', icon: '🏦' },
   { href: '/admin/pairs', label: 'الأزواج', icon: '💱' },
   { href: '/admin/strategy', label: 'الاستراتيجيات', icon: '🧠' },
+  { href: '/admin/signals', label: 'إحصائيات الإشارات', icon: '🎯' },
   { href: '/admin/control', label: 'تحكم التطبيق', icon: '⚙️' },
   { href: '/admin/promo', label: 'الإعلان', icon: '📣' },
   { href: '/admin/updates', label: 'إشعارات التحديث', icon: '🔔' },

@@ -61,11 +61,19 @@ function score(r: BacktestReport): number {
 }
 import styles from '../admin.module.css';
 
+/**
+ * `id` is the `configs` row the app reads; `slot` is the version-history key.
+ *
+ * The two names differ because the slots were named for what they are rather
+ * than for what the old rows happened to be called. The mapping lives in
+ * `publish_strategy_version` as well — deliberately, so neither side has to
+ * guess the other's naming.
+ */
 const TARGETS = [
-  { id: 'strategy_standard', label: 'استراتيجية العادي' },
-  { id: 'strategy_vip', label: 'استراتيجية VIP' },
-  { id: 'monitoring_standard', label: 'مراقبة العادي' },
-  { id: 'monitoring_vip', label: 'مراقبة VIP' },
+  { id: 'strategy_standard', slot: 'instant_free', label: 'استراتيجية العادي' },
+  { id: 'strategy_vip', slot: 'instant_paid', label: 'استراتيجية VIP' },
+  { id: 'monitoring_standard', slot: 'monitoring_free', label: 'مراقبة العادي' },
+  { id: 'monitoring_vip', slot: 'monitoring_paid', label: 'مراقبة VIP' },
 ];
 
 interface RuleLike {
@@ -301,14 +309,41 @@ export default function StrategyUploadView() {
     setMessage(null);
     try {
       const data = JSON.parse(json) as Record<string, unknown>;
-      const { error } = await supabase().from('configs').upsert({ id: target, data });
+      const slot = TARGETS.find((t) => t.id === target)?.slot;
+      if (!slot) throw new Error('slot');
+
+      // Not an upsert on `configs` any more. That wrote over the previous
+      // strategy in place, so the version that produced last month's signals
+      // ceased to exist the moment a new one was uploaded — and every statistic
+      // about it silently became a statistic about the new one.
+      //
+      // The function appends a version, flips the active flag, and writes the
+      // `configs` row the app reads, all in one transaction. Half of that
+      // applying would leave the app and the history disagreeing.
+      const { data: result, error } = await supabase().rpc('publish_strategy_version', {
+        p_slot: slot,
+        p_name: typeof data['name'] === 'string' ? data['name'] : 'Untitled',
+        p_json: data,
+        p_by: 'admin',
+      });
       if (error) throw error;
+
+      const row = (Array.isArray(result) ? result[0] : result) as
+        | { version_number?: number; created?: boolean; message?: string }
+        | undefined;
+
       setMessage({
         kind: 'ok',
-        text: `تم الحفظ في ${target} — ${audit.enabled} قاعدة مفعّلة. التغيير يصل للمستخدمين فورًا.`,
+        text: row?.created === false
+          ? `${row.message ?? 'نفس المحتوى'} — مفيش تغيير، النسخة النشطة زي ما هي.`
+          : `اتنشرت النسخة ${row?.version_number ?? '?'} — ${audit.enabled} قاعدة مفعّلة. ` +
+            `التغيير يوصل للمستخدمين فورًا، وإحصائيات النسخة دي هتتجمّع لوحدها.`,
       });
-    } catch {
-      setMessage({ kind: 'error', text: 'تعذّر الحفظ. راجع الاتصال والصلاحيات.' });
+    } catch (e) {
+      setMessage({
+        kind: 'error',
+        text: `تعذّر النشر: ${e instanceof Error ? e.message : 'راجع الاتصال والصلاحيات'}`,
+      });
     } finally {
       setSaving(false);
     }

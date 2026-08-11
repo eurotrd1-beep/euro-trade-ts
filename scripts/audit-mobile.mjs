@@ -21,7 +21,7 @@ const ROUTES = [
   '/', '/login', '/language', '/notice', '/maintenance', '/app',
   '/admin', '/admin/vip', '/admin/analytics', '/admin/brokers', '/admin/pairs',
   '/admin/strategy', '/admin/control', '/admin/updates', '/admin/health',
-  '/admin/theme', '/admin/promo',
+  '/admin/theme', '/admin/promo', '/admin/signals',
 ];
 
 const TYPES = {
