@@ -217,8 +217,11 @@ BEGIN
   -- md5 هنا بيجاوب على "نفس المحتوى؟" مش بيقاوم تزوير.
   v_hash := md5(p_json::text);
 
-  SELECT * INTO v_last FROM public.strategy_versions
-   WHERE slot = p_slot ORDER BY version_number DESC LIMIT 1;
+  -- الأعمدة مؤهَّلة بالجدول عن قصد: `version_number` كمان اسم مخرَج من الدالة
+  -- (RETURNS TABLE)، فـ plpgsql بيشوفه متغيّر واسم عمود في نفس الوقت ويرفض
+  -- الاستعلام بـ "column reference is ambiguous" وقت التنفيذ مش وقت الإنشاء.
+  SELECT * INTO v_last FROM public.strategy_versions sv
+   WHERE sv.slot = p_slot ORDER BY sv.version_number DESC LIMIT 1;
 
   IF v_last.id IS NOT NULL AND v_last.json_hash = v_hash THEN
     RETURN QUERY SELECT v_last.id, v_last.version_number, false,
@@ -463,9 +466,15 @@ CREATE OR REPLACE FUNCTION public.signal_stats(
   unresolved int, pending int, forced int, win_rate numeric
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN
+  -- كل عمود مؤهَّل بمصدره: أسماء المخرَجات (signals, wins, …) متغيّرات في
+  -- plpgsql وأسماء أعمدة في نفس الوقت، وأي إشارة غير مؤهَّلة بتفشل وقت
+  -- التنفيذ. و`src` مش `rows` لأن ROWS كلمة محجوزة جزئيًا.
   RETURN QUERY
-  WITH rows AS (
-    SELECT d.*, v.name AS version_name, v.version_number
+  WITH src AS (
+    SELECT d.day, d.symbol, d.slot, d.strategy_version_id,
+           d.signals AS n_signals, d.wins AS n_wins, d.losses AS n_losses,
+           d.ties AS n_ties, d.unresolved AS n_unresolved,
+           d.pending AS n_pending, d.forced AS n_forced
       FROM public.signal_daily d
       JOIN public.strategy_versions v ON v.id = d.strategy_version_id
      WHERE d.day BETWEEN p_from AND p_to
@@ -480,15 +489,17 @@ BEGIN
              WHEN 'version' THEN r.strategy_version_id::text
              ELSE 'total'
            END AS bucket,
-           sum(r.signals)::int AS signals, sum(r.wins)::int AS wins,
-           sum(r.losses)::int AS losses,   sum(r.ties)::int AS ties,
-           sum(r.unresolved)::int AS unresolved, sum(r.pending)::int AS pending,
-           sum(r.forced)::int AS forced
-      FROM rows r GROUP BY 1
+           sum(r.n_signals)::int    AS g_signals, sum(r.n_wins)::int   AS g_wins,
+           sum(r.n_losses)::int     AS g_losses,  sum(r.n_ties)::int   AS g_ties,
+           sum(r.n_unresolved)::int AS g_unresolved,
+           sum(r.n_pending)::int    AS g_pending, sum(r.n_forced)::int AS g_forced
+      FROM src r GROUP BY 1
   )
-  SELECT g.bucket, g.signals, g.wins, g.losses, g.ties, g.unresolved, g.pending, g.forced,
-         CASE WHEN g.wins + g.losses >= 30
-              THEN round(100.0 * g.wins / NULLIF(g.wins + g.losses, 0), 2)
+  SELECT g.bucket, g.g_signals, g.g_wins, g.g_losses, g.g_ties,
+         g.g_unresolved, g.g_pending, g.g_forced,
+         -- النسبة NULL تحت 30 صفقة محسومة. لا تُحسب ثم تُخفى في الواجهة.
+         CASE WHEN g.g_wins + g.g_losses >= 30
+              THEN round(100.0 * g.g_wins / NULLIF(g.g_wins + g.g_losses, 0), 2)
          END
     FROM grouped g ORDER BY g.bucket;
 END $$;
