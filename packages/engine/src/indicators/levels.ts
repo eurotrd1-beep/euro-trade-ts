@@ -1,0 +1,310 @@
+/**
+ * Relative level indicators — Fibonacci and support/resistance.
+ *
+ * ── WHY THESE EXIST ────────────────────────────────────────────────────────
+ *
+ * The engine compares one indicator's value against a fixed number. It cannot
+ * compare two indicators, and there is no `cross_above` or `near`. So an
+ * indicator that answers with a raw price is unusable in a rule: `sr_support`
+ * returns 1.0696, and "the price is at support" cannot be written as a
+ * comparison against a constant, because the constant changes every candle.
+ *
+ * These do the comparison INSIDE the indicator and answer with something a rule
+ * can test — a percentage, or a label. No new condition was added; the
+ * thirteen stay as they are.
+ *
+ * NEW in TypeScript. The Dart engine has none of them — see PENDING_DART_PORT
+ * in test/parity.test.ts. A strategy using them scores 0.0 on the old Flutter
+ * app, silently, as it does for any name Dart does not know.
+ */
+
+import type { Candle } from '../types.js';
+import { register } from '../registry.js';
+
+/**
+ * Every ratio the family knows, retracements and extensions in one list.
+ *
+ * One array on purpose: `fib_level`, `fib_zone`, `fib_distance` and `fib_bounce`
+ * all read it, so adding 0.707 tomorrow is one line here rather than an edit in
+ * four places that will eventually disagree with each other.
+ *
+ * The label is what `fib_level` returns, so it is part of the contract — the
+ * strategy reference lists these strings and a rule matches them exactly.
+ */
+export const FIB_LEVELS: ReadonlyArray<{ ratio: number; label: string }> = [
+  { ratio: 0.0, label: 'at_0' },
+  { ratio: 0.236, label: 'at_236' },
+  { ratio: 0.382, label: 'at_382' },
+  { ratio: 0.5, label: 'at_500' },
+  { ratio: 0.618, label: 'at_618' },
+  { ratio: 0.786, label: 'at_786' },
+  { ratio: 0.886, label: 'at_886' },
+  { ratio: 1.0, label: 'at_100' },
+  { ratio: 1.272, label: 'at_1272' },
+  { ratio: 1.414, label: 'at_1414' },
+  { ratio: 1.618, label: 'at_1618' },
+  { ratio: 2.0, label: 'at_200' },
+  { ratio: 2.618, label: 'at_2618' },
+  { ratio: 3.618, label: 'at_3618' },
+  { ratio: 4.236, label: 'at_4236' },
+];
+
+/**
+ * Default proximity bands, per family, applied when the rule does not say.
+ *
+ * FIB_TOLERANCE is measured against the swing RANGE. 5 is the widest band that
+ * cannot claim two levels at once: the tightest spacing in FIB_LEVELS is
+ * 23.6 → 38.2, i.e. 14.6% of the range, and a ±5 band occupies 10 of that.
+ * Measured across 72 live windows it leaves fib_level naming a level about half
+ * the time; ±2.5 named one a quarter of the time, and ±12 named one almost
+ * always by overlapping its neighbours, which is worse than saying nothing.
+ *
+ * SR_TOLERANCE is measured against the PRICE, because support and resistance
+ * are absolute levels rather than points along a span. 0.15% is roughly what a
+ * trader means by "at the level" on a major pair.
+ */
+const FIB_TOLERANCE = 5;
+const SR_TOLERANCE = 0.15;
+
+/** A confirmed swing: its two ends, and which way it ran. */
+export interface Swing {
+  high: number;
+  low: number;
+  /** true when the low came first, i.e. the leg was upward. */
+  up: boolean;
+  range: number;
+}
+
+/**
+ * The most recent confirmed swing inside `period` bars, by 5-candle fractal.
+ *
+ * A fractal high needs two lower highs on each side, so it is only confirmed
+ * two bars after it forms — which is the point. Taking the plain max and min of
+ * the window instead would pick up a wick that the market has not yet turned
+ * away from, and every level derived from it would move again next bar.
+ *
+ * Deliberately NOT `supportResistance` in math.ts: that one uses 3-candle
+ * pivots over the whole series with no period, and `sr_support` /
+ * `sr_resistance` are matched against the Dart engine bar for bar. It is left
+ * exactly as it is.
+ */
+export function detectSwing(candles: readonly Candle[], period = 50): Swing | null {
+  const window = candles.slice(-Math.max(period, 12));
+  if (window.length < 12) return null;
+
+  let high: { price: number; at: number } | null = null;
+  let low: { price: number; at: number } | null = null;
+
+  for (let i = 2; i < window.length - 2; i++) {
+    const h = window[i]!.high;
+    if (
+      h > window[i - 1]!.high && h > window[i - 2]!.high &&
+      h > window[i + 1]!.high && h > window[i + 2]!.high &&
+      (high === null || h >= high.price)
+    ) {
+      high = { price: h, at: i };
+    }
+
+    const l = window[i]!.low;
+    if (
+      l < window[i - 1]!.low && l < window[i - 2]!.low &&
+      l < window[i + 1]!.low && l < window[i + 2]!.low &&
+      (low === null || l <= low.price)
+    ) {
+      low = { price: l, at: i };
+    }
+  }
+
+  if (high === null || low === null) return null;
+
+  const range = high.price - low.price;
+  // A swing narrower than this is noise, and dividing by it produces
+  // percentages that swing wildly on a single tick.
+  if (range < 1e-7) return null;
+
+  return { high: high.price, low: low.price, up: low.at < high.at, range };
+}
+
+/**
+ * Where the price sits on the swing, as a retracement percentage.
+ *
+ * 0 is the end the leg ran TO, 100 the end it came FROM — so on an upward leg
+ * 0 is the high, and a pullback deepens the number. That is the direction a
+ * trader reads a retracement in.
+ */
+function retracementPct(swing: Swing, price: number): number {
+  const fromEnd = swing.up ? swing.high - price : price - swing.low;
+  return (fromEnd / swing.range) * 100;
+}
+
+/** Price at a ratio along the swing, measured from the end it ran to. */
+function priceAt(swing: Swing, ratio: number): number {
+  return swing.up ? swing.high - swing.range * ratio : swing.low + swing.range * ratio;
+}
+
+// ── Fibonacci ───────────────────────────────────────────────────────────────
+
+/**
+ * Retracement percentage, 0-100. `-1` when there is no confirmed swing.
+ *
+ * -1 rather than 0, because 0 is a real answer meaning "at the extreme". A
+ * rule reading `lte 10` would otherwise fire on every window too short to
+ * measure.
+ */
+register('fib_retracement', ({ candles, currentPrice, rule }) => {
+  const swing = detectSwing(candles, rule.period);
+  if (swing === null) return -1;
+  const pct = retracementPct(swing, currentPrice);
+  return pct < 0 || pct > 100 ? -1 : pct;
+});
+
+/**
+ * Extension percentage once price leaves the swing, `-1` while inside it.
+ *
+ * Past the end it ran to, the number is negative-side overshoot expressed
+ * positively above 100; past the origin it keeps counting up.
+ */
+register('fib_extension', ({ candles, currentPrice, rule }) => {
+  const swing = detectSwing(candles, rule.period);
+  if (swing === null) return -1;
+  const pct = retracementPct(swing, currentPrice);
+  if (pct >= 0 && pct <= 100) return -1;
+  return pct < 0 ? Math.abs(pct) + 100 : pct;
+});
+
+/**
+ * The nearest level, if the price is within `tolerance` of it.
+ *
+ * `tolerance` is a percentage OF THE SWING RANGE, not of the price: the levels
+ * are spaced along the range, so a band measured any other way would be wide
+ * enough to overlap two levels on a small swing and never reach one on a large.
+ */
+register('fib_level', ({ candles, currentPrice, rule }) => {
+  const swing = detectSwing(candles, rule.period);
+  if (swing === null) return 'none';
+
+  const band = swing.range * ((rule.tolerance ?? FIB_TOLERANCE) / 100);
+  let best: { label: string; distance: number } | null = null;
+
+  for (const level of FIB_LEVELS) {
+    const distance = Math.abs(currentPrice - priceAt(swing, level.ratio));
+    if (distance <= band && (best === null || distance < best.distance)) {
+      best = { label: level.label, distance };
+    }
+  }
+  return best?.label ?? 'none';
+});
+
+/**
+ * The band the price occupies, whether or not it is at a level.
+ *
+ * `fib_level` answers "is it touching one"; this answers "roughly where is it",
+ * which is what most rules actually want. The golden pocket is its own zone
+ * because it is the one every retracement strategy is built around.
+ */
+register('fib_zone', ({ candles, currentPrice, rule }) => {
+  const swing = detectSwing(candles, rule.period);
+  if (swing === null) return 'none';
+
+  if (currentPrice > swing.high) return swing.up ? 'extension' : 'above_high';
+  if (currentPrice < swing.low) return swing.up ? 'below_low' : 'extension';
+
+  const pct = retracementPct(swing, currentPrice);
+  if (pct < 38.2) return 'shallow';
+  if (pct <= 61.8) return 'golden';
+  return 'deep';
+});
+
+/**
+ * A rejection at the level named by `value` (default 0.618).
+ *
+ * The last candle must have REACHED the level and closed back away from it —
+ * a wick through with a close beyond is a break, not a bounce, and reading it
+ * as one is how a reversal rule ends up buying a breakdown.
+ */
+register('fib_bounce', ({ candles, currentPrice, rule }) => {
+  const swing = detectSwing(candles, rule.period);
+  if (swing === null || candles.length < 2) return 'none';
+
+  const level = priceAt(swing, rule.value ?? 0.618);
+  const band = swing.range * ((rule.tolerance ?? FIB_TOLERANCE) / 100);
+  const last = candles[candles.length - 1]!;
+
+  const touchedFromAbove = last.low <= level + band && last.close > level;
+  const touchedFromBelow = last.high >= level - band && last.close < level;
+
+  if (touchedFromAbove && last.close > last.open && currentPrice > level) return 'bullish';
+  if (touchedFromBelow && last.close < last.open && currentPrice < level) return 'bearish';
+  return 'none';
+});
+
+/**
+ * Signed distance to the nearest level, as a percentage of the swing range.
+ *
+ * Negative below, positive above, near zero touching — so `between -0.2 0.2`
+ * reads as "at any level", which is the comparison the engine cannot otherwise
+ * express.
+ */
+register('fib_distance', ({ candles, currentPrice, rule }) => {
+  const swing = detectSwing(candles, rule.period);
+  if (swing === null) return 0;
+
+  let nearest = Infinity;
+  for (const level of FIB_LEVELS) {
+    const delta = currentPrice - priceAt(swing, level.ratio);
+    if (Math.abs(delta) < Math.abs(nearest)) nearest = delta;
+  }
+  return Number.isFinite(nearest) ? (nearest / swing.range) * 100 : 0;
+});
+
+// ── Support / resistance ────────────────────────────────────────────────────
+
+/**
+ * The swing's own ends as levels.
+ *
+ * Not `supportResistance` from math.ts: that is bound to the Dart engine and
+ * scans the whole series. This one honours `period` and uses the same confirmed
+ * swing as the Fibonacci family, so a strategy mixing the two is talking about
+ * one structure rather than two.
+ */
+function bounds(candles: readonly Candle[], period: number): { support: number; resistance: number } | null {
+  const swing = detectSwing(candles, period);
+  return swing === null ? null : { support: swing.low, resistance: swing.high };
+}
+
+/**
+ * Where the price stands relative to those ends.
+ *
+ * `tolerance` here is a percentage OF THE PRICE, not of the range — support and
+ * resistance are absolute levels rather than points along a span, and "within
+ * 0.15% of the level" is how a trader means it.
+ */
+register('sr_position', ({ candles, currentPrice, rule }) => {
+  const level = bounds(candles, rule.period);
+  if (level === null) return 'none';
+
+  const band = currentPrice * ((rule.tolerance ?? SR_TOLERANCE) / 100);
+  if (Math.abs(currentPrice - level.support) <= band) return 'at_support';
+  if (Math.abs(currentPrice - level.resistance) <= band) return 'at_resistance';
+  if (currentPrice < level.support) return 'below_support';
+  if (currentPrice > level.resistance) return 'above_resistance';
+  return 'between';
+});
+
+/** A rejection at support or resistance, on the same reach-and-close-away test. */
+register('sr_bounce', ({ candles, currentPrice, rule }) => {
+  const level = bounds(candles, rule.period);
+  if (level === null || candles.length < 2) return 'none';
+
+  const band = currentPrice * ((rule.tolerance ?? SR_TOLERANCE) / 100);
+  const last = candles[candles.length - 1]!;
+
+  const heldSupport =
+    last.low <= level.support + band && last.close > level.support && last.close > last.open;
+  const rejectedResistance =
+    last.high >= level.resistance - band && last.close < level.resistance && last.close < last.open;
+
+  if (heldSupport) return 'bullish';
+  if (rejectedResistance) return 'bearish';
+  return 'none';
+});

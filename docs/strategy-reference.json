@@ -1,7 +1,7 @@
 {
   "_doc": "MASTER REFERENCE — generated FROM the engine, not written by hand.",
   "_generated_by": "scripts/build-strategy-reference.mts",
-  "_engine_indicators": 229,
+  "_engine_indicators": 237,
   "_sample": {
     "_note": "Every \"observed values\" and every range below comes from running the indicator over THIS sample. A value the sample never produced is absent from the list — that is a limit of the sample, not a fact about the indicator.",
     "live_windows": 20,
@@ -72,9 +72,10 @@
   },
   "_categories": {
     "Advanced Statistics": 10,
+    "Fibonacci": 6,
     "Oscillators": 10,
     "Other": 145,
-    "Price Levels": 13,
+    "Price Levels": 15,
     "Rare Patterns": 29,
     "Trend": 22
   },
@@ -118,7 +119,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.321 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range 0.3253 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
     },
     {
       "indicator": "market_regime_classification",
@@ -188,7 +189,71 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -3.2727 … 2.7658 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range -3.2727 … 2.7196 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Advanced Statistics"
+    },
+    {
+      "_section": "━━━━━━━━━━ FIBONACCI (6) ━━━━━━━━━━"
+    },
+    {
+      "indicator": "fib_bounce",
+      "condition": "bullish",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "pattern": "bullish",
+      "value": 0.618,
+      "period": 14,
+      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. reads: period, value. category: Fibonacci"
+    },
+    {
+      "indicator": "fib_distance",
+      "condition": "gt",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "value": 0,
+      "period": 14,
+      "_note": "returns a NUMBER. observed range -415 … 171 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Fibonacci"
+    },
+    {
+      "indicator": "fib_extension",
+      "condition": "gt",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "value": 0,
+      "period": 14,
+      "_note": "returns a NUMBER. observed range -1 … 839 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Fibonacci"
+    },
+    {
+      "indicator": "fib_level",
+      "condition": "bullish",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "pattern": "at_0",
+      "period": 14,
+      "_note": "returns TEXT. observed values: at_0 | at_100 | at_1272 | at_1414 | at_1618 | at_200 | at_236 | at_2618 | at_382 | at_500 | at_618 | at_786 | at_886 | none. use eq / neq with `pattern`, or bullish / bearish. reads: period. category: Fibonacci"
+    },
+    {
+      "indicator": "fib_retracement",
+      "condition": "gt",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "value": 0,
+      "period": 14,
+      "_note": "returns a NUMBER. observed range -1 … 98.4055 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Fibonacci"
+    },
+    {
+      "indicator": "fib_zone",
+      "condition": "bullish",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "pattern": "above_high",
+      "period": 14,
+      "_note": "returns TEXT. observed values: above_high | below_low | deep | extension | golden | none | shallow. use eq / neq with `pattern`, or bullish / bearish. reads: period. category: Fibonacci"
     },
     {
       "_section": "━━━━━━━━━━ OSCILLATORS (10) ━━━━━━━━━━"
@@ -201,7 +266,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -342 … 271 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -350 … 259 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
     },
     {
       "indicator": "macd_histogram",
@@ -259,7 +324,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range -13.7143 … 10.4 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -13.7143 … 8.6173 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "stoch_d",
@@ -270,7 +335,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range 1.15 … 98.4906 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range 1.15 … 99.1085 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "stoch_k",
@@ -281,7 +346,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range 1.1502 … 98.8524 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range 1.1502 … 99.1991 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "williams_r",
@@ -303,7 +368,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ac",
@@ -339,7 +404,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "adx",
@@ -349,7 +414,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.1902 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range 0.1049 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "amd_cycle",
@@ -414,7 +479,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "bop",
@@ -423,7 +488,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -0.9883 … 0.9951 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -1 … 0.9857 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "break_of_structure",
@@ -705,7 +770,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "donchian_channel",
@@ -752,7 +817,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "elder_bear_power",
@@ -884,7 +949,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 1.2365 … 1.679 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 1.2365 … 1.6747 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "fractals",
@@ -920,7 +985,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "harami",
@@ -929,7 +994,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "head_and_shoulders",
@@ -1084,7 +1149,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "kill_zone",
@@ -1165,7 +1230,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "mass_index",
@@ -1203,7 +1268,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0 … 61.3893 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range 0 … 60.6274 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "momentum",
@@ -1357,7 +1422,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6509 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6519 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "rectangle",
@@ -1385,7 +1450,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -0.4466 … 0.5242 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range -0.4185 … 0.5242 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "session",
@@ -1421,7 +1486,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "starc",
@@ -1493,7 +1558,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "three_outside",
@@ -1502,7 +1567,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "time_analysis",
@@ -1557,7 +1622,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ulcer_index",
@@ -1585,7 +1650,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6655 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6642 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "val",
@@ -1624,7 +1689,7 @@
       "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "_section": "━━━━━━━━━━ PRICE LEVELS (13) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ PRICE LEVELS (15) ━━━━━━━━━━"
     },
     {
       "indicator": "anchored_vwap",
@@ -1644,7 +1709,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.649 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6493 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_position",
@@ -1655,7 +1720,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range -31.8182 … 119 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range -31.8182 … 118 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_upper",
@@ -1666,7 +1731,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6604 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6594 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_width",
@@ -1723,6 +1788,26 @@
       "enabled": false,
       "pattern": "above_pivot",
       "_note": "returns TEXT. observed values: above_pivot | above_r1 | at_pivot | below_pivot | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
+    },
+    {
+      "indicator": "sr_bounce",
+      "condition": "bullish",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "pattern": "bullish",
+      "period": 14,
+      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. reads: period. category: Price Levels"
+    },
+    {
+      "indicator": "sr_position",
+      "condition": "bullish",
+      "signal": "CALL",
+      "score": 1,
+      "enabled": false,
+      "pattern": "above_resistance",
+      "period": 14,
+      "_note": "returns TEXT. observed values: above_resistance | at_resistance | at_support | below_support | between | none. use eq / neq with `pattern`, or bullish / bearish. reads: period. category: Price Levels"
     },
     {
       "indicator": "sr_resistance",
@@ -2035,7 +2120,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6538 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6532 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "aroon",
@@ -2104,7 +2189,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.655 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6547 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hma",
@@ -2114,7 +2199,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6515 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6518 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hull_ma",
@@ -2124,7 +2209,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6515 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6518 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "ichimoku",
@@ -2143,7 +2228,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6559 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6558 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "linear_regression",
@@ -2213,7 +2298,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -0.8548 … 1.0057 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range -0.7097 … 1.0057 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "vortex_minus",
@@ -2223,7 +2308,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.4999 … 1.4434 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.4999 … 1.3776 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "vortex_plus",
@@ -2233,7 +2318,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.5886 … 1.5056 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6393 … 1.5056 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     }
   ]
 }

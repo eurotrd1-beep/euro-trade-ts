@@ -119,8 +119,32 @@ describe('engine parity with the Dart implementation', () => {
       .matchAll(/^\| `([a-z0-9_]+)` \|/gm)].map((m) => m[1]!),
   );
 
+  /**
+   * Registered here, absent from Dart — deliberate additions awaiting a port.
+   *
+   * Until they exist in Dart, a strategy using one of them scores 0.0 on the
+   * old Flutter app, silently, exactly as any unknown name does. That is
+   * acceptable only because the Flutter app is being retired; it is not a
+   * licence to keep adding to this list.
+   *
+   * Added 2026-08-11 — the relative level family. The engine can only compare an
+   * indicator against a constant, so an indicator answering with a raw price
+   * cannot express "the price is at support". These answer with a percentage or
+   * a label instead. Also on the list: the `tolerance` rule field they read, and
+   * the cacheKey fix that put `value` and `tolerance` into the key.
+   */
+  const PENDING_DART_PORT = new Set([
+    'fib_retracement', 'fib_extension', 'fib_level', 'fib_zone', 'fib_bounce', 'fib_distance',
+    'sr_position', 'sr_bounce',
+  ]);
+
   const ported = names.filter(isRegistered);
   const disabled = names.filter((n) => !isRegistered(n) && DISABLED.has(n));
+
+  it('the new names are genuinely new, not resurrected Dart ones', () => {
+    const clash = [...PENDING_DART_PORT].filter((n) => names.includes(n));
+    expect(clash, `these already exist in Dart: ${clash.join(', ')}`).toEqual([]);
+  });
   const pending = names.filter((n) => !isRegistered(n) && !DISABLED.has(n));
 
   it('every unregistered Dart indicator is deliberately disabled, not forgotten', () => {
@@ -134,8 +158,10 @@ describe('engine parity with the Dart implementation', () => {
       `\n  ported ${ported.length}/${names.length} (${pct}%)  •  pending ${pending.length}` +
         (pending.length ? `\n  next up: ${pending.slice(0, 12).join(', ')}${pending.length > 12 ? ' …' : ''}` : ''),
     );
-    // Registry must not contain names the Dart engine never had.
+    // The registry must not drift from the Dart vocabulary by accident. Names
+    // added on purpose go on the list below and nowhere else.
     for (const n of registeredNames()) {
+      if (PENDING_DART_PORT.has(n)) continue;
       expect(names, `"${n}" is registered but absent from the Dart fixture`).toContain(n);
     }
   });

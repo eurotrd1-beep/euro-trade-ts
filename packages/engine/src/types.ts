@@ -42,11 +42,18 @@ export interface StrategyRule {
   smooth: number;
   stddev: number;
   /**
-   * Proximity band, as a percentage. Used by the level indicators to decide
-   * how close counts as "at" a level. Not read by any ported Dart indicator —
-   * it exists for the TypeScript-only level family. See PENDING_DART_PORT.
+   * Proximity band, as a percentage — how close counts as "at" a level.
+   *
+   * Null when the rule does not say, because the sensible default differs by
+   * family and a single shared one is a trap: the Fibonacci indicators measure
+   * it against the SWING RANGE and want about 5, while support/resistance
+   * measures it against the PRICE and wants about 0.15. A shared default of
+   * 0.15 left fib_level answering "none" 98.5% of the time — correct, useless,
+   * and impossible to notice.
+   *
+   * Not read by any ported Dart indicator. See PENDING_DART_PORT.
    */
-  tolerance: number;
+  tolerance: number | null;
   value: number | null;
   valueMin: number | null;
   valueMax: number | null;
@@ -66,7 +73,7 @@ export function makeRule(
     slow: 21,
     smooth: 3,
     stddev: 2.0,
-    tolerance: 0.15,
+    tolerance: null,
     value: null,
     valueMin: null,
     valueMax: null,
@@ -96,7 +103,7 @@ export function ruleFromJson(j: Record<string, unknown>): StrategyRule {
     slow: num(j['slow']) ?? 21,
     smooth: num(j['smooth']) ?? 3,
     stddev: num(j['stddev']) ?? 2.0,
-    tolerance: num(j['tolerance']) ?? 0.15,
+    tolerance: num(j['tolerance']),
     value: num(j['value']) ?? num(j['level']),
     valueMin: num(j['value_min']),
     valueMax: num(j['value_max']),

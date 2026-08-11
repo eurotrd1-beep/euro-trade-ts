@@ -12,3 +12,4 @@ import './schools.js';
 import './oscillators2.js';
 import './extended.js';
 import './quant.js';
+import './levels.js';

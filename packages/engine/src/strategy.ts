@@ -119,6 +119,19 @@ const PRICE_LEVELS = new Set([
   'pivot_point', 'pivot', 'cpr', 'pdh', 'pdl', 'pdh_pdl', 'sr_support', 'sr_resistance',
   'orb', 'opening_range_breakout', 'opening_range', 'vwap', 'anchored_vwap', 'vwap_bands',
   'price_vs_vwap', 'keltner_channels', 'donchian_channels', 'support_resistance',
+  'sr_position', 'sr_bounce',
+]);
+
+/**
+ * The Fibonacci family gets its own category rather than joining Price Levels.
+ *
+ * The consensus multiplier counts DISTINCT categories among the agreeing
+ * primary rules, so a strategy confirming a level two ways — a Fibonacci
+ * retracement and a swing high — earns 1.15x for genuinely independent
+ * evidence. Folded into one category it would earn nothing for the second.
+ */
+const FIBONACCI = new Set([
+  'fib_retracement', 'fib_extension', 'fib_level', 'fib_zone', 'fib_bounce', 'fib_distance',
 ]);
 
 const ADVANCED_STATS = new Set([
@@ -156,6 +169,7 @@ export function categoryForIndicator(rule: StrategyRule): string {
   if (PRICE_LEVELS.has(ind) || ind.includes('bollinger') || ind.startsWith('bb_')) {
     return 'Price Levels';
   }
+  if (FIBONACCI.has(ind)) return 'Fibonacci';
   if (ADVANCED_STATS.has(ind)) return 'Advanced Statistics';
   if (RARE_PATTERNS.has(ind) || ind.startsWith('harmonic')) return 'Rare Patterns';
   if (OSCILLATORS.has(ind) || ind.startsWith('stoch')) return 'Oscillators';
