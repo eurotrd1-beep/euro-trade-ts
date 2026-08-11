@@ -30,14 +30,28 @@ export {
 // Indicator dispatch
 export {
   computeIndicator,
+  indicatorFor,
   isRegistered,
   registeredNames,
+  registeredNamesInOrder,
   systemClock,
   cacheKey,
   type EngineClock,
   type IndicatorContext,
   type IndicatorFn,
 } from './registry.js';
+
+// Which names are one computation under several labels, and the check that
+// stops a strategy counting one reading as three.
+export {
+  aliasConflictMessages,
+  aliasConflicts,
+  aliasGroupOf,
+  aliasGroups,
+  canonicalName,
+  type AliasConflict,
+  type AliasGroup,
+} from './aliases.js';
 
 // Registers all 359 indicators as a side effect. Importing the package is
 // enough; no explicit setup call is needed.

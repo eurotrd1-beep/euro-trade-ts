@@ -22,6 +22,8 @@
 import {
   VOLUME_DEAD,
   VOLUME_DEPENDENT,
+  aliasConflicts,
+  aliasGroupOf,
   computeIndicator,
   evaluateStrategyPro,
   isRegistered,
@@ -162,6 +164,29 @@ export function checkStrategy(json: Record<string, unknown>, candles: Candle[]):
       return;
     }
 
+    // Is this name telling the truth about itself? `doji` does not test for a
+    // doji — it returns whatever the shared candlestick detector found, which is
+    // impossible to guess from the rule and impossible to notice from the result.
+    const group = aliasGroupOf(name);
+    if (group !== null) {
+      if (group.misleading !== null) {
+        add(
+          'warn',
+          n,
+          name,
+          `الاسم "${name}" مضلّل — الاسم الحقيقي ${group.misleading}.`,
+        );
+      }
+      if (name !== group.canonical) {
+        add(
+          'info',
+          n,
+          name,
+          `"${name}" مرادف لـ "${group.canonical}" — نفس الحسبة بالظبط. استخدم "${group.canonical}" ولا تجمع بين الاثنين.`,
+        );
+      }
+    }
+
     // The feed carries no volume, so anything reading it is computing over a
     // constant the app invented. Worth flagging before anything else — the
     // number looks entirely normal.
@@ -237,6 +262,23 @@ export function checkStrategy(json: Record<string, unknown>, candles: Candle[]):
       add('error', n, name, `"role" غير معروف: "${role}" — المسموح: primary / confirm / filter أو اتركه فارغاً.`);
     }
   });
+
+  // ── One reading counted as several ───────────────────────────────────────
+  //
+  // Two names from one alias group score twice and read as two independent
+  // confirmations. The engine will not complain — it cannot tell — so this is
+  // the last point at which anyone can.
+  for (const c of aliasConflicts(parsed)) {
+    add(
+      'error',
+      null,
+      c.canonical,
+      `القواعد ${c.names.join('، ')} كلها نفس الحسبة بالظبط (${c.canonical}) — ` +
+        `${c.names.length} قواعد بمجموع ${c.score} نقطة محسوبة على قراءة واحدة، في أدوار: ${c.roles.join('، ')}. ` +
+        `احذف كل ما عدا واحدة.` +
+        (c.misleading === null ? '' : ` والاسم الحقيقي لها ${c.misleading}.`),
+    );
+  }
 
   // ── Pyramid coherence ────────────────────────────────────────────────────
   const enabledRaw = real.filter((r) => r['enabled'] !== false);

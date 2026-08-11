@@ -13,6 +13,8 @@
  * values each indicator can actually return.
  */
 
+import { aliasGroupOf } from '@euro/engine';
+
 export type Speed = 'very_fast' | 'fast' | 'medium' | 'long';
 
 export interface SpeedSpec {
@@ -113,6 +115,19 @@ export function compactReference(doc: Record<string, unknown>): string {
     if (isText && values) parts.push(`values=[${values.split(' | ').join(',')}]`);
     if (reads) parts.push(`params=${reads.split(', ').join('+')}`);
     if (category) parts.push(`cat=${category}`);
+
+    // Read from the engine, not from the note text: 46 of these names are one
+    // computation under another label, and a model that cannot see that will
+    // happily "confirm" a setup three times with three names for one number.
+    const group = aliasGroupOf(String(r['indicator']));
+    if (group !== null) {
+      parts.push(
+        String(r['indicator']) === group.canonical
+          ? `SAME_AS=[${group.aliases.join(',')}]`
+          : `ALIAS_OF=${group.canonical}`,
+      );
+      if (group.misleading !== null) parts.push('MISLEADING_NAME');
+    }
     return parts.join(' | ');
   });
 
@@ -140,6 +155,12 @@ For TEXT indicators:   eq (needs pattern), neq (needs pattern), bullish, bearish
 NOT IMPLEMENTED, never use: rising, falling, cross_above, cross_below
 
 A numeric condition on a TEXT indicator never fires. A text condition on a NUMBER indicator never fires. The catalogue marks each one NUM or TEXT — respect it.
+
+# ALIASES — 46 of these names are not separate indicators
+Some names are labels on ONE function. \`doji\`, \`harami\` and \`marubozu\` are the same computation returning the same value at the same instant — using all three is one reading scored three times, and it does NOT add variety for the consensus multiplier because they share a category.
+The catalogue marks them: ALIAS_OF=<name> means use that name instead; SAME_AS=[...] lists the labels pointing at this one.
+NEVER put two names from the same group in one strategy. Pick one.
+MISLEADING_NAME means the name does not test what it says — \`doji\` returns ANY candlestick pattern the detector found, not a doji. If you want a specific pattern, match the returned value with \`eq\` + \`pattern\`, do not rely on the indicator name.
 
 # RULE SHAPE
 { "indicator": "<exact name>", "condition": "<from above>", "signal": "CALL" | "PUT", "score": <number>, "enabled": true, "role": "primary" | "confirm" | "filter", ...params }

@@ -76,6 +76,18 @@ export function registeredNames(): string[] {
 }
 
 /**
+ * Names in REGISTRATION order rather than alphabetical.
+ *
+ * `register(['advanced_candle', 'doji', …], fn)` names one implementation
+ * thirteen times. The first name in that list is the one the implementation was
+ * written for, and the rest are labels pointing at it — a distinction the
+ * alphabetical list destroys (it would elect `abandoned_baby`). See aliases.ts.
+ */
+export function registeredNamesInOrder(): string[] {
+  return [...registry.keys()];
+}
+
+/**
  * The implementation behind a name, or undefined. Exposed so tooling can
  * inspect an indicator — `scripts/build-strategy-reference.mts` reads the
  * function source to work out which rule parameters it consults.

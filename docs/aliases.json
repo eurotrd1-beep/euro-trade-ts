@@ -1,0 +1,423 @@
+{
+  "registered": 237,
+  "distinct": 191,
+  "groups": [
+    {
+      "canonical": "advanced_candle",
+      "aliases": [
+        "doji",
+        "dragonfly_doji",
+        "gravestone_doji",
+        "spinning_top",
+        "marubozu",
+        "tweezer",
+        "harami",
+        "kicker",
+        "abandoned_baby",
+        "belt_hold",
+        "three_inside",
+        "three_outside"
+      ],
+      "misleading": "candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests",
+      "categories": {
+        "advanced_candle": "Other",
+        "doji": "Other",
+        "dragonfly_doji": "Other",
+        "gravestone_doji": "Other",
+        "spinning_top": "Other",
+        "marubozu": "Other",
+        "tweezer": "Other",
+        "harami": "Other",
+        "kicker": "Other",
+        "abandoned_baby": "Other",
+        "belt_hold": "Other",
+        "three_inside": "Other",
+        "three_outside": "Other"
+      }
+    },
+    {
+      "canonical": "po3",
+      "aliases": [
+        "power_of_three",
+        "amd_cycle"
+      ],
+      "misleading": null,
+      "categories": {
+        "po3": "Other",
+        "power_of_three": "Other",
+        "amd_cycle": "Other"
+      }
+    },
+    {
+      "canonical": "5_0",
+      "aliases": [
+        "ab_cd"
+      ],
+      "misleading": "harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it",
+      "categories": {
+        "5_0": "Rare Patterns",
+        "ab_cd": "Rare Patterns"
+      }
+    },
+    {
+      "canonical": "ac",
+      "aliases": [
+        "accelerator_oscillator"
+      ],
+      "misleading": null,
+      "categories": {
+        "ac": "Other",
+        "accelerator_oscillator": "Other"
+      }
+    },
+    {
+      "canonical": "ao",
+      "aliases": [
+        "awesome_oscillator"
+      ],
+      "misleading": null,
+      "categories": {
+        "ao": "Other",
+        "awesome_oscillator": "Other"
+      }
+    },
+    {
+      "canonical": "aroon",
+      "aliases": [
+        "aroon_oscillator"
+      ],
+      "misleading": null,
+      "categories": {
+        "aroon": "Trend",
+        "aroon_oscillator": "Trend"
+      }
+    },
+    {
+      "canonical": "bat",
+      "aliases": [
+        "alternate_bat"
+      ],
+      "misleading": "harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it",
+      "categories": {
+        "bat": "Rare Patterns",
+        "alternate_bat": "Rare Patterns"
+      }
+    },
+    {
+      "canonical": "broadening_wedge",
+      "aliases": [
+        "megaphone"
+      ],
+      "misleading": null,
+      "categories": {
+        "broadening_wedge": "Other",
+        "megaphone": "Other"
+      }
+    },
+    {
+      "canonical": "camarilla",
+      "aliases": [
+        "camarilla_pivot"
+      ],
+      "misleading": null,
+      "categories": {
+        "camarilla": "Other",
+        "camarilla_pivot": "Other"
+      }
+    },
+    {
+      "canonical": "ce",
+      "aliases": [
+        "consequent_encroachment"
+      ],
+      "misleading": null,
+      "categories": {
+        "ce": "Other",
+        "consequent_encroachment": "Other"
+      }
+    },
+    {
+      "canonical": "chande_kroll_stop",
+      "aliases": [
+        "ckstop"
+      ],
+      "misleading": null,
+      "categories": {
+        "chande_kroll_stop": "Other",
+        "ckstop": "Other"
+      }
+    },
+    {
+      "canonical": "crab",
+      "aliases": [
+        "deep_crab"
+      ],
+      "misleading": "harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it",
+      "categories": {
+        "crab": "Rare Patterns",
+        "deep_crab": "Rare Patterns"
+      }
+    },
+    {
+      "canonical": "demark",
+      "aliases": [
+        "td_sequential"
+      ],
+      "misleading": null,
+      "categories": {
+        "demark": "Other",
+        "td_sequential": "Other"
+      }
+    },
+    {
+      "canonical": "demark_p",
+      "aliases": [
+        "demark_pivot"
+      ],
+      "misleading": null,
+      "categories": {
+        "demark_p": "Other",
+        "demark_pivot": "Other"
+      }
+    },
+    {
+      "canonical": "diamond",
+      "aliases": [
+        "diamond_top"
+      ],
+      "misleading": null,
+      "categories": {
+        "diamond": "Other",
+        "diamond_top": "Other"
+      }
+    },
+    {
+      "canonical": "dow_theory",
+      "aliases": [
+        "trend_following"
+      ],
+      "misleading": null,
+      "categories": {
+        "dow_theory": "Trend",
+        "trend_following": "Trend"
+      }
+    },
+    {
+      "canonical": "elder_bear_power",
+      "aliases": [
+        "bear_power"
+      ],
+      "misleading": null,
+      "categories": {
+        "elder_bear_power": "Other",
+        "bear_power": "Other"
+      }
+    },
+    {
+      "canonical": "elder_bull_power",
+      "aliases": [
+        "bull_power"
+      ],
+      "misleading": null,
+      "categories": {
+        "elder_bull_power": "Other",
+        "bull_power": "Other"
+      }
+    },
+    {
+      "canonical": "eqh",
+      "aliases": [
+        "equal_highs"
+      ],
+      "misleading": null,
+      "categories": {
+        "eqh": "Rare Patterns",
+        "equal_highs": "Rare Patterns"
+      }
+    },
+    {
+      "canonical": "eql",
+      "aliases": [
+        "equal_lows"
+      ],
+      "misleading": null,
+      "categories": {
+        "eql": "Rare Patterns",
+        "equal_lows": "Rare Patterns"
+      }
+    },
+    {
+      "canonical": "fakey",
+      "aliases": [
+        "inside_bar_fakey"
+      ],
+      "misleading": null,
+      "categories": {
+        "fakey": "Other",
+        "inside_bar_fakey": "Other"
+      }
+    },
+    {
+      "canonical": "fib_pivot",
+      "aliases": [
+        "fibonacci_pivot"
+      ],
+      "misleading": null,
+      "categories": {
+        "fib_pivot": "Other",
+        "fibonacci_pivot": "Other"
+      }
+    },
+    {
+      "canonical": "fib_time",
+      "aliases": [
+        "fibonacci_time_zone"
+      ],
+      "misleading": null,
+      "categories": {
+        "fib_time": "Other",
+        "fibonacci_time_zone": "Other"
+      }
+    },
+    {
+      "canonical": "historical_volatility",
+      "aliases": [
+        "hv"
+      ],
+      "misleading": null,
+      "categories": {
+        "historical_volatility": "Other",
+        "hv": "Other"
+      }
+    },
+    {
+      "canonical": "hma",
+      "aliases": [
+        "hull_ma"
+      ],
+      "misleading": null,
+      "categories": {
+        "hma": "Trend",
+        "hull_ma": "Trend"
+      }
+    },
+    {
+      "canonical": "ib",
+      "aliases": [
+        "initial_balance"
+      ],
+      "misleading": null,
+      "categories": {
+        "ib": "Other",
+        "initial_balance": "Other"
+      }
+    },
+    {
+      "canonical": "lsma",
+      "aliases": [
+        "linear_regression"
+      ],
+      "misleading": null,
+      "categories": {
+        "lsma": "Trend",
+        "linear_regression": "Trend"
+      }
+    },
+    {
+      "canonical": "market_profile",
+      "aliases": [
+        "tpo"
+      ],
+      "misleading": null,
+      "categories": {
+        "market_profile": "Other",
+        "tpo": "Other"
+      }
+    },
+    {
+      "canonical": "market_regime_classification",
+      "aliases": [
+        "regime_detection"
+      ],
+      "misleading": null,
+      "categories": {
+        "market_regime_classification": "Advanced Statistics",
+        "regime_detection": "Advanced Statistics"
+      }
+    },
+    {
+      "canonical": "momentum",
+      "aliases": [
+        "momentum_trading"
+      ],
+      "misleading": null,
+      "categories": {
+        "momentum": "Other",
+        "momentum_trading": "Other"
+      }
+    },
+    {
+      "canonical": "orb",
+      "aliases": [
+        "opening_range_breakout"
+      ],
+      "misleading": null,
+      "categories": {
+        "orb": "Price Levels",
+        "opening_range_breakout": "Price Levels"
+      }
+    },
+    {
+      "canonical": "rectangle",
+      "aliases": [
+        "horizontal_channel"
+      ],
+      "misleading": null,
+      "categories": {
+        "rectangle": "Other",
+        "horizontal_channel": "Other"
+      }
+    },
+    {
+      "canonical": "starc",
+      "aliases": [
+        "starc_bands"
+      ],
+      "misleading": null,
+      "categories": {
+        "starc": "Other",
+        "starc_bands": "Other"
+      }
+    },
+    {
+      "canonical": "woodie",
+      "aliases": [
+        "woodie_pivot"
+      ],
+      "misleading": null,
+      "categories": {
+        "woodie": "Other",
+        "woodie_pivot": "Other"
+      }
+    }
+  ],
+  "observed": [
+    [
+      "fair_value_gap",
+      "imbalance"
+    ],
+    [
+      "opening_range",
+      "opening_range_breakout",
+      "orb"
+    ],
+    [
+      "pennant",
+      "symmetrical_triangle"
+    ],
+    [
+      "wyckoff",
+      "wyckoff_spring"
+    ]
+  ]
+}

@@ -24,6 +24,8 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
+  aliasGroupOf,
+  aliasGroups,
   categoryForIndicator,
   computeIndicator,
   makeRule,
@@ -37,6 +39,21 @@ import { volumeNote } from '../packages/engine/src/meta.js';
 const registryFn = indicatorFor;
 
 const OUT = 'docs/strategy-reference.json';
+
+/**
+ * Pairs that are not proven aliases but returned the same value at every point
+ * of a 15,884-point sample. Produced by scripts/audit-aliases.mts; read from its
+ * output rather than copied, so the two never disagree. Absent file = empty
+ * list, because a missing side-report must not block the reference.
+ */
+const OBSERVED_IDENTICAL: string[][] = (() => {
+  try {
+    return (JSON.parse(readFileSync('docs/aliases.json', 'utf8')) as { observed?: string[][] })
+      .observed ?? [];
+  } catch {
+    return [];
+  }
+})();
 
 // ── Sample data ────────────────────────────────────────────────────────────
 // The golden fixture holds real recorded candles. Many indicators only reveal
@@ -303,8 +320,29 @@ for (const name of names) {
 
   const note: string[] = [];
 
-  // The warning comes first: an indicator computing over volume the feed does
-  // not carry is the one thing a reader must see before anything else.
+  // Before anything else: is this name telling the truth about itself?
+  //
+  // A reader who does not see this at the top of the entry will write a rule on
+  // `doji`, get a bullish_engulfing reading, and never find out. And an author
+  // combining two names from one group believes they have two confirmations,
+  // which is the fault the guard in aliasConflicts exists to stop.
+  const group = aliasGroupOf(name);
+  if (group !== null) {
+    if (group.misleading !== null) {
+      note.push(`MISLEADING NAME — really ${group.misleading}`);
+    }
+    if (name === group.canonical) {
+      note.push(
+        `≡ also registered as ${group.aliases.join(', ')} — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier`,
+      );
+    } else {
+      note.push(
+        `≡ ALIAS of ${group.canonical} — the same computation, byte for byte. Use ${group.canonical}; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier`,
+      );
+    }
+  }
+
+  // Then: an indicator computing over volume the feed does not carry.
   const volume = volumeNote(name);
   if (volume !== null) note.push(volume);
 
@@ -399,6 +437,33 @@ const doc = {
     unknown_indicator: 'An indicator name the engine does not know returns 0.0 SILENTLY. There is no error. Only the names in this file exist.',
     unknown_condition: 'A condition the engine does not know evaluates to false, so the rule never fires. Only the conditions listed below exist.',
     unknown_field: 'Any other field is ignored. `_note` and `_section` are safe to keep.',
+    one_name_per_alias_group:
+      'NEVER use two names from the same alias group in one strategy. They are one computation with several labels, so the second rule adds score and adds NO evidence — and a reader counting rules believes the setup is confirmed twice when it was read once. See _aliases.',
+  },
+
+  /**
+   * Not a curiosity: 46 of the names below are labels pointing at another
+   * name's implementation, and a strategy that uses two of them is scoring one
+   * reading twice. The list is generated from the registry, so it cannot fall
+   * out of date with the engine.
+   */
+  _aliases: {
+    _note:
+      `${names.length} names are ${names.length - aliasGroups().reduce((n, g) => n + g.aliases.length, 0)} distinct computations. Each group below is ONE function reached by several keys — identical output, byte for byte, always. Pick one name per group.`,
+    _misleading:
+      'Some groups are worse than redundant: their names describe different things and share one detector, so the name does not select what it claims. Those carry a MISLEADING NAME warning on their entry.',
+    _consensus:
+      'The consensus multiplier counts distinct CATEGORIES among the agreeing primary rules. Every name in a group lands in the same category, so aliases never inflate it BY THEMSELVES — but an explicit `type` on the rule overrides the category, and two aliases given two different `type` values would be counted as two independent schools of analysis. Do not do that.',
+    groups: aliasGroups().map((g) => ({
+      use: g.canonical,
+      identical_to: g.aliases,
+      ...(g.misleading === null ? {} : { misleading: g.misleading }),
+    })),
+    observed_identical_but_separate_implementations: {
+      _note:
+        'Different functions that returned the same value at every point of the sample. Not proven identical — they could disagree on data the sample does not contain — but treat a pair of them as one piece of evidence, not two.',
+      pairs: OBSERVED_IDENTICAL,
+    },
   },
 
   _conditions: {

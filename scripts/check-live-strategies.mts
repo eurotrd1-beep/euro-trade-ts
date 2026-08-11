@@ -27,6 +27,7 @@
 import {
   VOLUME_DEAD,
   VOLUME_DEPENDENT,
+  aliasConflictMessages,
   checkCondition,
   computeIndicator,
   isRegistered,
@@ -156,6 +157,13 @@ for (const target of TARGETS) {
   }
 
   console.log(`── ${target} (${raw.length} قاعدة مفعّلة)`);
+
+  // Two different names for one computation score twice and read as two
+  // independent confirmations. Nothing at runtime notices, which is why the
+  // check has to happen before the strategy is live rather than inside it.
+  for (const message of aliasConflictMessages(raw.map((r) => ruleFromJson(r)))) {
+    fail(target, message);
+  }
 
   const primaries: Array<{ name: string; score: number }> = [];
   const confirms: Array<{ name: string; signal: string }> = [];
