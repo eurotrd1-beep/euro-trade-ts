@@ -24,6 +24,37 @@ import type { ConfigRow, PairRow } from '@euro/shared';
 
 type ConfigListener = (data: Record<string, unknown>) => void;
 
+/**
+ * Every `configs` row the app actually watches — and the subscription filter.
+ *
+ * This list is not documentation. It used to be one unfiltered subscription on
+ * the whole table, which meant the server pushed EVERY configs change to every
+ * open app and this file threw away the ones nobody had asked for. That is fine
+ * for a table that changes when an admin edits something; `configs` is not that
+ * table. The proxy wrote a 16.6KB price snapshot into it every 20 seconds, so
+ * each user was receiving ~3MB an hour of a row the app never reads: 4.3 million
+ * realtime messages a month at 100 users, against a ceiling of 5 million.
+ *
+ * The price row has moved to `price_snapshot` (see the migration), and the
+ * remaining hot-ish writers — `otc_status`, `otc_scan`, `otc_token`,
+ * `captcha_balance` — are filtered out here rather than trusted to stay quiet.
+ *
+ * ADDING A ROW: put its id here. `watchConfig` on an id that is missing still
+ * fetches the value once, so nothing breaks — but it will never update live,
+ * which is exactly the kind of bug that looks like "realtime is flaky".
+ */
+const WATCHED_CONFIG_IDS = [
+  'chart_settings',
+  'price_system',
+  'display_source',
+  'maintenance',
+  'social',
+  'strategy_standard',
+  'strategy_vip',
+  'monitoring_standard',
+  'monitoring_vip',
+] as const;
+
 const configListeners = new Map<string, Set<ConfigListener>>();
 let configChannel: ReturnType<ReturnType<typeof supabase>['channel']> | null = null;
 /** Last known value per row, so a late subscriber gets the snapshot at once. */
@@ -32,11 +63,15 @@ const configCache = new Map<string, Record<string, unknown>>();
 function ensureConfigChannel(): void {
   if (configChannel) return;
 
-  configChannel = supabase()
-    .channel('configs:all')
-    .on(
+  // One channel, one filtered subscription per row. Handlers must all be
+  // registered BEFORE subscribe() — postgres_changes bindings added afterwards
+  // are silently ignored — which is why the list is a constant rather than
+  // being grown as callers arrive.
+  let channel = supabase().channel('configs:watched');
+  for (const id of WATCHED_CONFIG_IDS) {
+    channel = channel.on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'configs' },
+      { event: '*', schema: 'public', table: 'configs', filter: `id=eq.${id}` },
       (payload) => {
         const row = (payload.new ?? payload.old) as ConfigRow | null;
         if (!row?.id) return;
@@ -44,8 +79,9 @@ function ensureConfigChannel(): void {
         configCache.set(row.id, data);
         for (const fn of configListeners.get(row.id) ?? []) fn(data);
       },
-    )
-    .subscribe();
+    );
+  }
+  configChannel = channel.subscribe();
 }
 
 /**
@@ -57,6 +93,16 @@ function ensureConfigChannel(): void {
  */
 export function watchConfig(id: string, onData: ConfigListener): () => void {
   ensureConfigChannel();
+
+  // A row outside the filter list still gets its initial value below, but will
+  // never see an update. Say so loudly rather than let it look like a flaky
+  // connection months later.
+  if (!(WATCHED_CONFIG_IDS as readonly string[]).includes(id)) {
+    console.warn(
+      `[realtime] configs/${id} مش في WATCHED_CONFIG_IDS — هيتقرا مرة واحدة بس ` +
+        `ومش هيتحدّث لحظيًا. ضيفه في lib/realtime.ts.`,
+    );
+  }
 
   let listeners = configListeners.get(id);
   if (!listeners) {
