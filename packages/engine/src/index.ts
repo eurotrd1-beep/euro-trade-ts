@@ -20,6 +20,12 @@
 // Core types
 export type { Candle, IndicatorValue, StrategyRule } from './types.js';
 export { makeRule, ruleFromJson } from './types.js';
+export {
+  VOLUME_DEAD,
+  VOLUME_DEGRADES_TO_PRICE,
+  VOLUME_DEPENDENT,
+  volumeNote,
+} from './meta.js';
 
 // Indicator dispatch
 export {

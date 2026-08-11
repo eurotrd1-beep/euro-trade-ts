@@ -25,6 +25,8 @@
  */
 
 import {
+  VOLUME_DEAD,
+  VOLUME_DEPENDENT,
   checkCondition,
   computeIndicator,
   isRegistered,
@@ -181,6 +183,15 @@ for (const target of TARGETS) {
       } else {
         fail(target, `"${name}" في دور "${role}" له signal="${signal}" — المسموح CALL/PUT/dominant/confirm فقط، وأي قيمة أخرى لا توافق أي اتجاه`);
       }
+    }
+
+    if (VOLUME_DEPENDENT.has(name)) {
+      const dead = VOLUME_DEAD.has(name);
+      const message = dead
+        ? `"${name}" يعتمد على الحجم وقيمته ثابتة — Pocket Option لا ترسل حجماً، فالقاعدة بلا أثر`
+        : `"${name}" يعتمد على الحجم غير المتاح — الرقم محسوب على ثابت مخترع`;
+      if (dead) fail(target, message);
+      else note(target, message);
     }
 
     const { rate, text, sample } = hitRate(ruleFromJson(r));

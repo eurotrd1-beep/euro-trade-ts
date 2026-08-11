@@ -20,6 +20,8 @@
  */
 
 import {
+  VOLUME_DEAD,
+  VOLUME_DEPENDENT,
   computeIndicator,
   evaluateStrategyPro,
   isRegistered,
@@ -158,6 +160,20 @@ export function checkStrategy(json: Record<string, unknown>, candles: Candle[]):
     } catch (e) {
       add('warn', n, name, `تعذّر حساب المؤشر: ${e instanceof Error ? e.message : String(e)}`);
       return;
+    }
+
+    // The feed carries no volume, so anything reading it is computing over a
+    // constant the app invented. Worth flagging before anything else — the
+    // number looks entirely normal.
+    if (VOLUME_DEPENDENT.has(name)) {
+      add(
+        VOLUME_DEAD.has(name) ? 'error' : 'warn',
+        n,
+        name,
+        VOLUME_DEAD.has(name)
+          ? `"${name}" يعتمد على الحجم، وPocket Option لا ترسل حجماً — قيمته ثابتة ولا تتغير أبداً، فالقاعدة عديمة الأثر.`
+          : `"${name}" يعتمد على الحجم، وPocket Option لا ترسل حجماً — الرقم يتحرك لكنه محسوب على ثابت مخترع. راجع الحاجة إليه.`,
+      );
     }
 
     const isText = typeof value === 'string';

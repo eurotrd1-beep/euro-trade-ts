@@ -32,6 +32,7 @@ import {
   type EngineClock,
 } from '../packages/engine/src/index.js';
 import { indicatorFor } from '../packages/engine/src/registry.js';
+import { volumeNote } from '../packages/engine/src/meta.js';
 
 const registryFn = indicatorFor;
 
@@ -43,7 +44,14 @@ const OUT = 'docs/strategy-reference.json';
 // ranges and spikes are probed alongside them.
 
 const golden = JSON.parse(readFileSync('packages/engine/golden/engine-golden.json', 'utf8'));
-const real: Candle[] = golden.candles;
+
+/**
+ * The fixture carries volume recorded by the Dart engine. Production does not:
+ * the live feed has no volume field at all and the app substitutes a constant.
+ * Left as recorded, `volume` and friends show a plausible range here and a flat
+ * line in production — the reference would be describing a system nobody runs.
+ */
+const real: Candle[] = (golden.candles as Candle[]).map((c) => ({ ...c, volume: 1000 }));
 
 function synth(shape: (i: number) => number, n = 120): Candle[] {
   const out: Candle[] = [];
@@ -54,25 +62,88 @@ function synth(shape: (i: number) => number, n = 120): Candle[] {
     const close = shape(i + 1);
     const hi = Math.max(open, close) * 1.0006;
     const lo = Math.min(open, close) * 0.9994;
-    out.push({ time: t, open, high: hi, low: lo, close, volume: 900 + ((i * 37) % 500) });
+    // Flat, like the live feed — a varying volume here would make the
+    // volume-dependent indicators look alive in a way production never is.
+    out.push({ time: t, open, high: hi, low: lo, close, volume: 1000 });
     t += 60;
   }
   return out;
 }
 
+/**
+ * LIVE candles, deliberately on 15m and 1h.
+ *
+ * The first version of this file probed the golden fixture plus a few synthetic
+ * shapes, and recorded "observed values: none" for 73 indicators. A wider
+ * sample moved 58 of them. The fixture is one short window; 1m candles from the
+ * proxy cover three hours of the day; 15m covers a full day and 1h covers a
+ * month. An indicator that only fires in the London session cannot be described
+ * from a sample that never saw London.
+ *
+ * The synthetic shapes stay — they reach states real candles rarely produce.
+ */
+const PROXY = 'https://euro-trade-proxy-1.onrender.com';
+const FRAMES = ['15m', '1h'];
+const PAIRS = [
+  'EURUSD_otc', 'GBPUSD_otc', 'USDJPY_otc', 'AUDUSD_otc', 'USDCAD_otc',
+  'USDCHF_otc', 'NZDUSD_otc', 'EURGBP_otc', 'EURJPY_otc', 'GBPJPY_otc',
+];
+
+async function liveCandles(symbol: string, interval: string): Promise<Candle[]> {
+  const res = await fetch(`${PROXY}/api/otc/candles?symbol=${symbol}&interval=${interval}`, {
+    signal: AbortSignal.timeout(25_000),
+  });
+  const body = (await res.json()) as { candles?: Array<Record<string, number>> };
+  return (body.candles ?? [])
+    .filter((c) => ['o', 'h', 'l', 'c', 't'].every((k) => typeof c[k] === 'number'))
+    .map((c) => ({
+      open: c['o']!, high: c['h']!, low: c['l']!, close: c['c']!,
+      // The feed carries no volume; the app substitutes a constant, so this is
+      // what the engine really sees. See packages/engine/src/meta.ts.
+      volume: 1000,
+      time: c['t']! * 1000,
+    }));
+}
+
 const DATASETS: Array<{ name: string; candles: Candle[] }> = [
-  { name: 'real', candles: real },
-  { name: 'real-tail', candles: real.slice(Math.floor(real.length / 2)) },
-  { name: 'real-head', candles: real.slice(0, Math.floor(real.length / 2)) },
+  { name: 'fixture', candles: real },
   { name: 'uptrend', candles: synth((i) => 1.08 + i * 0.0004) },
   { name: 'downtrend', candles: synth((i) => 1.14 - i * 0.0004) },
   { name: 'range', candles: synth((i) => 1.08 + Math.sin(i / 4) * 0.002) },
   { name: 'volatile', candles: synth((i) => 1.08 + Math.sin(i / 2) * 0.01 + (i % 7) * 0.001) },
   { name: 'flat', candles: synth(() => 1.08) },
   { name: 'spike', candles: synth((i) => (i === 90 ? 1.2 : 1.08 + i * 0.00005)) },
-  { name: 'short', candles: real.slice(-25) },
 ];
 
+const hoursSeen = new Set<number>();
+const daysSeen = new Set<string>();
+let liveWindows = 0;
+
+for (const frame of FRAMES) {
+  for (const pair of PAIRS) {
+    try {
+      const candles = await liveCandles(pair, frame);
+      if (candles.length < 30) continue;
+      DATASETS.push({ name: `${pair}/${frame}`, candles });
+      liveWindows++;
+      for (const c of candles) {
+        const d = new Date(c.time);
+        hoursSeen.add(d.getUTCHours());
+        daysSeen.add(d.toISOString().slice(0, 10));
+      }
+    } catch {
+      // A pair that will not load is not a reason to stop.
+    }
+  }
+}
+
+if (liveWindows === 0) {
+  console.error('لم يتم جلب أي شموع حيّة — المرجع سيُبنى على الـ fixture فقط وسيكون ناقصاً.');
+  console.error('شغّله تاني لما البروكسي يبقى متاح.');
+  process.exit(1);
+}
+
+console.log(`عيّنة حيّة: ${liveWindows} نافذة · ${hoursSeen.size}/24 ساعة · ${daysSeen.size} يوم`);
 // Ten indicators branch on the clock; sweep it so their outputs are all seen.
 const CLOCKS: EngineClock[] = [
   { utcHour: 2, weekday: 2 },
@@ -115,9 +186,18 @@ function probe(name: string): Probe {
   let errored = 0;
 
   for (const ds of DATASETS) {
+    // Walk the window, do not just read its last bar. A pattern that formed at
+    // bar 40 and resolved by bar 90 is invisible to a single evaluation of the
+    // whole series — which is precisely why an earlier pass recorded "none" for
+    // gartley, double_bottom and 56 others that do fire.
+    const steps: Candle[][] = [];
+    for (let i = 30; i < ds.candles.length; i += 3) steps.push(ds.candles.slice(0, i + 1));
+    if (steps.length === 0) steps.push(ds.candles);
+
     for (const clock of CLOCKS) {
+      for (const step of steps) {
       try {
-        const v = run(name, ds.candles, clock);
+        const v = run(name, step, clock);
         if (typeof v === 'string') strings.add(v);
         else if (typeof v === 'number' && Number.isFinite(v)) {
           sawNumber = true;
@@ -126,6 +206,7 @@ function probe(name: string): Probe {
         }
       } catch {
         errored++;
+      }
       }
     }
   }
@@ -179,7 +260,7 @@ function probe(name: string): Probe {
   }
 
   const type: Probe['type'] =
-    errored === DATASETS.length * CLOCKS.length
+    errored > 0 && strings.size === 0 && !sawNumber
       ? 'error'
       : strings.size > 0 && sawNumber
         ? 'mixed'
@@ -221,6 +302,12 @@ for (const name of names) {
   const values = [...p.strings].sort();
 
   const note: string[] = [];
+
+  // The warning comes first: an indicator computing over volume the feed does
+  // not carry is the one thing a reader must see before anything else.
+  const volume = volumeNote(name);
+  if (volume !== null) note.push(volume);
+
   note.push(isString ? 'returns TEXT' : 'returns a NUMBER');
   if (isString) {
     note.push(
@@ -236,7 +323,12 @@ for (const name of names) {
     note.push('use gt / lt / gte / lte / between with `value` (or value_min + value_max)');
   }
   if (values.length === 1 && values[0] === 'none') {
-    note.push('the sample data never triggered it, so only "none" was observed — see the engine for its full set');
+    // NOT "dead". Some of these are patterns that appear once a month, and
+    // calling them dead off a five-day sample is exactly the mistake that got
+    // kill_zone written off on a three-hour window.
+    note.push(
+      `RARE — never triggered across ${liveWindows} live windows covering ${hoursSeen.size}/24 hours and ${daysSeen.size} days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable`,
+    );
   }
   if (p.params.length > 0) note.push(`reads: ${p.params.join(', ')}`);
   else note.push('takes no parameters');
@@ -282,6 +374,20 @@ const doc = {
   _doc: 'MASTER REFERENCE — generated FROM the engine, not written by hand.',
   _generated_by: 'scripts/build-strategy-reference.mts',
   _engine_indicators: names.length,
+
+  _sample: {
+    _note:
+      'Every "observed values" and every range below comes from running the indicator over THIS sample. A value the sample never produced is absent from the list — that is a limit of the sample, not a fact about the indicator.',
+    live_windows: liveWindows,
+    hours_covered: `${hoursSeen.size}/24`,
+    days_covered: daysSeen.size,
+    timeframes: FRAMES,
+    why_not_1m:
+      '1m candles from this feed span about three hours of the day. A session-based indicator cannot be described from a window that only ever saw one session — kill_zone was written off exactly that way before this sample was widened.',
+  },
+
+  _no_volume:
+    'Pocket Option streams prices only; the candle feed carries no volume field and the app substitutes a constant. Every indicator marked with the volume warning is computing over an invented number. They are kept registered so they work the day a real volume source arrives.',
 
   _how_to_use: [
     'Copy this file, set `enabled: true` on the rules you want, delete the rest, then upload it in the admin under Strategies.',
