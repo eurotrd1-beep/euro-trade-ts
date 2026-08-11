@@ -13,11 +13,25 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LOCK_PATH, STAMP_PREFIX, engineSourceHash } from '../../../scripts/engine-source-hash.mjs';
+import {
+  LOCK_PATH,
+  REPO_ROOT,
+  STAMP_PREFIX,
+  engineSourceHash,
+} from '../../../scripts/engine-source-hash.mjs';
 
-/** Where the proxy checkout normally sits, relative to this repo. */
-const PROXY_BUNDLE = '../euro-trade-proxy/engine.bundle.js';
+/**
+ * Where the proxy checkout normally sits — a SIBLING of this repo, resolved
+ * absolutely. As a cwd-relative path this quietly pointed at nothing when the
+ * suite ran from `packages/engine` (which is how CI runs it), so the assertion
+ * below skipped instead of checking, and would have gone on skipping for ever.
+ */
+const PROXY_BUNDLE = resolve(REPO_ROOT, '..', 'euro-trade-proxy', 'engine.bundle.js');
+
+/** Shown in failure messages, so the command is copy-pasteable from anywhere. */
+const REPO_LOCK = join('packages', 'engine', 'bundle.lock.json');
 
 const REBUILD = 'node scripts/build-engine-bundle.mjs';
 
@@ -38,7 +52,7 @@ describe('vendored engine bundle', () => {
       `\n\n  engine.bundle.js قديم — شغّل ${REBUILD}\n\n` +
         `  المحرك اتغيّر بعد آخر مرة اتبنى فيها الـ bundle، والمولّد في البروكسي\n` +
         `  لسه شغّال بالقواعد القديمة. بعد ما تشغّل الأمر، اعمل commit للاتنين:\n` +
-        `    • euro_trade_ts/${LOCK_PATH}\n` +
+        `    • euro_trade_ts/${REPO_LOCK}\n` +
         `    • euro-trade-proxy/engine.bundle.js\n\n` +
         `  المتوقّع ${actual.slice(0, 16)}…  المسجّل ${lock.sourceHash.slice(0, 16)}…\n`,
     ).toBe(actual);

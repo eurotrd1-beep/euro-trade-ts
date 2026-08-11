@@ -20,16 +20,18 @@ import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { LOCK_PATH, STAMP_PREFIX, engineSourceHash } from './engine-source-hash.mjs';
+import { ENGINE_SRC, LOCK_PATH, REPO_ROOT, STAMP_PREFIX, engineSourceHash } from './engine-source-hash.mjs';
 
-const OUT_DIR = process.argv[2] ?? resolve('..', 'euro-trade-proxy');
-const TMP = resolve('.engine.bundle.tmp.js');
+// Absolute, from this file — never from the cwd. Running the script from
+// packages/engine used to build into the wrong place, silently.
+const OUT_DIR = process.argv[2] ?? resolve(REPO_ROOT, '..', 'euro-trade-proxy');
+const TMP = resolve(REPO_ROOT, '.engine.bundle.tmp.js');
 const DEST = resolve(OUT_DIR, 'engine.bundle.js');
 
 const sourceHash = engineSourceHash();
 
 await build({
-  entryPoints: ['packages/engine/src/index.ts'],
+  entryPoints: [resolve(ENGINE_SRC, 'index.ts')],
   bundle: true,
   platform: 'node',
   target: 'node20',

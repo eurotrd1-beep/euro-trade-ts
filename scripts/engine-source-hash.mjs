@@ -4,7 +4,20 @@
  * Shared by the bundle builder and the test that guards it, so the two can
  * never disagree about what "the engine changed" means.
  *
- * Two details matter more than they look:
+ * ── PATHS ARE ABSOLUTE, DERIVED FROM THIS FILE ─────────────────────────────
+ *
+ * The first version resolved `packages/engine/src` against the process's
+ * working directory. That works when the whole repo is the cwd and fails
+ * everywhere else — CI runs the suite as `npm --workspace @euro/engine run
+ * test`, whose cwd is `packages/engine`, so the path became
+ * `packages/engine/packages/engine/src` and the guard took the deploy down with
+ * an ENOENT. A check that exists to prevent a mistake must not be able to cause
+ * a worse one.
+ *
+ * Every other test in this package already resolved its fixtures from
+ * `import.meta.url`. This now does the same, and nothing here reads the cwd.
+ *
+ * ── TWO DETAILS THAT MATTER MORE THAN THEY LOOK ────────────────────────────
  *
  *   LINE ENDINGS ARE NORMALISED. This repo is developed on Windows and built on
  *   Linux, and git rewrites CRLF on checkout. Hashing raw bytes would make the
@@ -18,10 +31,20 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const SRC = 'packages/engine/src';
+/** This file lives at <repo>/scripts/, so the repo root is one level up. */
+export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+export const ENGINE_SRC = join(REPO_ROOT, 'packages', 'engine', 'src');
+
+/** Where the expected fingerprint is recorded. */
+export const LOCK_PATH = join(REPO_ROOT, 'packages', 'engine', 'bundle.lock.json');
+
+/** The line the builder stamps into the bundle, so a copy can be identified. */
+export const STAMP_PREFIX = '// engine-source-sha256: ';
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir).sort()) {
@@ -33,12 +56,21 @@ function walk(dir, out = []) {
 }
 
 /** sha256 over every .ts file under the engine's src, path and content. */
-export function engineSourceHash(root = '.') {
-  const base = join(root, SRC);
+export function engineSourceHash() {
+  if (!existsSync(ENGINE_SRC)) {
+    // Say which path was tried and where it came from. A bare ENOENT sent
+    // someone hunting through CI logs for a cwd that was never the problem.
+    throw new Error(
+      `مصدر المحرك مش موجود: ${ENGINE_SRC}\n` +
+        `(اتحسب من موقع scripts/engine-source-hash.mjs — يعني نسخة الريبو ناقصة، ` +
+        `مش مشكلة مجلد تشغيل)`,
+    );
+  }
+
   const hash = createHash('sha256');
-  for (const file of walk(base)) {
+  for (const file of walk(ENGINE_SRC)) {
     // Forward slashes so the fingerprint is identical on Windows and Linux.
-    const rel = relative(base, file).split(sep).join('/');
+    const rel = relative(ENGINE_SRC, file).split(sep).join('/');
     const text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
     hash.update(rel);
     hash.update('\0');
@@ -47,9 +79,3 @@ export function engineSourceHash(root = '.') {
   }
   return hash.digest('hex');
 }
-
-/** Where the expected fingerprint is recorded. */
-export const LOCK_PATH = 'packages/engine/bundle.lock.json';
-
-/** The line the builder stamps into the bundle, so a copy can be identified. */
-export const STAMP_PREFIX = '// engine-source-sha256: ';

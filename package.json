@@ -13,6 +13,7 @@
   "scripts": {
     "build:reference": "tsx scripts/build-strategy-reference.mts && node -e \"require('fs').copyFileSync('docs/strategy-reference.json','apps/web/public/strategy-reference.json')\"",
     "check:strategies": "tsx scripts/check-live-strategies.mts",
-    "build:engine-bundle": "node scripts/build-engine-bundle.mjs"
+    "build:engine-bundle": "node scripts/build-engine-bundle.mjs",
+    "verify": "npm --workspace @euro/engine run test && npm --workspace @euro/engine run typecheck && npm --workspace @euro/shared run typecheck && npm --workspace @euro/web run typecheck && npm --workspace @euro/web run build:static"
   }
 }
