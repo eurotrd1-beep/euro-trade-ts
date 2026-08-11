@@ -700,15 +700,19 @@ function BacktestPanel({ report, horizon }: { report: BacktestReport; horizon: n
         </div>
       </div>
 
-      {report.coverage.hours < 24 && (
+      {/* Every ⚠️ warning, not just the coverage one — the gap-splitting notice
+          was invisible while this was gated on `hours < 24`. */}
+      {report.warnings.some((w) => w.startsWith('⚠️')) && (
         <p className={styles.warn}>
-          {report.warnings.filter((w) => w.startsWith('⚠️')).join(' ')}
-          {report.warnings.length > 1 && (
-            <>
-              <br />
-              {report.warnings[report.warnings.length - 1]}
-            </>
-          )}
+          {report.warnings
+            .filter((w) => w.startsWith('⚠️'))
+            .map((w, i) => (
+              <span key={i}>
+                {w}
+                <br />
+              </span>
+            ))}
+          {report.coverage.hours < 24 && report.warnings[report.warnings.length - 1]}
         </p>
       )}
 
@@ -718,6 +722,14 @@ function BacktestPanel({ report, horizon }: { report: BacktestReport; horizon: n
         <strong>{report.coverage.hours}/24</strong> ساعة على{' '}
         <strong>{report.coverage.days}</strong> يوم، بدخول على الإشارة وخروج بعد{' '}
         <strong>{horizon}</strong> شمعة بالظبط.
+        {report.coverage.gaps > 0 && (
+          <>
+            {' '}اتقسّم عند <strong>{report.coverage.gaps}</strong> فجوة في التاريخ
+            {report.coverage.barsDropped > 0 && (
+              <> (و<strong>{report.coverage.barsDropped}</strong> شمعة اتشالت)</>
+            )}.
+          </>
+        )}
         {' '}بتصدر إشارة على {report.signalsPer100.toFixed(1)}% من الشموع.
         {ci && (
           <>

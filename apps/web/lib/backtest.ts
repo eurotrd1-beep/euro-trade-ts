@@ -74,6 +74,75 @@ const CLOCK_DEPENDENT = new Set([
 /** Below this the day is not represented and a session rule cannot be judged. */
 const MIN_HOURS_COVERED = 24;
 
+/**
+ * Seconds between bars, per timeframe — used to spot a hole in the history.
+ *
+ * The scraper only stores while it is running, so a pair's bars are scattered
+ * with gaps in them. Read as one array, a hole is a phantom candle: two days of
+ * movement compressed into one bar, which every indicator reads as a violent
+ * move that never happened. Splitting at the gaps changed the verdict for 69
+ * indicators in the liveness audit, so this is not a refinement.
+ */
+const STEP_SECONDS: Record<string, number> = {
+  '1m': 60, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '4h': 14_400, '1d': 86_400,
+};
+
+/** A gap wider than this many steps starts a new segment. */
+const GAP_TOLERANCE = 1.5;
+
+/**
+ * Splits a series wherever the spacing jumps, so no window straddles a hole.
+ *
+ * Segments too short to fill the warm-up are dropped rather than fed a window
+ * they cannot fill — an indicator answering off 12 bars when it needs 50 is
+ * worse than no answer, because it looks like an answer.
+ */
+function contiguousRuns(candles: Candle[], stepSeconds: number, minLength: number): Candle[][] {
+  const runs: Candle[][] = [];
+  let run: Candle[] = [];
+  for (let i = 0; i < candles.length; i++) {
+    if (i > 0 && (candles[i]!.time - candles[i - 1]!.time) / 1000 > stepSeconds * GAP_TOLERANCE) {
+      if (run.length >= minLength) runs.push(run);
+      run = [];
+    }
+    run.push(candles[i]!);
+  }
+  if (run.length >= minLength) runs.push(run);
+  return runs;
+}
+
+/**
+ * Wilson score interval for a proportion.
+ *
+ * Not the textbook Wald interval (p ± 1.96·√(p(1−p)/n)), which this used to
+ * use: Wald's coverage collapses at small n and near 0 or 1 — it happily
+ * reports a range wider than [0,100] and had to be clamped, and clamping an
+ * interval is a sign the interval is wrong, not that the number is fine.
+ */
+function wilson(wins: number, decided: number): { low: number; high: number } {
+  const z = 1.96;
+  const p = wins / decided;
+  const d = 1 + (z * z) / decided;
+  const centre = (p + (z * z) / (2 * decided)) / d;
+  const margin =
+    (z * Math.sqrt((p * (1 - p)) / decided + (z * z) / (4 * decided * decided))) / d;
+  return { low: (centre - margin) * 100, high: (centre + margin) * 100 };
+}
+
+/**
+ * What a strategy has to clear before it makes money.
+ *
+ * A binary option paying 80–90% returns 1.8–1.9x the stake on a win and zero on
+ * a loss, so break-even is 1/1.9 … 1/1.8 — 52.6% to 55.6%. A 55% win rate is
+ * not "acceptable"; it is the middle of the break-even band, which is to say it
+ * is nothing. Anything below BREAKEVEN_HIGH is presented as losing.
+ */
+export const BREAKEVEN_LOW = 52.6;
+export const BREAKEVEN_HIGH = 55.6;
+
+/** Below this, the win rate is a number about the sample, not the strategy. */
+export const MIN_TRADES_TO_JUDGE = 30;
+
 export interface BacktestArgs {
   strategy: DynamicStrategy;
   /** OTC symbols to replay, e.g. ['EURUSD_otc', 'GBPUSD_otc']. */
@@ -123,6 +192,10 @@ export interface BacktestReport {
     days: number;
     /** Clock-dependent rules in this strategy that the window cannot judge. */
     unjudgeable: string[];
+    /** Holes in the scraped history that the replay was split at. */
+    gaps: number;
+    /** Bars thrown away because their segment was shorter than the warm-up. */
+    barsDropped: number;
   };
   warnings: string[];
 }
@@ -151,6 +224,8 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
 
   let evaluated = 0;
   let pairsUsed = 0;
+  let gapsFound = 0;
+  let barsDropped = 0;
 
   // Coverage is measured from the candles themselves, not assumed from the
   // timeframe — a pair with a gap in its history covers less than it looks.
@@ -171,7 +246,6 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       warnings.push(`${symbol}: تاريخ غير كافٍ (${candles?.length ?? 0} شمعة) — تم تخطّيه`);
       continue;
     }
-    pairsUsed++;
 
     for (const candle of candles) {
       const d = new Date(candle.time);
@@ -179,15 +253,35 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       daysSeen.add(d.toISOString().slice(0, 10));
     }
 
+    // Split at the holes BEFORE replaying. Everything below runs per segment.
+    const step = STEP_SECONDS[interval];
+    const segments =
+      step === undefined
+        ? [candles]
+        : contiguousRuns(candles, step, WARMUP + horizon + 5);
+    const dropped = candles.length - segments.reduce((n, s) => n + s.length, 0);
+    if (dropped > 0) {
+      gapsFound += Math.max(0, segments.length - 1);
+      barsDropped += dropped;
+    }
+    if (segments.length === 0) {
+      warnings.push(`${symbol}: كل القطع أقصر من فترة الإحماء بعد تقسيم الفجوات — تم تخطّيه`);
+      continue;
+    }
+    pairsUsed++;
+
     let pairTrades = 0;
     let pairWins = 0;
     let pairLosses = 0;
-    let lastSignalAt: number | null = null;
-    let blockedUntil = -1;
 
-    for (let i = WARMUP; i < candles.length - horizon; i++) {
-      // Only the past. Slicing per step is what keeps this honest.
-      const window = candles.slice(0, i + 1);
+    for (const segment of segments) {
+      let lastSignalAt: number | null = null;
+      let blockedUntil = -1;
+
+      for (let i = WARMUP; i < segment.length - horizon; i++) {
+      // Only the past, and only within this segment — a window that reached
+      // across a gap would carry a jump of days as if it were one candle.
+      const window = segment.slice(0, i + 1);
       const current = window[window.length - 1]!;
       evaluated++;
 
@@ -212,7 +306,7 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       }
 
       const entry = current.close;
-      const exit = candles[i + horizon]!.close;
+      const exit = segment[i + horizon]!.close;
       const direction = pro.direction;
       const outcome: Trade['outcome'] =
         exit === entry ? 'TIE' : direction === 'CALL' ? (exit > entry ? 'WIN' : 'LOSS') : exit < entry ? 'WIN' : 'LOSS';
@@ -237,6 +331,7 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
 
       // One trade at a time, as the live engine enforces.
       blockedUntil = i + horizon;
+      }
     }
 
     perPair.push({ symbol, trades: pairTrades, wins: pairWins, losses: pairLosses });
@@ -252,6 +347,14 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
         .map((r) => r.indicator),
     ),
   ];
+
+  if (gapsFound > 0) {
+    warnings.push(
+      `⚠️ التاريخ فيه ${gapsFound} فجوة — السكرابر بيسجّل وهو شغّال بس. الاختبار اتقسّم عندها، ` +
+        `و${barsDropped} شمعة اتشالت لأن قطعتها أقصر من فترة الإحماء. من غير التقسيم ده كانت قفزة ` +
+        `الفجوة هتتقري كشمعة عنيفة واحدة.`,
+    );
+  }
 
   if (hoursSeen.size < MIN_HOURS_COVERED) {
     warnings.push(
@@ -287,7 +390,7 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5),
     perPair: perPair.sort((a, b) => b.trades - a.trades),
-    coverage: { hours: hoursSeen.size, days: daysSeen.size, unjudgeable },
+    coverage: { hours: hoursSeen.size, days: daysSeen.size, unjudgeable, gaps: gapsFound, barsDropped },
     warnings,
   };
 }
@@ -302,12 +405,7 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
  */
 export function confidence(wins: number, decided: number): { low: number; high: number } | null {
   if (decided < 5) return null;
-  const p = wins / decided;
-  const se = Math.sqrt((p * (1 - p)) / decided);
-  return {
-    low: Math.max(0, (p - 1.96 * se) * 100),
-    high: Math.min(100, (p + 1.96 * se) * 100),
-  };
+  return wilson(wins, decided);
 }
 
 /** A plain reading of the result, so the number is not left to interpretation. */
@@ -320,20 +418,41 @@ export function verdict(r: BacktestReport): { tone: 'good' | 'ok' | 'bad'; text:
       text: 'لم تصدر أي إشارة على كل التاريخ المتاح — الشروط متشددة جداً أو متناقضة. شوف أسباب الرفض تحت.',
     };
   }
-  if (decided < 10) {
+  // No judgement at all below the sample floor. The old text called 20 trades
+  // "a small sample" and then printed the win rate anyway, which is the number
+  // people read and remember.
+  if (decided < MIN_TRADES_TO_JUDGE) {
     return {
       tone: 'ok',
-      text: `${r.trades.length} صفقة فقط — عيّنة صغيرة، النسبة دي مش مؤشر يُبنى عليه. جرّب أزواج أكتر أو خفّف الشروط.`,
+      text:
+        `${decided} صفقة محسومة فقط — عيّنة غير كافية. مفيش حكم تحت ${MIN_TRADES_TO_JUDGE} صفقة، ` +
+        `والنسبة على العدد ده بتتحرك بالصدفة وحدها. وسّع العيّنة بأزواج أكتر أو فريم أطول.`,
     };
   }
-  if (r.winRate >= 65) {
-    return { tone: 'good', text: `نسبة نجاح ${r.winRate.toFixed(1)}% على ${decided} صفقة — نتيجة قوية.` };
+
+  const ci = wilson(r.wins, decided);
+  const range = `[${ci.low.toFixed(1)} — ${ci.high.toFixed(1)}]`;
+  const head = `نسبة نجاح ${r.winRate.toFixed(1)}% على ${decided} صفقة · مجال ثقة 95% ${range}`;
+
+  // The bar is not 50%. A binary option paying 80–90% needs 52.6–55.6% just to
+  // return the stake, so anything under the top of that band loses money.
+  if (ci.low > BREAKEVEN_HIGH) {
+    return { tone: 'good', text: `${head} — كل المجال فوق نقطة التعادل (${BREAKEVEN_HIGH}%). دي أقوى حاجة العيّنة دي تقدر تقولها.` };
   }
-  if (r.winRate >= 55) {
-    return { tone: 'ok', text: `نسبة نجاح ${r.winRate.toFixed(1)}% على ${decided} صفقة — مقبولة، لكن فيها مجال للتحسين.` };
+  if (r.winRate >= BREAKEVEN_HIGH) {
+    return {
+      tone: 'ok',
+      text: `${head} — فوق التعادل، لكن المجال لسه بينزل تحته (${ci.low.toFixed(1)}%). محتاجة عيّنة أكبر قبل ما تتبني عليها.`,
+    };
+  }
+  if (r.winRate >= BREAKEVEN_LOW) {
+    return {
+      tone: 'bad',
+      text: `${head} — جوّه نطاق التعادل (${BREAKEVEN_LOW}–${BREAKEVEN_HIGH}%). فوق الـ 50% مش ربح: بعائد 80–90% ده بيرجّع رأس المال تقريبًا ولا أكتر.`,
+    };
   }
   return {
     tone: 'bad',
-    text: `نسبة نجاح ${r.winRate.toFixed(1)}% على ${decided} صفقة — أقل من المستوى المطلوب. راجع قواعد primary.`,
+    text: `${head} — تحت نقطة التعادل (${BREAKEVEN_LOW}%). خاسرة على العيّنة دي. راجع قواعد primary.`,
   };
 }
