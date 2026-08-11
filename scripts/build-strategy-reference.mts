@@ -433,6 +433,39 @@ const doc = {
     'Any `_section` entry is a comment and is skipped by the engine.',
   ],
 
+  /**
+   * The instruction block. A model handed this file gets everything it needs
+   * from here without a separate prompt — which matters, because the prompt is
+   * the part that gets lost when the file is forwarded to someone else.
+   */
+  _instructions_for_an_ai: {
+    task:
+      'Produce ONE JSON object: a strategy this engine can execute. No prose, no markdown fence, no explanation outside the JSON.',
+    output_shape:
+      '{ "name", "version", "confidence_base", "confidence_max", "min_score", "pyramid": { "min_primary_score", "confirmation_ratio", "require_all_filters", "wait_message" }, "rules": [...] }',
+    absolute_rules: [
+      'Use ONLY indicator names that appear in `rules` below, spelled exactly. Never invent one, never use a name from another platform. sma, wma, macd, bollinger_upper, parabolic_sar, adx_plus, stochastic_k DO NOT EXIST here.',
+      'Use ONLY the conditions in _conditions. rising, falling, cross_above and cross_below do not exist and never fire.',
+      'Match the type: a NUM indicator takes gt/lt/gte/lte/between/gt_average/lt_average/is_true/is_false; a TEXT indicator takes eq/neq/bullish/bearish. Mixing them produces a rule that never fires and no error.',
+      'Never put two names from the same alias group in one strategy — see _aliases. It doubles the score for one reading.',
+      'Every rule must carry "enabled": true. This file goes straight to production.',
+      'Set min_primary_score to something reachable: roughly half to two-thirds of the total primary score, remembering the consensus multiplier.',
+      'Add a short "_note" in Arabic on each rule saying WHY it is there.',
+    ],
+    honesty_rules: [
+      'Do not promise profitability. Read _what_measurement_showed: an exhaustive search of this engine found no combination that beat a coin out of sample.',
+      'Do not describe a win rate under 55.6% as good — that is the break-even band.',
+      'If the request cannot be expressed with the conditions this engine has, say so instead of approximating it with something that will never fire.',
+    ],
+    before_you_answer: [
+      'Check every indicator name against the list.',
+      'Check NUM/TEXT against the condition.',
+      'Check that no two names come from one alias group.',
+      'Check that pattern values are ones the indicator can actually return, from its observed values.',
+      'Check that min_primary_score is reachable.',
+    ],
+  },
+
   _hard_rules: {
     unknown_indicator: 'An indicator name the engine does not know returns 0.0 SILENTLY. There is no error. Only the names in this file exist.',
     unknown_condition: 'A condition the engine does not know evaluates to false, so the rule never fires. Only the conditions listed below exist.',
@@ -517,6 +550,92 @@ const doc = {
   },
 
   _categories: Object.fromEntries([...byCategory].sort().map(([c, l]) => [c, l.length])),
+
+  /**
+   * Everything learned the hard way, in the file rather than in someone's head.
+   *
+   * A model reading this has no memory of the measurements behind it, so each
+   * point states the number it rests on. They are ordered by how expensive the
+   * mistake is, not by topic.
+   */
+  _what_measurement_showed: {
+    _read_this_first:
+      'These are findings from running this engine over real market data, not opinions. A strategy written against this file without them will look reasonable and do nothing, or look successful and be noise.',
+
+    no_edge_was_found: {
+      finding:
+        'An exhaustive sweep of 1,236,756 combinations of these indicators — singles, pairs and triples, 852 conditions, 15,884 evaluation points from 183 pairs on 5m/15m/1h — found ZERO that beat a coin out of sample.',
+      method:
+        'Combinations were chosen on half the symbols and judged on the other half, then Benjamini-Hochberg at 5%. The 63,914 that beat 55% on the discovery half averaged 47.97% on the validation half, and the correlation between halves was -0.458: picking a winner on one half actively anti-predicted the other.',
+      the_control:
+        'The identical sweep against RANDOMLY DEALT outcomes produced a leaderboard of the same size (top row 72.5% vs 72.1% on the real data). That is what proves a high backtest number here is manufactured by the search, not found in the market.',
+      what_to_do:
+        'Do not claim a strategy will be profitable. Do not tune toward a backtest number. Write the cleanest expression of the stated idea and let it be measured. If asked for something guaranteed to win, say plainly that nothing here has demonstrated an edge.',
+    },
+
+    break_even_is_not_fifty_percent: {
+      finding:
+        'A binary option paying 80-90% returns 1.8-1.9x the stake on a win and zero on a loss, so break-even is 52.6%-55.6%.',
+      what_to_do:
+        'A 54% win rate is not "slightly profitable" — it is the middle of the break-even band, which is to say it is nothing. Never describe a rate under 55.6% as good.',
+    },
+
+    thirty_trades_is_the_floor: {
+      finding:
+        'Below about 30 decided trades a win rate moves on chance alone. 20 trades at 65% is not evidence.',
+      what_to_do:
+        'Refuse to conclude from a smaller sample. Say "sample too small" instead of finding a pattern in it.',
+    },
+
+    aliases_score_one_reading_twice: {
+      finding:
+        '46 of the names in this file are labels on another name\'s implementation. See _aliases.',
+      what_to_do:
+        'Never use two names from one alias group in a strategy. It adds score and adds no evidence, and it does NOT increase the consensus multiplier because they share a category.',
+    },
+
+    the_feed_carries_no_volume: {
+      finding:
+        'Pocket Option streams prices only. The app substitutes a constant 1000 for every candle, so anything computing over volume is computing over an invented number.',
+      what_to_do:
+        'Avoid the indicators marked with the volume warning. Some are completely inert (their value never changes at all); others degrade to a price-only version of themselves.',
+    },
+
+    the_engine_fails_silently: {
+      finding:
+        'An unknown indicator name returns 0.0. An unknown condition evaluates to false. A numeric condition on a text indicator never fires, and neither does the reverse. None of these produce an error, a warning, or a log line anywhere.',
+      what_to_do:
+        'Copy names from this file character for character. Check NUM/TEXT before choosing a condition. A strategy full of plausible-looking names scores nothing and looks completely normal.',
+    },
+
+    what_the_sample_can_and_cannot_say: {
+      finding:
+        'The observed values and ranges in this file come from a few days of live data with gaps in it. A value the sample never produced is absent from the list — that is a limit of the sample, not a fact about the indicator.',
+      what_to_do:
+        'An indicator marked RARE is unverified, not unusable. Some patterns fire a few times a month. Do not treat absence as evidence of death, and do not assume the listed values are exhaustive.',
+    },
+
+    rules_fire_less_often_than_they_look: {
+      finding:
+        'Measured on real data: a two-primary strategy requiring both rules true produced a signal on 0.45%-3.9% of candles depending on how wide the conditions were. Narrow conditions like an exact Fibonacci level (fib_level = at_236) were true on 0.3% of candles; a zone (fib_zone = shallow) on 22%.',
+      what_to_do:
+        'Prefer a zone or a range over an exact level unless the idea genuinely requires the exact level. Set min_primary_score to something the rules can actually reach.',
+    },
+
+    contradictory_confirmations_are_common: {
+      finding:
+        'Measured example: RSI <= 30 was true in 8.3% of shallow-retracement candles and 4.4% of golden-zone ones, but 69.2% of candles that had broken below the swing low. Combined with an uptrend requirement it was true in under 1% of the candles that reached the confirmation stage — a dead rule that looked sensible.',
+      what_to_do:
+        'Check that the confirmations agree with the setup. A shallow pullback in an uptrend is STRENGTH, so confirm strength (rsi >= 50), not exhaustion (rsi <= 30).',
+    },
+
+    rare_confirmations_become_the_ceiling: {
+      finding:
+        'With three confirm rules at a 60% ratio, two must be true. If one is effectively dead, the other two become mandatory — and the rarest of them caps the whole strategy. Measured: sr_bounce was true in 16-20% of candles reaching stage two, and the strategies passed on 12-16%.',
+      what_to_do:
+        'Look at how often each confirm rule can be true, not just whether it makes sense. A bounce or rejection pattern requires several conditions on one candle and is rare by construction.',
+    },
+  },
 
   name: 'Master Reference (generated)',
   version: '4.0',

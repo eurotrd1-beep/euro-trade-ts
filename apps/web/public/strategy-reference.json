@@ -19,10 +19,285 @@
     "Everything in `rules` is disabled by default, so an unedited copy produces no signal.",
     "Any `_section` entry is a comment and is skipped by the engine."
   ],
+  "_instructions_for_an_ai": {
+    "task": "Produce ONE JSON object: a strategy this engine can execute. No prose, no markdown fence, no explanation outside the JSON.",
+    "output_shape": "{ \"name\", \"version\", \"confidence_base\", \"confidence_max\", \"min_score\", \"pyramid\": { \"min_primary_score\", \"confirmation_ratio\", \"require_all_filters\", \"wait_message\" }, \"rules\": [...] }",
+    "absolute_rules": [
+      "Use ONLY indicator names that appear in `rules` below, spelled exactly. Never invent one, never use a name from another platform. sma, wma, macd, bollinger_upper, parabolic_sar, adx_plus, stochastic_k DO NOT EXIST here.",
+      "Use ONLY the conditions in _conditions. rising, falling, cross_above and cross_below do not exist and never fire.",
+      "Match the type: a NUM indicator takes gt/lt/gte/lte/between/gt_average/lt_average/is_true/is_false; a TEXT indicator takes eq/neq/bullish/bearish. Mixing them produces a rule that never fires and no error.",
+      "Never put two names from the same alias group in one strategy — see _aliases. It doubles the score for one reading.",
+      "Every rule must carry \"enabled\": true. This file goes straight to production.",
+      "Set min_primary_score to something reachable: roughly half to two-thirds of the total primary score, remembering the consensus multiplier.",
+      "Add a short \"_note\" in Arabic on each rule saying WHY it is there."
+    ],
+    "honesty_rules": [
+      "Do not promise profitability. Read _what_measurement_showed: an exhaustive search of this engine found no combination that beat a coin out of sample.",
+      "Do not describe a win rate under 55.6% as good — that is the break-even band.",
+      "If the request cannot be expressed with the conditions this engine has, say so instead of approximating it with something that will never fire."
+    ],
+    "before_you_answer": [
+      "Check every indicator name against the list.",
+      "Check NUM/TEXT against the condition.",
+      "Check that no two names come from one alias group.",
+      "Check that pattern values are ones the indicator can actually return, from its observed values.",
+      "Check that min_primary_score is reachable."
+    ]
+  },
   "_hard_rules": {
     "unknown_indicator": "An indicator name the engine does not know returns 0.0 SILENTLY. There is no error. Only the names in this file exist.",
     "unknown_condition": "A condition the engine does not know evaluates to false, so the rule never fires. Only the conditions listed below exist.",
-    "unknown_field": "Any other field is ignored. `_note` and `_section` are safe to keep."
+    "unknown_field": "Any other field is ignored. `_note` and `_section` are safe to keep.",
+    "one_name_per_alias_group": "NEVER use two names from the same alias group in one strategy. They are one computation with several labels, so the second rule adds score and adds NO evidence — and a reader counting rules believes the setup is confirmed twice when it was read once. See _aliases."
+  },
+  "_aliases": {
+    "_note": "237 names are 191 distinct computations. Each group below is ONE function reached by several keys — identical output, byte for byte, always. Pick one name per group.",
+    "_misleading": "Some groups are worse than redundant: their names describe different things and share one detector, so the name does not select what it claims. Those carry a MISLEADING NAME warning on their entry.",
+    "_consensus": "The consensus multiplier counts distinct CATEGORIES among the agreeing primary rules. Every name in a group lands in the same category, so aliases never inflate it BY THEMSELVES — but an explicit `type` on the rule overrides the category, and two aliases given two different `type` values would be counted as two independent schools of analysis. Do not do that.",
+    "groups": [
+      {
+        "use": "rectangle",
+        "identical_to": [
+          "horizontal_channel"
+        ]
+      },
+      {
+        "use": "advanced_candle",
+        "identical_to": [
+          "doji",
+          "dragonfly_doji",
+          "gravestone_doji",
+          "spinning_top",
+          "marubozu",
+          "tweezer",
+          "harami",
+          "kicker",
+          "abandoned_baby",
+          "belt_hold",
+          "three_inside",
+          "three_outside"
+        ],
+        "misleading": "candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests"
+      },
+      {
+        "use": "hma",
+        "identical_to": [
+          "hull_ma"
+        ]
+      },
+      {
+        "use": "lsma",
+        "identical_to": [
+          "linear_regression"
+        ]
+      },
+      {
+        "use": "ao",
+        "identical_to": [
+          "awesome_oscillator"
+        ]
+      },
+      {
+        "use": "ac",
+        "identical_to": [
+          "accelerator_oscillator"
+        ]
+      },
+      {
+        "use": "elder_bull_power",
+        "identical_to": [
+          "bull_power"
+        ]
+      },
+      {
+        "use": "elder_bear_power",
+        "identical_to": [
+          "bear_power"
+        ]
+      },
+      {
+        "use": "aroon",
+        "identical_to": [
+          "aroon_oscillator"
+        ]
+      },
+      {
+        "use": "historical_volatility",
+        "identical_to": [
+          "hv"
+        ]
+      },
+      {
+        "use": "chande_kroll_stop",
+        "identical_to": [
+          "ckstop"
+        ]
+      },
+      {
+        "use": "eqh",
+        "identical_to": [
+          "equal_highs"
+        ]
+      },
+      {
+        "use": "eql",
+        "identical_to": [
+          "equal_lows"
+        ]
+      },
+      {
+        "use": "5_0",
+        "identical_to": [
+          "ab_cd"
+        ],
+        "misleading": "harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it"
+      },
+      {
+        "use": "bat",
+        "identical_to": [
+          "alternate_bat"
+        ],
+        "misleading": "harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it"
+      },
+      {
+        "use": "crab",
+        "identical_to": [
+          "deep_crab"
+        ],
+        "misleading": "harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it"
+      },
+      {
+        "use": "momentum",
+        "identical_to": [
+          "momentum_trading"
+        ]
+      },
+      {
+        "use": "orb",
+        "identical_to": [
+          "opening_range_breakout"
+        ]
+      },
+      {
+        "use": "demark",
+        "identical_to": [
+          "td_sequential"
+        ]
+      },
+      {
+        "use": "fakey",
+        "identical_to": [
+          "inside_bar_fakey"
+        ]
+      },
+      {
+        "use": "po3",
+        "identical_to": [
+          "power_of_three",
+          "amd_cycle"
+        ]
+      },
+      {
+        "use": "ce",
+        "identical_to": [
+          "consequent_encroachment"
+        ]
+      },
+      {
+        "use": "market_profile",
+        "identical_to": [
+          "tpo"
+        ]
+      },
+      {
+        "use": "camarilla",
+        "identical_to": [
+          "camarilla_pivot"
+        ]
+      },
+      {
+        "use": "woodie",
+        "identical_to": [
+          "woodie_pivot"
+        ]
+      },
+      {
+        "use": "fib_pivot",
+        "identical_to": [
+          "fibonacci_pivot"
+        ]
+      },
+      {
+        "use": "broadening_wedge",
+        "identical_to": [
+          "megaphone"
+        ]
+      },
+      {
+        "use": "diamond",
+        "identical_to": [
+          "diamond_top"
+        ]
+      },
+      {
+        "use": "fib_time",
+        "identical_to": [
+          "fibonacci_time_zone"
+        ]
+      },
+      {
+        "use": "dow_theory",
+        "identical_to": [
+          "trend_following"
+        ]
+      },
+      {
+        "use": "demark_p",
+        "identical_to": [
+          "demark_pivot"
+        ]
+      },
+      {
+        "use": "starc",
+        "identical_to": [
+          "starc_bands"
+        ]
+      },
+      {
+        "use": "ib",
+        "identical_to": [
+          "initial_balance"
+        ]
+      },
+      {
+        "use": "market_regime_classification",
+        "identical_to": [
+          "regime_detection"
+        ]
+      }
+    ],
+    "observed_identical_but_separate_implementations": {
+      "_note": "Different functions that returned the same value at every point of the sample. Not proven identical — they could disagree on data the sample does not contain — but treat a pair of them as one piece of evidence, not two.",
+      "pairs": [
+        [
+          "fair_value_gap",
+          "imbalance"
+        ],
+        [
+          "opening_range",
+          "opening_range_breakout",
+          "orb"
+        ],
+        [
+          "pennant",
+          "symmetrical_triangle"
+        ],
+        [
+          "wyckoff",
+          "wyckoff_spring"
+        ]
+      ]
+    }
   },
   "_conditions": {
     "_for_numbers": {
@@ -79,6 +354,51 @@
     "Rare Patterns": 29,
     "Trend": 22
   },
+  "_what_measurement_showed": {
+    "_read_this_first": "These are findings from running this engine over real market data, not opinions. A strategy written against this file without them will look reasonable and do nothing, or look successful and be noise.",
+    "no_edge_was_found": {
+      "finding": "An exhaustive sweep of 1,236,756 combinations of these indicators — singles, pairs and triples, 852 conditions, 15,884 evaluation points from 183 pairs on 5m/15m/1h — found ZERO that beat a coin out of sample.",
+      "method": "Combinations were chosen on half the symbols and judged on the other half, then Benjamini-Hochberg at 5%. The 63,914 that beat 55% on the discovery half averaged 47.97% on the validation half, and the correlation between halves was -0.458: picking a winner on one half actively anti-predicted the other.",
+      "the_control": "The identical sweep against RANDOMLY DEALT outcomes produced a leaderboard of the same size (top row 72.5% vs 72.1% on the real data). That is what proves a high backtest number here is manufactured by the search, not found in the market.",
+      "what_to_do": "Do not claim a strategy will be profitable. Do not tune toward a backtest number. Write the cleanest expression of the stated idea and let it be measured. If asked for something guaranteed to win, say plainly that nothing here has demonstrated an edge."
+    },
+    "break_even_is_not_fifty_percent": {
+      "finding": "A binary option paying 80-90% returns 1.8-1.9x the stake on a win and zero on a loss, so break-even is 52.6%-55.6%.",
+      "what_to_do": "A 54% win rate is not \"slightly profitable\" — it is the middle of the break-even band, which is to say it is nothing. Never describe a rate under 55.6% as good."
+    },
+    "thirty_trades_is_the_floor": {
+      "finding": "Below about 30 decided trades a win rate moves on chance alone. 20 trades at 65% is not evidence.",
+      "what_to_do": "Refuse to conclude from a smaller sample. Say \"sample too small\" instead of finding a pattern in it."
+    },
+    "aliases_score_one_reading_twice": {
+      "finding": "46 of the names in this file are labels on another name's implementation. See _aliases.",
+      "what_to_do": "Never use two names from one alias group in a strategy. It adds score and adds no evidence, and it does NOT increase the consensus multiplier because they share a category."
+    },
+    "the_feed_carries_no_volume": {
+      "finding": "Pocket Option streams prices only. The app substitutes a constant 1000 for every candle, so anything computing over volume is computing over an invented number.",
+      "what_to_do": "Avoid the indicators marked with the volume warning. Some are completely inert (their value never changes at all); others degrade to a price-only version of themselves."
+    },
+    "the_engine_fails_silently": {
+      "finding": "An unknown indicator name returns 0.0. An unknown condition evaluates to false. A numeric condition on a text indicator never fires, and neither does the reverse. None of these produce an error, a warning, or a log line anywhere.",
+      "what_to_do": "Copy names from this file character for character. Check NUM/TEXT before choosing a condition. A strategy full of plausible-looking names scores nothing and looks completely normal."
+    },
+    "what_the_sample_can_and_cannot_say": {
+      "finding": "The observed values and ranges in this file come from a few days of live data with gaps in it. A value the sample never produced is absent from the list — that is a limit of the sample, not a fact about the indicator.",
+      "what_to_do": "An indicator marked RARE is unverified, not unusable. Some patterns fire a few times a month. Do not treat absence as evidence of death, and do not assume the listed values are exhaustive."
+    },
+    "rules_fire_less_often_than_they_look": {
+      "finding": "Measured on real data: a two-primary strategy requiring both rules true produced a signal on 0.45%-3.9% of candles depending on how wide the conditions were. Narrow conditions like an exact Fibonacci level (fib_level = at_236) were true on 0.3% of candles; a zone (fib_zone = shallow) on 22%.",
+      "what_to_do": "Prefer a zone or a range over an exact level unless the idea genuinely requires the exact level. Set min_primary_score to something the rules can actually reach."
+    },
+    "contradictory_confirmations_are_common": {
+      "finding": "Measured example: RSI <= 30 was true in 8.3% of shallow-retracement candles and 4.4% of golden-zone ones, but 69.2% of candles that had broken below the swing low. Combined with an uptrend requirement it was true in under 1% of the candles that reached the confirmation stage — a dead rule that looked sensible.",
+      "what_to_do": "Check that the confirmations agree with the setup. A shallow pullback in an uptrend is STRENGTH, so confirm strength (rsi >= 50), not exhaustion (rsi <= 30)."
+    },
+    "rare_confirmations_become_the_ceiling": {
+      "finding": "With three confirm rules at a 60% ratio, two must be true. If one is effectively dead, the other two become mandatory — and the rarest of them caps the whole strategy. Measured: sr_bounce was true in 16-20% of candles reaching stage two, and the strategies passed on 12-16%.",
+      "what_to_do": "Look at how often each confirm rule can be true, not just whether it makes sense. A bounce or rejection pattern requires several conditions on one candle and is rare by construction."
+    }
+  },
   "name": "Master Reference (generated)",
   "version": "4.0",
   "confidence_base": 92.5,
@@ -119,7 +439,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.3253 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range 0.3201 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
     },
     {
       "indicator": "market_regime_classification",
@@ -128,7 +448,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "quiet_ranging",
-      "_note": "returns TEXT. observed values: quiet_ranging | ranging | trending | trending_volatile. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Advanced Statistics"
+      "_note": "≡ also registered as regime_detection — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: quiet_ranging | ranging | trending | trending_volatile. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Advanced Statistics"
     },
     {
       "indicator": "monte_carlo_risk_simulation",
@@ -152,7 +472,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "quiet_ranging",
-      "_note": "returns TEXT. observed values: quiet_ranging | ranging | trending | trending_volatile. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Advanced Statistics"
+      "_note": "≡ ALIAS of market_regime_classification — the same computation, byte for byte. Use market_regime_classification; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: quiet_ranging | ranging | trending | trending_volatile. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Advanced Statistics"
     },
     {
       "indicator": "spectral_analysis",
@@ -189,7 +509,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -3.2727 … 2.7196 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range -3.2727 … 2.6121 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Advanced Statistics"
     },
     {
       "_section": "━━━━━━━━━━ FIBONACCI (6) ━━━━━━━━━━"
@@ -233,7 +553,7 @@
       "enabled": false,
       "pattern": "at_0",
       "period": 14,
-      "_note": "returns TEXT. observed values: at_0 | at_100 | at_1272 | at_1414 | at_1618 | at_200 | at_236 | at_2618 | at_382 | at_500 | at_618 | at_786 | at_886 | none. use eq / neq with `pattern`, or bullish / bearish. reads: period. category: Fibonacci"
+      "_note": "returns TEXT. observed values: at_0 | at_100 | at_1272 | at_1414 | at_1618 | at_200 | at_236 | at_382 | at_500 | at_618 | at_786 | at_886 | none. use eq / neq with `pattern`, or bullish / bearish. reads: period. category: Fibonacci"
     },
     {
       "indicator": "fib_retracement",
@@ -243,7 +563,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -1 … 98.4055 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Fibonacci"
+      "_note": "returns a NUMBER. observed range -1 … 98.5185 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Fibonacci"
     },
     {
       "indicator": "fib_zone",
@@ -266,7 +586,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -350 … 259 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -342 … 259 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
     },
     {
       "indicator": "macd_histogram",
@@ -324,7 +644,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range -13.7143 … 8.6173 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -13.7143 … 10.8535 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "stoch_d",
@@ -335,7 +655,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range 1.15 … 99.1085 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range 1.15 … 99.241 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "stoch_k",
@@ -346,7 +666,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range 1.1502 … 99.1991 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range 1.1502 … 99.0789 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "williams_r",
@@ -368,7 +688,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ac",
@@ -377,7 +697,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -3.8778 … 0.8758 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "≡ also registered as accelerator_oscillator — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -3.8778 … 0.8758 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "accelerator_oscillator",
@@ -386,7 +706,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -3.8778 … 0.8758 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "≡ ALIAS of ac — the same computation, byte for byte. Use ac; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -3.8778 … 0.8758 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "accumulation",
@@ -404,7 +724,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ also registered as doji, dragonfly_doji, gravestone_doji, spinning_top, marubozu, tweezer, harami, kicker, abandoned_baby, belt_hold, three_inside, three_outside — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "adx",
@@ -414,7 +734,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.1049 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range 0.1835 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "amd_cycle",
@@ -423,7 +743,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "accumulation",
-      "_note": "returns TEXT. observed values: accumulation | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of po3 — the same computation, byte for byte. Use po3; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: accumulation | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ao",
@@ -432,7 +752,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "≡ also registered as awesome_oscillator — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "ascending_triangle",
@@ -460,7 +780,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "≡ ALIAS of ao — the same computation, byte for byte. Use ao; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "bear_power",
@@ -470,7 +790,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -8.8773 … 1.1087 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "≡ ALIAS of elder_bear_power — the same computation, byte for byte. Use elder_bear_power; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -8.8773 … 1.1087 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "belt_hold",
@@ -479,7 +799,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "bop",
@@ -488,7 +808,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -1 … 0.9857 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -0.9883 … 0.9857 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "break_of_structure",
@@ -506,7 +826,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: active | bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as megaphone — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: active | bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "bull_power",
@@ -516,7 +836,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -7.8713 … 2.6627 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "≡ ALIAS of elder_bull_power — the same computation, byte for byte. Use elder_bull_power; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -7.8713 … 2.6627 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "bump_and_run",
@@ -534,7 +854,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_h3",
-      "_note": "returns TEXT. observed values: above_h3 | above_h4 | below_l3 | below_l4 | inside. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as camarilla_pivot — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_h3 | above_h4 | below_l3 | below_l4 | inside. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "camarilla_pivot",
@@ -543,7 +863,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_h3",
-      "_note": "returns TEXT. observed values: above_h3 | above_h4 | below_l3 | below_l4 | inside. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of camarilla — the same computation, byte for byte. Use camarilla; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_h3 | above_h4 | below_l3 | below_l4 | inside. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ce",
@@ -552,7 +872,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_ce",
-      "_note": "returns TEXT. observed values: bearish_ce | bullish_ce | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as consequent_encroachment — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_ce | bullish_ce | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "chaikin_volatility",
@@ -571,7 +891,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as ckstop — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "change_of_character",
@@ -616,7 +936,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of chande_kroll_stop — the same computation, byte for byte. Use chande_kroll_stop; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "cmo",
@@ -644,7 +964,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_ce",
-      "_note": "returns TEXT. observed values: bearish_ce | bullish_ce | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of ce — the same computation, byte for byte. Use ce; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_ce | bullish_ce | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "cup_and_handle",
@@ -689,7 +1009,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "buy_setup",
-      "_note": "returns TEXT. observed values: buy_setup | none | sell_setup. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as td_sequential — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: buy_setup | none | sell_setup. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "demark_p",
@@ -698,7 +1018,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_p",
-      "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as demark_pivot — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "demark_pivot",
@@ -707,7 +1027,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_p",
-      "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of demark_p — the same computation, byte for byte. Use demark_p; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "descending_triangle",
@@ -725,7 +1045,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as diamond_top — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "diamond_top",
@@ -734,7 +1054,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of diamond — the same computation, byte for byte. Use diamond; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "discount_zone",
@@ -770,7 +1090,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "donchian_channel",
@@ -817,7 +1137,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "elder_bear_power",
@@ -827,7 +1147,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -8.8773 … 1.1087 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "≡ also registered as bear_power — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -8.8773 … 1.1087 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "elder_bull_power",
@@ -837,7 +1157,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -7.8713 … 2.6627 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "≡ also registered as bull_power — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -7.8713 … 2.6627 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "ema_cross",
@@ -875,7 +1195,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as inside_bar_fakey — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "falling_wedge",
@@ -893,7 +1213,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_p",
-      "_note": "returns TEXT. observed values: above_p | above_r1 | above_r2 | below_p | below_s1 | below_s2. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as fibonacci_pivot — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_p | above_r1 | above_r2 | below_p | below_s1 | below_s2. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "fib_time",
@@ -902,7 +1222,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "fib_zone",
-      "_note": "returns TEXT. observed values: fib_zone | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as fibonacci_time_zone — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: fib_zone | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "fibonacci",
@@ -921,7 +1241,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_p",
-      "_note": "returns TEXT. observed values: above_p | above_r1 | above_r2 | below_p | below_s1 | below_s2. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of fib_pivot — the same computation, byte for byte. Use fib_pivot; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_p | above_r1 | above_r2 | below_p | below_s1 | below_s2. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "fibonacci_time_zone",
@@ -930,7 +1250,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "fib_zone",
-      "_note": "returns TEXT. observed values: fib_zone | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of fib_time — the same computation, byte for byte. Use fib_time; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: fib_zone | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "fisher_transform",
@@ -949,7 +1269,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 1.2365 … 1.6747 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 1.2365 … 1.6799 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "fractals",
@@ -985,7 +1305,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "harami",
@@ -994,7 +1314,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "head_and_shoulders",
@@ -1022,7 +1342,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0 … 60.7215 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "≡ also registered as hv — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range 0 … 60.7215 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "horizontal_channel",
@@ -1031,7 +1351,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of rectangle — the same computation, byte for byte. Use rectangle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "hv",
@@ -1041,7 +1361,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0 … 60.7215 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "≡ ALIAS of historical_volatility — the same computation, byte for byte. Use historical_volatility; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range 0 … 60.7215 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "ib",
@@ -1050,7 +1370,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_ibh",
-      "_note": "returns TEXT. observed values: above_ibh | below_ibl | inside_ib. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as initial_balance — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_ibh | below_ibl | inside_ib. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "idnr4",
@@ -1077,7 +1397,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_ibh",
-      "_note": "returns TEXT. observed values: above_ibh | below_ibl | inside_ib. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of ib — the same computation, byte for byte. Use ib; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_ibh | below_ibl | inside_ib. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "inside_bar",
@@ -1095,7 +1415,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of fakey — the same computation, byte for byte. Use fakey; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "institutional_candle",
@@ -1149,7 +1469,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "kill_zone",
@@ -1212,7 +1532,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_poc",
-      "_note": "returns TEXT. observed values: above_poc | above_vah | at_poc | below_poc | below_val. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as tpo — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_poc | above_vah | at_poc | below_poc | below_val. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "market_structure",
@@ -1230,7 +1550,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "mass_index",
@@ -1258,7 +1578,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: active | bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of broadening_wedge — the same computation, byte for byte. Use broadening_wedge; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: active | bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "minus_di",
@@ -1268,7 +1588,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0 … 60.6274 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range 0 … 63.2251 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "momentum",
@@ -1277,7 +1597,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as momentum_trading — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "momentum_trading",
@@ -1286,7 +1606,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of momentum — the same computation, byte for byte. Use momentum; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "nr4",
@@ -1377,7 +1697,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "accumulation",
-      "_note": "returns TEXT. observed values: accumulation | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as power_of_three, amd_cycle — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: accumulation | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "poc",
@@ -1386,7 +1706,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6547 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6521 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "power_of_three",
@@ -1395,7 +1715,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "accumulation",
-      "_note": "returns TEXT. observed values: accumulation | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of po3 — the same computation, byte for byte. Use po3; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: accumulation | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ppo",
@@ -1422,7 +1742,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6519 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6512 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "rectangle",
@@ -1431,7 +1751,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as horizontal_channel — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "rising_wedge",
@@ -1450,7 +1770,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -0.4185 … 0.5242 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range -0.4131 … 0.5242 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "session",
@@ -1486,7 +1806,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "starc",
@@ -1495,7 +1815,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_upper",
-      "_note": "returns TEXT. observed values: above_upper | below_lower | lower_half | upper_half. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as starc_bands — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_upper | below_lower | lower_half | upper_half. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "starc_bands",
@@ -1504,7 +1824,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_upper",
-      "_note": "returns TEXT. observed values: above_upper | below_lower | lower_half | upper_half. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of starc — the same computation, byte for byte. Use starc; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_upper | below_lower | lower_half | upper_half. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "stc",
@@ -1549,7 +1869,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "buy_setup",
-      "_note": "returns TEXT. observed values: buy_setup | none | sell_setup. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of demark — the same computation, byte for byte. Use demark; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: buy_setup | none | sell_setup. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "three_inside",
@@ -1558,7 +1878,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "three_outside",
@@ -1567,7 +1887,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "time_analysis",
@@ -1585,7 +1905,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_poc",
-      "_note": "returns TEXT. observed values: above_poc | above_vah | at_poc | below_poc | below_val. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of market_profile — the same computation, byte for byte. Use market_profile; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_poc | above_vah | at_poc | below_poc | below_val. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "trix",
@@ -1622,7 +1942,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "MISLEADING NAME — really candle_pattern_any — returns ANY candlestick pattern the detector found. The specific name you asked for is not what it tests. ≡ ALIAS of advanced_candle — the same computation, byte for byte. Use advanced_candle; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ulcer_index",
@@ -1650,7 +1970,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6642 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6601 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "val",
@@ -1659,7 +1979,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6547 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6521 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "wolfe_waves",
@@ -1677,7 +1997,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_p",
-      "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ also registered as woodie_pivot — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "woodie_pivot",
@@ -1686,7 +2006,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "above_p",
-      "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "≡ ALIAS of woodie — the same computation, byte for byte. Use woodie; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "_section": "━━━━━━━━━━ PRICE LEVELS (15) ━━━━━━━━━━"
@@ -1709,7 +2029,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6493 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6486 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_position",
@@ -1720,7 +2040,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range -31.8182 … 118 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range -31.8182 … 115 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_upper",
@@ -1731,7 +2051,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6594 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6553 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_width",
@@ -1769,7 +2089,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
+      "_note": "≡ ALIAS of orb — the same computation, byte for byte. Use orb; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
     },
     {
       "indicator": "orb",
@@ -1778,7 +2098,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
+      "_note": "≡ also registered as opening_range_breakout — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
     },
     {
       "indicator": "pivot_point",
@@ -1846,7 +2166,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "MISLEADING NAME — really harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it. ≡ also registered as ab_cd — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "ab_cd",
@@ -1855,7 +2175,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "MISLEADING NAME — really harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it. ≡ ALIAS of 5_0 — the same computation, byte for byte. Use 5_0; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "alternate_bat",
@@ -1864,7 +2184,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "MISLEADING NAME — really harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it. ≡ ALIAS of bat — the same computation, byte for byte. Use bat; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "bat",
@@ -1873,7 +2193,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "MISLEADING NAME — really harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it. ≡ also registered as alternate_bat — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "bpr",
@@ -1927,7 +2247,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "MISLEADING NAME — really harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it. ≡ also registered as deep_crab — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "cypher",
@@ -1945,7 +2265,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish",
-      "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "MISLEADING NAME — really harmonic_pattern_any — one detector behind two different harmonic patterns. Asking for a specific one does not select it. ≡ ALIAS of crab — the same computation, byte for byte. Use crab; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "elliott_wave",
@@ -1963,7 +2283,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "active",
-      "_note": "returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "≡ also registered as equal_highs — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "eql",
@@ -1972,7 +2292,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "active",
-      "_note": "returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "≡ also registered as equal_lows — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "equal_highs",
@@ -1981,7 +2301,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "active",
-      "_note": "returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "≡ ALIAS of eqh — the same computation, byte for byte. Use eqh; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "equal_lows",
@@ -1990,7 +2310,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "active",
-      "_note": "returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
+      "_note": "≡ ALIAS of eql — the same computation, byte for byte. Use eql; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "fair_value_gap",
@@ -2120,7 +2440,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6532 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6525 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "aroon",
@@ -2130,7 +2450,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -100 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "≡ also registered as aroon_oscillator — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -100 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "aroon_down",
@@ -2150,7 +2470,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -100 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "≡ ALIAS of aroon — the same computation, byte for byte. Use aroon; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range -100 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "aroon_up",
@@ -2179,7 +2499,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "downtrend",
-      "_note": "returns TEXT. observed values: downtrend | none | sideways | uptrend. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Trend"
+      "_note": "≡ also registered as trend_following — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: downtrend | none | sideways | uptrend. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Trend"
     },
     {
       "indicator": "ema",
@@ -2189,7 +2509,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6547 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6531 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hma",
@@ -2199,7 +2519,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6518 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "≡ also registered as hull_ma — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range 0.6508 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hull_ma",
@@ -2209,7 +2529,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6518 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "≡ ALIAS of hma — the same computation, byte for byte. Use hma; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range 0.6508 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "ichimoku",
@@ -2228,7 +2548,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6558 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.653 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "linear_regression",
@@ -2238,7 +2558,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6519 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "≡ ALIAS of lsma — the same computation, byte for byte. Use lsma; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range 0.6511 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "lsma",
@@ -2248,7 +2568,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6519 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "≡ also registered as linear_regression — the SAME computation, byte for byte. Adding any of those to a strategy alongside this one adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns a NUMBER. observed range 0.6511 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "supertrend",
@@ -2288,7 +2608,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "downtrend",
-      "_note": "returns TEXT. observed values: downtrend | none | sideways | uptrend. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Trend"
+      "_note": "≡ ALIAS of dow_theory — the same computation, byte for byte. Use dow_theory; putting both in one strategy adds score without adding evidence, and does NOT add variety for the consensus multiplier. returns TEXT. observed values: downtrend | none | sideways | uptrend. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Trend"
     },
     {
       "indicator": "vortex",
@@ -2298,7 +2618,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -0.7097 … 1.0057 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range -0.7719 … 1.0057 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "vortex_minus",
@@ -2308,7 +2628,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.4999 … 1.3776 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.4999 … 1.3883 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "vortex_plus",
@@ -2318,7 +2638,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6393 … 1.5056 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.603 … 1.5056 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     }
   ]
 }
