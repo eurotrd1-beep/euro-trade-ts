@@ -98,6 +98,34 @@ export function tierFor(target: string): TierSpec {
   return { target, paid, monitoring, brief: [...audience, '', ...trigger].join('\n') };
 }
 
+/**
+ * The findings section of the reference, rendered for a prompt.
+ *
+ * Read from the file rather than restated here. The reference is generated from
+ * the engine and carries what measurement actually showed — the sweep that
+ * found no edge, the real break-even band, the sample floor. A model that only
+ * gets the catalogue writes a strategy that is syntactically perfect and then
+ * describes it as profitable, which is the one thing none of this supports.
+ *
+ * Returns '' when the reference predates these sections, so an older file still
+ * produces a working prompt instead of the string "undefined".
+ */
+export function measurementNotes(doc: Record<string, unknown>): string {
+  const found = doc['_what_measurement_showed'];
+  if (found === null || typeof found !== 'object') return '';
+
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(found as Record<string, unknown>)) {
+    if (key.startsWith('_')) continue;
+    if (value === null || typeof value !== 'object') continue;
+    const v = value as Record<string, unknown>;
+    const parts = [v['finding'], v['the_control'], v['what_to_do']]
+      .filter((x): x is string => typeof x === 'string');
+    if (parts.length > 0) lines.push(`- ${parts.join(' ')}`);
+  }
+  return lines.join('\n');
+}
+
 /** Strips the reference to what a model needs, keeping every hard fact. */
 export function compactReference(doc: Record<string, unknown>): string {
   const rules = (doc['rules'] as Array<Record<string, unknown>>).filter(
@@ -174,6 +202,14 @@ Params: period, fast, slow, smooth, stddev, value, value_min, value_max, pattern
 5. The two directions must differ by at least 4.0 after multipliers, or it is rejected as unclear.
 
 Set min_primary_score to something REACHABLE: if your primary rules total 12, do not ask for 20. Aim for roughly half to two-thirds of the total.
+
+# WHAT MEASURING THIS ENGINE ACTUALLY SHOWED
+These are results from running this engine over real market data, not opinions. Read them before you choose rules.
+${measurementNotes(reference) || '(the reference in use predates this section)'}
+
+Two things follow from the above and are not negotiable:
+- Do NOT claim the strategy will be profitable, and do NOT describe a win rate under 55.6% as good — that band is break-even after an 80-90% payout.
+- If the request cannot be expressed with the conditions this engine has, say so in the strategy name and _note fields rather than approximating it with rules that never fire.
 
 # THIS STRATEGY
 Target row: ${tier.target}
