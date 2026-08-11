@@ -2,7 +2,7 @@
   "name": "euro-trade",
   "private": true,
   "version": "1.0.0",
-  "description": "EURO TRADE \u2014 unified TypeScript monorepo (web, admin, mobile, backend).",
+  "description": "EURO TRADE — unified TypeScript monorepo (web, admin, mobile, backend).",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build:reference": "tsx scripts/build-strategy-reference.mts && node -e \"require('fs').copyFileSync('docs/strategy-reference.json','apps/web/public/strategy-reference.json')\"",
-    "check:strategies": "tsx scripts/check-live-strategies.mts"
+    "check:strategies": "tsx scripts/check-live-strategies.mts",
+    "build:engine-bundle": "node scripts/build-engine-bundle.mjs"
   }
 }
