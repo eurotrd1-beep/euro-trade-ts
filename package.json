@@ -11,6 +11,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build:reference": "tsx scripts/build-strategy-reference.mts && node -e \"require('fs').copyFileSync('docs/strategy-reference.json','apps/web/public/strategy-reference.json')\""
+    "build:reference": "tsx scripts/build-strategy-reference.mts && node -e \"require('fs').copyFileSync('docs/strategy-reference.json','apps/web/public/strategy-reference.json')\"",
+    "check:strategies": "tsx scripts/check-live-strategies.mts"
   }
 }

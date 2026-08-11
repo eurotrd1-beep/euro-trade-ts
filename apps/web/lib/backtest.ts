@@ -23,6 +23,26 @@
  *   • The proxy keeps 100 candles per pair, so a single pair yields a handful
  *     of trades — not enough to mean anything. Running the same strategy across
  *     many pairs is what turns it into a sample worth reading.
+ *
+ * ── ADDING PAIRS DOES NOT WIDEN TIME. ADDING TIMEFRAMES DOES. ──────────────
+ *
+ * Every pair is sampled at the same wall-clock moments, so ten pairs on the 1m
+ * chart is ten views of the SAME 100 minutes — three hours of the day, always
+ * the most recent three. Measured on the live proxy:
+ *
+ *     1m  × 100 →  0.1 day,   3/24 hours
+ *     5m  × 100 →  0.3 day,   9/24 hours
+ *     15m × 100 →  1.0 day,  24/24 hours
+ *     1h  ×  71 → 34.3 days, 24/24 hours
+ *
+ * This is not academic. A first pass over 1m candles reported kill_zone as
+ * "none" on all 500 evaluations and it was read as a dead filter; on a 15m+1h
+ * sample the same filter passes 39% of the time and works exactly as intended.
+ * Judging a session-based rule on a three-hour window is judging it on one
+ * session.
+ *
+ * So the report carries the coverage it actually achieved, and says plainly
+ * when a clock-dependent rule is being scored on too narrow a window.
  */
 
 import {
@@ -35,6 +55,24 @@ import { fetchCandles } from './candles';
 
 /** Indicators look back up to ~50 bars; start after that or they see noise. */
 const WARMUP = 55;
+
+/**
+ * Indicators whose answer depends on the hour or the weekday.
+ *
+ * Found two ways, and this is the union: a static scan of each registered
+ * indicator's source for `clock` / `utcHour` / `weekday`, and an empirical
+ * sweep running every indicator against seven different clocks to catch any
+ * that reach the reading through a helper. The scan found six; the sweep
+ * confirmed five of them move on the sample data — judas_swing reads the clock
+ * but happened to answer the same either way there, which is precisely why the
+ * static scan is the authority and the sweep only corroborates.
+ */
+const CLOCK_DEPENDENT = new Set([
+  'day_of_week', 'judas_swing', 'kill_zone', 'session', 'session_overlap', 'time_analysis',
+]);
+
+/** Below this the day is not represented and a session rule cannot be judged. */
+const MIN_HOURS_COVERED = 24;
 
 export interface BacktestArgs {
   strategy: DynamicStrategy;
@@ -77,6 +115,15 @@ export interface BacktestReport {
   /** Why the pyramid said no, tallied — shows what is actually gating. */
   blockedReasons: Array<{ reason: string; count: number }>;
   perPair: Array<{ symbol: string; trades: number; wins: number; losses: number }>;
+  /** What window the sample actually spanned. */
+  coverage: {
+    /** Distinct UTC hours seen, out of 24. */
+    hours: number;
+    /** Distinct calendar days seen. */
+    days: number;
+    /** Clock-dependent rules in this strategy that the window cannot judge. */
+    unjudgeable: string[];
+  };
   warnings: string[];
 }
 
@@ -105,6 +152,11 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   let evaluated = 0;
   let pairsUsed = 0;
 
+  // Coverage is measured from the candles themselves, not assumed from the
+  // timeframe — a pair with a gap in its history covers less than it looks.
+  const hoursSeen = new Set<number>();
+  const daysSeen = new Set<string>();
+
   for (const [n, symbol] of symbols.entries()) {
     onProgress?.(n, symbols.length);
 
@@ -120,6 +172,12 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       continue;
     }
     pairsUsed++;
+
+    for (const candle of candles) {
+      const d = new Date(candle.time);
+      hoursSeen.add(d.getUTCHours());
+      daysSeen.add(d.toISOString().slice(0, 10));
+    }
 
     let pairTrades = 0;
     let pairWins = 0;
@@ -186,6 +244,27 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
 
   onProgress?.(symbols.length, symbols.length);
 
+  // Which clock-dependent rules is this window unable to judge?
+  const unjudgeable = [
+    ...new Set(
+      strategy.rules
+        .filter((r) => r.enabled && CLOCK_DEPENDENT.has(r.indicator))
+        .map((r) => r.indicator),
+    ),
+  ];
+
+  if (hoursSeen.size < MIN_HOURS_COVERED) {
+    warnings.push(
+      `⚠️ العينة تغطي ${hoursSeen.size} ساعة فقط من 24 (${daysSeen.size} يوم) — ` +
+        (unjudgeable.length > 0
+          ? `والاستراتيجية فيها ${unjudgeable.join(' و ')}. نتيجتهم غير موثوقة على النافذة دي.`
+          : 'المؤشرات الزمنية (kill_zone / session / session_overlap / judas_swing / day_of_week / time_analysis) نتائجها غير موثوقة على نافذة بالضيق ده.'),
+    );
+    warnings.push(
+      'وسّع النافذة بتغيير الفريم (15m يغطّي يوم كامل، 1h يغطّي شهر) — زيادة الأزواج مش بتوسّع الزمن، كلهم بيتسجّلوا في نفس اللحظات.',
+    );
+  }
+
   const wins = trades.filter((t) => t.outcome === 'WIN').length;
   const losses = trades.filter((t) => t.outcome === 'LOSS').length;
   const ties = trades.filter((t) => t.outcome === 'TIE').length;
@@ -208,6 +287,7 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5),
     perPair: perPair.sort((a, b) => b.trades - a.trades),
+    coverage: { hours: hoursSeen.size, days: daysSeen.size, unjudgeable },
     warnings,
   };
 }

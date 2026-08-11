@@ -700,9 +700,23 @@ function BacktestPanel({ report, horizon }: { report: BacktestReport; horizon: n
         </div>
       </div>
 
+      {report.coverage.hours < 24 && (
+        <p className={styles.warn}>
+          {report.warnings.filter((w) => w.startsWith('⚠️')).join(' ')}
+          {report.warnings.length > 1 && (
+            <>
+              <br />
+              {report.warnings[report.warnings.length - 1]}
+            </>
+          )}
+        </p>
+      )}
+
       <p className={styles.switchHint}>
         اتجرّبت على <strong>{report.evaluated.toLocaleString('en-US')}</strong> شمعة من{' '}
-        <strong>{report.pairsUsed}</strong> زوج، بدخول على الإشارة وخروج بعد{' '}
+        <strong>{report.pairsUsed}</strong> زوج، بتغطية{' '}
+        <strong>{report.coverage.hours}/24</strong> ساعة على{' '}
+        <strong>{report.coverage.days}</strong> يوم، بدخول على الإشارة وخروج بعد{' '}
         <strong>{horizon}</strong> شمعة بالظبط.
         {' '}بتصدر إشارة على {report.signalsPer100.toFixed(1)}% من الشموع.
         {ci && (
