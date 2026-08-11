@@ -68,9 +68,14 @@ REVOKE ALL ON public.price_snapshot FROM anon, authenticated;
 GRANT ALL ON public.price_snapshot TO service_role;
 
 -- نقل آخر قيمة معروفة، عشان أول إقلاع للبروكسي الجديد ميلاقيش الجدول فاضي.
-INSERT INTO public.price_snapshot (id, data)
-SELECT 'otc_prices', c.data FROM public.configs c WHERE c.id = 'otc_prices'
-ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = now();
+--
+-- `updated_at` بيتحط 'epoch' عن قصد، مش now(). البذرة دي مش كتابة من البروكسي،
+-- ولو ختمناها بوقت طازة يبقى استعلام التحقّق تحت مبيقدرش يفرّق بين "البروكسي
+-- شغّال" و"لسه شغّلت الـ migration" — وده اللي حصل فعلاً: الفحص رجّع
+-- symbols=183 و age=14s والبروكسي مكانش مرفوع أصلاً. فحص مبيقدرش يفشل مش فحص.
+INSERT INTO public.price_snapshot (id, data, updated_at)
+SELECT 'otc_prices', c.data, 'epoch' FROM public.configs c WHERE c.id = 'otc_prices'
+ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = 'epoch';
 
 COMMIT;
 
