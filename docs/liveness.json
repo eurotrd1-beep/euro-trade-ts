@@ -2,14 +2,14 @@
   "coverage": {
     "symbolsInSystem": 183,
     "windowsFetched": 502,
-    "contiguousSegments": 405,
-    "gapsFound": 10,
-    "barsDiscardedAsTooShort": 10550,
-    "barsUsed": 33501,
+    "contiguousSegments": 422,
+    "gapsFound": 26,
+    "barsDiscardedAsTooShort": 10068,
+    "barsUsed": 34116,
     "hoursCovered": "24/24",
     "distinctDays": 4,
     "contiguousDaysNote": "أطول امتداد متصل ~3.2 يوم. عدد التقييمات كبير، لكن التغطية الزمنية ليست كذلك — كل الأزواج تُسجَّل في نفس اللحظات.",
-    "evaluationsPerIndicator": 10744
+    "evaluationsPerIndicator": 10756
   },
   "verdicts": [
     {
@@ -22,8 +22,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 8.302308265078183,
+      "evaluations": 10756,
+      "movementRate": 8.255857195983637,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -39,8 +39,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 8.302308265078183,
+      "evaluations": 10756,
+      "movementRate": 8.255857195983637,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -61,8 +61,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -72,7 +72,7 @@
       "name": "ac",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 8880,
+      "distinctValues": 8833,
       "values": [
         "0",
         "0.12542412",
@@ -83,8 +83,8 @@
         "-0.24303765",
         "-0.47672"
       ],
-      "evaluations": 10744,
-      "movementRate": 84.57743857036486,
+      "evaluations": 10756,
+      "movementRate": 83.93454815916698,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -94,7 +94,7 @@
       "name": "accelerator_oscillator",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 8880,
+      "distinctValues": 8833,
       "values": [
         "0",
         "0.12542412",
@@ -105,8 +105,8 @@
         "-0.24303765",
         "-0.47672"
       ],
-      "evaluations": 10744,
-      "movementRate": 84.57743857036486,
+      "evaluations": 10756,
+      "movementRate": 83.93454815916698,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -121,62 +121,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.8521965748324647,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "ad_line",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "advance_decline",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "advance_decline_line",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 1.6084046113796953,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -197,8 +143,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -208,7 +154,7 @@
       "name": "adx",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10239,
+      "distinctValues": 10220,
       "values": [
         "21.83206107",
         "41.83692954",
@@ -219,8 +165,8 @@
         "85.96303241",
         "80.74944893"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.77661950856292,
+      "evaluations": 10756,
+      "movementRate": 99.73968017850503,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -236,8 +182,8 @@
         "bearish",
         "sleeping"
       ],
-      "evaluations": 10744,
-      "movementRate": 56.18950111690245,
+      "evaluations": 10756,
+      "movementRate": 56.24767571587951,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -247,7 +193,7 @@
       "name": "alma",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10634,
+      "distinctValues": 10641,
       "values": [
         "175.58278921",
         "175.96524691",
@@ -258,8 +204,8 @@
         "177.76749076",
         "178.1225179"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.79523454951601,
+      "evaluations": 10756,
+      "movementRate": 99.84194867980662,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -275,8 +221,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.0331347728965004,
+      "evaluations": 10756,
+      "movementRate": 1.0412792859799183,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -293,8 +239,8 @@
         "accumulation",
         "distribution_bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.3682055100521222,
+      "evaluations": 10756,
+      "movementRate": 1.338787653402752,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -310,8 +256,8 @@
         "below",
         "at"
       ],
-      "evaluations": 10744,
-      "movementRate": 62.7885331347729,
+      "evaluations": 10756,
+      "movementRate": 62.309408702119754,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -327,8 +273,8 @@
         "anomaly_up",
         "anomaly_down"
       ],
-      "evaluations": 10744,
-      "movementRate": 2.708488458674609,
+      "evaluations": 10756,
+      "movementRate": 2.677575306805504,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -338,7 +284,7 @@
       "name": "ao",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 9759,
+      "distinctValues": 9741,
       "values": [
         "0",
         "0.76910882",
@@ -349,30 +295,12 @@
         "1.67974118",
         "1.61338529"
       ],
-      "evaluations": 10744,
-      "movementRate": 92.32129560685034,
+      "evaluations": 10756,
+      "movementRate": 92.00446262551134,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "arms_index",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "aroon",
@@ -389,8 +317,8 @@
         "69.23076923",
         "46.15384615"
       ],
-      "evaluations": 10744,
-      "movementRate": 94.51787043931496,
+      "evaluations": 10756,
+      "movementRate": 94.32874674600224,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -411,8 +339,8 @@
         "92.30769231",
         "76.92307692"
       ],
-      "evaluations": 10744,
-      "movementRate": 82.2319434102755,
+      "evaluations": 10756,
+      "movementRate": 82.3447378207512,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -433,8 +361,8 @@
         "69.23076923",
         "46.15384615"
       ],
-      "evaluations": 10744,
-      "movementRate": 94.51787043931496,
+      "evaluations": 10756,
+      "movementRate": 94.32874674600224,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -455,8 +383,8 @@
         "23.07692308",
         "7.69230769"
       ],
-      "evaluations": 10744,
-      "movementRate": 82.39017125837677,
+      "evaluations": 10756,
+      "movementRate": 82.53068055039049,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -471,26 +399,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 3.434475055845123,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "astro",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 3.300483451097062,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -500,7 +410,7 @@
       "name": "atr",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 9176,
+      "distinctValues": 9187,
       "values": [
         "0.79728571",
         "0.80357143",
@@ -511,36 +421,18 @@
         "0.71128571",
         "0.67757143"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.57185405807893,
+      "evaluations": 10756,
+      "movementRate": 99.58162885831165,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "autoencoder",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "awesome_oscillator",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 9759,
+      "distinctValues": 9741,
       "values": [
         "0",
         "0.76910882",
@@ -551,8 +443,8 @@
         "1.67974118",
         "1.61338529"
       ],
-      "evaluations": 10744,
-      "movementRate": 92.32129560685034,
+      "evaluations": 10756,
+      "movementRate": 92.00446262551134,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -568,26 +460,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.0331347728965004,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "bayesian_networks",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 1.0412792859799183,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -597,7 +471,7 @@
       "name": "bb_lower",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10641,
+      "distinctValues": 10650,
       "values": [
         "174.48743732",
         "174.41409321",
@@ -608,8 +482,8 @@
         "175.62373348",
         "176.15739535"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.86969471332837,
+      "evaluations": 10756,
+      "movementRate": 99.87913722573447,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -619,7 +493,7 @@
       "name": "bb_position",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10743,
+      "distinctValues": 10755,
       "values": [
         "67.72404754",
         "96.9769187",
@@ -630,8 +504,8 @@
         "96.18828007",
         "89.21517562"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -641,7 +515,7 @@
       "name": "bb_upper",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10623,
+      "distinctValues": 10636,
       "values": [
         "176.50527696",
         "177.00533536",
@@ -652,8 +526,8 @@
         "178.59526652",
         "178.79103322"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.79523454951601,
+      "evaluations": 10756,
+      "movementRate": 99.76757158795091,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -663,7 +537,7 @@
       "name": "bb_width",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10621,
+      "distinctValues": 10632,
       "values": [
         "2.01783964",
         "2.59124214",
@@ -674,35 +548,18 @@
         "2.97153303",
         "2.63363787"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.86969471332837,
+      "evaluations": 10756,
+      "movementRate": 99.85124581628858,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "bear_flag",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "bear_power",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10529,
+      "distinctValues": 10546,
       "values": [
         "0.15868545",
         "0.5398704",
@@ -713,8 +570,8 @@
         "0.64515844",
         "0.40684345"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.81384959046909,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -735,8 +592,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -746,7 +603,7 @@
       "name": "bop",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 8817,
+      "distinctValues": 8874,
       "values": [
         "0",
         "0.61550152",
@@ -757,30 +614,12 @@
         "0.63210702",
         "0.28591549"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.50670141474312,
+      "evaluations": 10756,
+      "movementRate": 99.47006322052808,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "bpi",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "bpr",
@@ -791,26 +630,8 @@
         "active",
         "none"
       ],
-      "evaluations": 10744,
-      "movementRate": 12.313849590469099,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "breadth_thrust",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 12.411677203421347,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -826,8 +647,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 25.4746835443038,
+      "evaluations": 10756,
+      "movementRate": 25.23242841204909,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -843,8 +664,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 58.40469099032018,
+      "evaluations": 10756,
+      "movementRate": 57.86537746374116,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -860,8 +681,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 29.56999255398362,
+      "evaluations": 10756,
+      "movementRate": 29.118631461509853,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -878,25 +699,8 @@
         "active",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 17.68428890543559,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "bull_flag",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 17.562290814429154,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -906,7 +710,7 @@
       "name": "bull_power",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10541,
+      "distinctValues": 10550,
       "values": [
         "0.90068545",
         "1.1978704",
@@ -917,30 +721,12 @@
         "1.54215844",
         "1.11684345"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.8324646314222,
+      "evaluations": 10756,
+      "movementRate": 99.8233544068427,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "bullish_percent_index",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "bump_and_run",
@@ -952,8 +738,8 @@
         "bullish_run",
         "bearish_run"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.12099776619508562,
+      "evaluations": 10756,
+      "movementRate": 0.13015991074748978,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -969,8 +755,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.4054355919583024,
+      "evaluations": 10756,
+      "movementRate": 1.3201933804388248,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -988,8 +774,8 @@
         "above_h4",
         "below_l3"
       ],
-      "evaluations": 10744,
-      "movementRate": 67.82390171258376,
+      "evaluations": 10756,
+      "movementRate": 67.49721085905541,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1007,8 +793,8 @@
         "above_h4",
         "below_l3"
       ],
-      "evaluations": 10744,
-      "movementRate": 67.82390171258376,
+      "evaluations": 10756,
+      "movementRate": 67.49721085905541,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1029,8 +815,8 @@
         "morning_star",
         "shooting_star"
       ],
-      "evaluations": 10744,
-      "movementRate": 59.2144452717796,
+      "evaluations": 10756,
+      "movementRate": 58.2651543324656,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1040,7 +826,7 @@
       "name": "cci",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10739,
+      "distinctValues": 10754,
       "values": [
         "91.27485724",
         "149.96127993",
@@ -1051,8 +837,8 @@
         "146.00749645",
         "112.32288181"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1068,8 +854,8 @@
         "bearish_ce",
         "bullish_ce"
       ],
-      "evaluations": 10744,
-      "movementRate": 11.29932985852569,
+      "evaluations": 10756,
+      "movementRate": 11.072889550018594,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1079,7 +865,7 @@
       "name": "chaikin_volatility",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10744,
+      "distinctValues": 10756,
       "values": [
         "2.62529738",
         "4.63366996",
@@ -1090,8 +876,8 @@
         "-13.32470185",
         "-17.66458258"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.99069247952346,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1107,8 +893,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 55.37043931496649,
+      "evaluations": 10756,
+      "movementRate": 55.93157307549275,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1124,8 +910,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 15.45048399106478,
+      "evaluations": 10756,
+      "movementRate": 15.572703607288954,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1140,8 +926,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 30.137751303052866,
+      "evaluations": 10756,
+      "movementRate": 29.741539605801414,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1156,8 +942,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 30.40766939687267,
+      "evaluations": 10756,
+      "movementRate": 30.51320193380439,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1173,8 +959,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 3.248324646314222,
+      "evaluations": 10756,
+      "movementRate": 3.133134994421718,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1190,60 +976,18 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 55.37043931496649,
+      "evaluations": 10756,
+      "movementRate": 55.93157307549275,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": false
-    },
-    {
-      "name": "clustering_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "cmf",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10744,
-      "values": [
-        "0.13481018",
-        "0.2264379",
-        "0.23862783",
-        "0.16758398",
-        "0.14617464",
-        "0.22345618",
-        "0.29213851",
-        "0.34755063"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.99069247952346,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
     },
     {
       "name": "cmo",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10449,
+      "distinctValues": 10455,
       "values": [
         "8.30893119",
         "26.9121813",
@@ -1254,72 +998,18 @@
         "70.11298231",
         "60.06339144"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.88830975428145,
+      "evaluations": 10756,
+      "movementRate": 99.8977314986984,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "cnn_pattern",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "cointegration_spread_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "commitment_of_traders",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "connors_rsi",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 7161,
+      "distinctValues": 7210,
       "values": [
         "83.33333333",
         "43.54413702",
@@ -1330,8 +1020,8 @@
         "77.06167706",
         "20.79823506"
       ],
-      "evaluations": 10744,
-      "movementRate": 86.99739389426657,
+      "evaluations": 10756,
+      "movementRate": 87.09557456303459,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1347,26 +1037,8 @@
         "bearish_ce",
         "bullish_ce"
       ],
-      "evaluations": 10744,
-      "movementRate": 11.29932985852569,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "cot_report",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 11.072889550018594,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1382,8 +1054,8 @@
         "below_cpr",
         "inside_cpr"
       ],
-      "evaluations": 10744,
-      "movementRate": 54.52345495160089,
+      "evaluations": 10756,
+      "movementRate": 54.57419114912607,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1399,45 +1071,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 2.5688756515264335,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "cross_asset_flow_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "cumulative_volume_delta",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 3,
-      "values": [
-        "positive",
-        "neutral",
-        "negative"
-      ],
-      "evaluations": 10744,
-      "movementRate": 61.05733432613552,
+      "evaluations": 10756,
+      "movementRate": 2.5195239866121235,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1452,27 +1087,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.5305286671630678,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "cvd",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 3,
-      "values": [
-        "positive",
-        "neutral",
-        "negative"
-      ],
-      "evaluations": 10744,
-      "movementRate": 61.05733432613552,
+      "evaluations": 10756,
+      "movementRate": 0.6415024172554853,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1488,8 +1104,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.7498138495904692,
+      "evaluations": 10756,
+      "movementRate": 1.757158795091112,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1505,8 +1121,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 37.45346239761728,
+      "evaluations": 10756,
+      "movementRate": 37.01190033469691,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1522,26 +1138,8 @@
         "monday",
         "tuesday"
       ],
-      "evaluations": 10744,
-      "movementRate": 52.73641102010424,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "dealer_positioning_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 49.92562290814429,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1557,8 +1155,8 @@
         "premium",
         "discount"
       ],
-      "evaluations": 10744,
-      "movementRate": 59.67982129560685,
+      "evaluations": 10756,
+      "movementRate": 59.845667534399404,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1574,44 +1172,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 2.5688756515264335,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "deep_learning_pattern_recognition",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "delta_exposure",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 2.5195239866121235,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1621,7 +1183,7 @@
       "name": "dema",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10621,
+      "distinctValues": 10630,
       "values": [
         "175.57730082",
         "175.65444954",
@@ -1632,8 +1194,8 @@
         "176.71775494",
         "177.009416"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.77661950856292,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1649,8 +1211,8 @@
         "buy_setup",
         "sell_setup"
       ],
-      "evaluations": 10744,
-      "movementRate": 12.27661950856292,
+      "evaluations": 10756,
+      "movementRate": 12.05838601710673,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1667,8 +1229,8 @@
         "above_r1",
         "below_p"
       ],
-      "evaluations": 10744,
-      "movementRate": 73.06403574087864,
+      "evaluations": 10756,
+      "movementRate": 73.05689847526962,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1685,8 +1247,8 @@
         "above_r1",
         "below_p"
       ],
-      "evaluations": 10744,
-      "movementRate": 73.06403574087864,
+      "evaluations": 10756,
+      "movementRate": 73.05689847526962,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1701,8 +1263,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 3.322784810126582,
+      "evaluations": 10756,
+      "movementRate": 3.4120490888806247,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1718,8 +1280,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.4467609828741623,
+      "evaluations": 10756,
+      "movementRate": 0.4834510970621049,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1735,8 +1297,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.4467609828741623,
+      "evaluations": 10756,
+      "movementRate": 0.4834510970621049,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1751,8 +1313,8 @@
         "none",
         "discount"
       ],
-      "evaluations": 10744,
-      "movementRate": 40.13402829486225,
+      "evaluations": 10756,
+      "movementRate": 40.154332465600596,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1767,8 +1329,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.7218912881608337,
+      "evaluations": 10756,
+      "movementRate": 1.5154332465600595,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1784,8 +1346,8 @@
         "0",
         "1"
       ],
-      "evaluations": 10744,
-      "movementRate": 16.744229337304542,
+      "evaluations": 10756,
+      "movementRate": 16.660468575678692,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1806,26 +1368,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "dom",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1841,8 +1385,8 @@
         "at_upper",
         "at_lower"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.2937453462397617,
+      "evaluations": 10756,
+      "movementRate": 1.236519152101153,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1857,8 +1401,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 7.59493670886076,
+      "evaluations": 10756,
+      "movementRate": 7.577166232800297,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1873,8 +1417,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 5.724125093075204,
+      "evaluations": 10756,
+      "movementRate": 5.773521755299368,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1891,8 +1435,8 @@
         "downtrend",
         "none"
       ],
-      "evaluations": 10744,
-      "movementRate": 63.7192851824274,
+      "evaluations": 10756,
+      "movementRate": 63.46225362588322,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1902,7 +1446,7 @@
       "name": "dpo",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 9728,
+      "distinctValues": 9751,
       "values": [
         "-0.26657143",
         "-0.00157143",
@@ -1913,8 +1457,8 @@
         "0.83107143",
         "0.695"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.82315711094564,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -1935,68 +1479,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "dxy",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "ease_of_movement",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10386,
-      "values": [
-        "3249.61428571",
-        "9007.95",
-        "11009.45714286",
-        "8142.93214286",
-        "6395.35357143",
-        "7713.12142857",
-        "17399.80714286",
-        "10985.78928571"
-      ],
-      "evaluations": 10744,
-      "movementRate": 97.94303797468355,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "economic_calendar_impact_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2006,7 +1490,7 @@
       "name": "elder_bear_power",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10529,
+      "distinctValues": 10546,
       "values": [
         "0.15868545",
         "0.5398704",
@@ -2017,8 +1501,8 @@
         "0.64515844",
         "0.40684345"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.81384959046909,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2028,7 +1512,7 @@
       "name": "elder_bull_power",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10541,
+      "distinctValues": 10550,
       "values": [
         "0.90068545",
         "1.1978704",
@@ -2039,32 +1523,8 @@
         "1.54215844",
         "1.11684345"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.8324646314222,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "elder_force_index",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 4604,
-      "values": [
-        "6",
-        "408",
-        "-41",
-        "37",
-        "-534",
-        "292",
-        "575",
-        "206"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.53462397617274,
+      "evaluations": 10756,
+      "movementRate": 99.8233544068427,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2080,8 +1540,8 @@
         "bullish",
         "none"
       ],
-      "evaluations": 10744,
-      "movementRate": 26.3216679076694,
+      "evaluations": 10756,
+      "movementRate": 26.450353291186314,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2091,7 +1551,7 @@
       "name": "ema",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10626,
+      "distinctValues": 10640,
       "values": [
         "175.61331455",
         "175.8931296",
@@ -2102,8 +1562,8 @@
         "177.22884156",
         "177.52315655"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.74869694713328,
+      "evaluations": 10756,
+      "movementRate": 99.76757158795091,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2124,32 +1584,8 @@
         "0.67057549",
         "0.7124439"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.63700670141475,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "emv",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10386,
-      "values": [
-        "3249.61428571",
-        "9007.95",
-        "11009.45714286",
-        "8142.93214286",
-        "6395.35357143",
-        "7713.12142857",
-        "17399.80714286",
-        "10985.78928571"
-      ],
-      "evaluations": 10744,
-      "movementRate": 97.94303797468355,
+      "evaluations": 10756,
+      "movementRate": 99.64670881368538,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2165,8 +1601,8 @@
         "low_entropy",
         "high_entropy"
       ],
-      "evaluations": 10744,
-      "movementRate": 22.17982129560685,
+      "evaluations": 10756,
+      "movementRate": 22.303830420230568,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2181,8 +1617,8 @@
         "none",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 25.79113924050633,
+      "evaluations": 10756,
+      "movementRate": 25.632205280773523,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2197,8 +1633,8 @@
         "none",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 24.46947133283693,
+      "evaluations": 10756,
+      "movementRate": 24.36779471922648,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2213,8 +1649,8 @@
         "none",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 25.79113924050633,
+      "evaluations": 10756,
+      "movementRate": 25.632205280773523,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2229,44 +1665,8 @@
         "none",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 24.46947133283693,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "exchange_netflow",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "exchange_reserves",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 24.36779471922648,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2282,8 +1682,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.144825018615041,
+      "evaluations": 10756,
+      "movementRate": 1.1435477872815174,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2299,8 +1699,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 55.51005212211467,
+      "evaluations": 10756,
+      "movementRate": 55.04834510970621,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2316,8 +1716,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 41.37192851824274,
+      "evaluations": 10756,
+      "movementRate": 40.72145779100037,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2333,8 +1733,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 3.620625465376024,
+      "evaluations": 10756,
+      "movementRate": 3.6630717738936407,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2349,8 +1749,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 4.635145197319434,
+      "evaluations": 10756,
+      "movementRate": 4.555596876162142,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2369,8 +1769,8 @@
         "below_s2",
         "below_s1"
       ],
-      "evaluations": 10744,
-      "movementRate": 79.58860759493672,
+      "evaluations": 10756,
+      "movementRate": 79.52770546671624,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2385,8 +1785,8 @@
         "none",
         "fib_zone"
       ],
-      "evaluations": 10744,
-      "movementRate": 10.54542069992554,
+      "evaluations": 10756,
+      "movementRate": 10.524358497582744,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2402,8 +1802,8 @@
         "bullish_rejection",
         "bearish_rejection"
       ],
-      "evaluations": 10744,
-      "movementRate": 7.771779597915115,
+      "evaluations": 10756,
+      "movementRate": 7.958348828560803,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2422,8 +1822,8 @@
         "below_s2",
         "below_s1"
       ],
-      "evaluations": 10744,
-      "movementRate": 79.58860759493672,
+      "evaluations": 10756,
+      "movementRate": 79.52770546671624,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2438,8 +1838,8 @@
         "none",
         "fib_zone"
       ],
-      "evaluations": 10744,
-      "movementRate": 10.54542069992554,
+      "evaluations": 10756,
+      "movementRate": 10.524358497582744,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2449,7 +1849,7 @@
       "name": "fisher_transform",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 9651,
+      "distinctValues": 9698,
       "values": [
         "0.26423693",
         "1.35483745",
@@ -2460,36 +1860,18 @@
         "1.25187948",
         "1.19808601"
       ],
-      "evaluations": 10744,
-      "movementRate": 95.55100521221146,
+      "evaluations": 10756,
+      "movementRate": 95.58386017106731,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "footprint",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "fractal_dimension",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10740,
+      "distinctValues": 10754,
       "values": [
         "1.51755411",
         "1.4865866",
@@ -2500,8 +1882,8 @@
         "1.45833537",
         "1.45540012"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2517,44 +1899,8 @@
         "none",
         "bearish_fractal"
       ],
-      "evaluations": 10744,
-      "movementRate": 24.646314221891288,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "funding_rate_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "gamma_exposure",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 24.47936035701004,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2570,8 +1916,8 @@
         "bearish",
         "equilibrium"
       ],
-      "evaluations": 10744,
-      "movementRate": 57.69731943410276,
+      "evaluations": 10756,
+      "movementRate": 58.03272592041652,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2587,8 +1933,8 @@
         "none",
         "on_1x1"
       ],
-      "evaluations": 10744,
-      "movementRate": 40.09679821295607,
+      "evaluations": 10756,
+      "movementRate": 40.18222387504649,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2604,62 +1950,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.0331347728965004,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "gaussian_process_regression",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "gold_ratio",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "gradient_boosting",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 0.9761993306061734,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2680,8 +1972,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2702,26 +1994,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "hash_rate",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2736,8 +2010,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.7032762472077438,
+      "evaluations": 10756,
+      "movementRate": 1.7199702491632576,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2755,44 +2029,8 @@
         "strong_bullish",
         "none"
       ],
-      "evaluations": 10744,
-      "movementRate": 52.69918093819806,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "hidden_liquidity_models",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "hidden_markov_models",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 53.00297508367423,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2802,7 +2040,7 @@
       "name": "historical_volatility",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10743,
+      "distinctValues": 10756,
       "values": [
         "4.62504503",
         "4.86190385",
@@ -2813,8 +2051,8 @@
         "3.27670929",
         "3.1969248"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2824,7 +2062,7 @@
       "name": "hma",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10639,
+      "distinctValues": 10647,
       "values": [
         "175.62763333",
         "176.34133333",
@@ -2835,8 +2073,8 @@
         "178.31350476",
         "178.6087381"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.86038719285183,
+      "evaluations": 10756,
+      "movementRate": 99.85124581628858,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2852,8 +2090,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 9.623976172747579,
+      "evaluations": 10756,
+      "movementRate": 9.483079211602826,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2863,7 +2101,7 @@
       "name": "hull_ma",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10639,
+      "distinctValues": 10647,
       "values": [
         "175.62763333",
         "176.34133333",
@@ -2874,8 +2112,8 @@
         "178.31350476",
         "178.6087381"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.86038719285183,
+      "evaluations": 10756,
+      "movementRate": 99.85124581628858,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2885,7 +2123,7 @@
       "name": "hurst_exponent",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10740,
+      "distinctValues": 10754,
       "values": [
         "0.48244589",
         "0.5134134",
@@ -2896,8 +2134,8 @@
         "0.54166463",
         "0.54459988"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2907,7 +2145,7 @@
       "name": "hv",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10743,
+      "distinctValues": 10756,
       "values": [
         "4.62504503",
         "4.86190385",
@@ -2918,8 +2156,8 @@
         "3.27670929",
         "3.1969248"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2935,44 +2173,8 @@
         "inside_ib",
         "below_ibl"
       ],
-      "evaluations": 10744,
-      "movementRate": 54.89575577066269,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "ica",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "iceberg_orders",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 55.02045370026032,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -2991,8 +2193,8 @@
         "strong_bullish",
         "in_cloud"
       ],
-      "evaluations": 10744,
-      "movementRate": 59.39128816083395,
+      "evaluations": 10756,
+      "movementRate": 58.77649683897359,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3007,8 +2209,8 @@
         "none",
         "idnr4"
       ],
-      "evaluations": 10744,
-      "movementRate": 6.263961280714818,
+      "evaluations": 10756,
+      "movementRate": 5.940870211974712,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3024,8 +2226,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 41.37192851824274,
+      "evaluations": 10756,
+      "movementRate": 40.72145779100037,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3041,8 +2243,8 @@
         "none",
         "inducement_low"
       ],
-      "evaluations": 10744,
-      "movementRate": 37.26731198808637,
+      "evaluations": 10756,
+      "movementRate": 37.23503161026404,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3058,8 +2260,8 @@
         "inside_ib",
         "below_ibl"
       ],
-      "evaluations": 10744,
-      "movementRate": 54.89575577066269,
+      "evaluations": 10756,
+      "movementRate": 55.02045370026032,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3075,8 +2277,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 10.201042442293373,
+      "evaluations": 10756,
+      "movementRate": 10.096690219412421,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3092,8 +2294,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 3.620625465376024,
+      "evaluations": 10756,
+      "movementRate": 3.6630717738936407,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3109,26 +2311,8 @@
         "bullish_institutional",
         "bearish_institutional"
       ],
-      "evaluations": 10744,
-      "movementRate": 4.942293373045421,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "intermarket",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 4.843808107103012,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3144,8 +2328,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 35.57334326135517,
+      "evaluations": 10756,
+      "movementRate": 35.366307177389366,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3161,8 +2345,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 30.99404318689501,
+      "evaluations": 10756,
+      "movementRate": 30.903681666046857,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3177,25 +2361,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.6846612062546538,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "island_reversal",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 1.6827817032354035,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3211,26 +2378,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 3.87192851824274,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "kalman_filter",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 4.750836742283377,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3240,7 +2389,7 @@
       "name": "kama",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10636,
+      "distinctValues": 10646,
       "values": [
         "175.4056203",
         "175.39889662",
@@ -3251,29 +2400,12 @@
         "176.99717395",
         "177.59637451"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.8324646314222,
+      "evaluations": 10756,
+      "movementRate": 99.83265154332466,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "kelly_criterion",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "keltner_channel",
@@ -3286,8 +2418,8 @@
         "lower_half",
         "below_lower"
       ],
-      "evaluations": 10744,
-      "movementRate": 57.45532390171258,
+      "evaluations": 10756,
+      "movementRate": 57.36333209371514,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3308,8 +2440,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3326,66 +2458,18 @@
         "newyork_killzone",
         "asian_killzone"
       ],
-      "evaluations": 10744,
-      "movementRate": 23.901712583767683,
+      "evaluations": 10756,
+      "movementRate": 28.783934548159166,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": false
     },
     {
-      "name": "klinger",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 32,
-      "values": [
-        "42.85714286",
-        "85.71428571",
-        "128.57142857",
-        "0",
-        "171.42857143",
-        "-42.85714286",
-        "-85.71428571",
-        "-128.57142857"
-      ],
-      "evaluations": 10744,
-      "movementRate": 89.64072970960537,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "klinger_oscillator",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 32,
-      "values": [
-        "42.85714286",
-        "85.71428571",
-        "128.57142857",
-        "0",
-        "171.42857143",
-        "-42.85714286",
-        "-85.71428571",
-        "-128.57142857"
-      ],
-      "evaluations": 10744,
-      "movementRate": 89.64072970960537,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
       "name": "kst",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10744,
+      "distinctValues": 10756,
       "values": [
         "1.78515191",
         "9.67237493",
@@ -3396,36 +2480,18 @@
         "13.12738758",
         "12.27145379"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.99069247952346,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "latency_arbitrage_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "linear_regression",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10630,
+      "distinctValues": 10643,
       "values": [
         "175.83131429",
         "176.34942857",
@@ -3436,85 +2502,8 @@
         "178.24262857",
         "178.47871429"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.85107967237528,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "liquidation_heatmap_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "liquidity",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "liquidity_heatmaps",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "liquidity_score",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10482,
-      "values": [
-        "88.80655629",
-        "73.5762963",
-        "68.92552999",
-        "71.58815863",
-        "81.9706098",
-        "93.07642903",
-        "69.0700944",
-        "87.01243938"
-      ],
-      "evaluations": 10744,
-      "movementRate": 98.32464631422188,
+      "evaluations": 10756,
+      "movementRate": 99.86984008925252,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3530,8 +2519,8 @@
         "buy_side",
         "sell_side"
       ],
-      "evaluations": 10744,
-      "movementRate": 25.61429635145197,
+      "evaluations": 10756,
+      "movementRate": 25.827445146894757,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3541,31 +2530,14 @@
       "name": "liquidity_voids",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 2,
+      "distinctValues": 3,
       "values": [
         "none",
-        "bullish"
+        "bullish",
+        "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.13961280714817573,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "long_short_ratio_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 0.13945704722945332,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3575,7 +2547,7 @@
       "name": "lsma",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10630,
+      "distinctValues": 10643,
       "values": [
         "175.83131429",
         "176.34942857",
@@ -3586,54 +2558,18 @@
         "178.24262857",
         "178.47871429"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.85107967237528,
+      "evaluations": 10756,
+      "movementRate": 99.86984008925252,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "lstm",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "lunar_cycle",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "macd_histogram",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10464,
+      "distinctValues": 10470,
       "values": [
         "0.09236579",
         "0.31901509",
@@ -3644,8 +2580,8 @@
         "0.15327078",
         "0.00977698"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.59977661950856,
+      "evaluations": 10756,
+      "movementRate": 99.60952026775753,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3655,7 +2591,7 @@
       "name": "macd_line",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10496,
+      "distinctValues": 10502,
       "values": [
         "0.03177492",
         "0.1854574",
@@ -3666,8 +2602,8 @@
         "0.6332138",
         "0.69299707"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.6276991809382,
+      "evaluations": 10756,
+      "movementRate": 99.6931944960952,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3677,7 +2613,7 @@
       "name": "macd_signal",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10516,
+      "distinctValues": 10536,
       "values": [
         "-0.06059087",
         "-0.13355769",
@@ -3688,30 +2624,12 @@
         "0.47994302",
         "0.68322009"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.74869694713328,
+      "evaluations": 10756,
+      "movementRate": 99.73038304202305,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "macro_cycle_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "manipulation",
@@ -3723,26 +2641,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 8.562918838421444,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "market_breadth",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 8.767199702491633,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3757,8 +2657,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.18615040953090098,
+      "evaluations": 10756,
+      "movementRate": 0.2045370026031982,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3773,8 +2673,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.18615040953090098,
+      "evaluations": 10756,
+      "movementRate": 0.21383413908516177,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3792,8 +2692,8 @@
         "above_poc",
         "below_val"
       ],
-      "evaluations": 10744,
-      "movementRate": 69.22002978406553,
+      "evaluations": 10756,
+      "movementRate": 68.47341018966159,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3810,8 +2710,8 @@
         "trending_volatile",
         "quiet_ranging"
       ],
-      "evaluations": 10744,
-      "movementRate": 45.299702159344754,
+      "evaluations": 10756,
+      "movementRate": 45.38862030494607,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3831,8 +2731,8 @@
         "break_of_structure_bearish",
         "lower_low_lower_high"
       ],
-      "evaluations": 10744,
-      "movementRate": 63.31906180193596,
+      "evaluations": 10756,
+      "movementRate": 63.025288211230944,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3853,8 +2753,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3864,7 +2764,7 @@
       "name": "mass_index",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10744,
+      "distinctValues": 10756,
       "values": [
         "12.6973184",
         "13.81247832",
@@ -3875,66 +2775,12 @@
         "15.45021073",
         "13.97612705"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.99069247952346,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "max_pain_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "mcclellan_oscillator",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "mcclellan_summation",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "mean_reversion",
@@ -3946,8 +2792,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 9.633283693224124,
+      "evaluations": 10756,
+      "movementRate": 9.483079211602826,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -3964,68 +2810,8 @@
         "active",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 17.68428890543559,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "mfi",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10727,
-      "values": [
-        "42.91955218",
-        "57.22929093",
-        "64.31392598",
-        "64.36153047",
-        "64.34329883",
-        "71.50358974",
-        "85.71119236",
-        "78.56147403"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.897617274758,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "microstructure_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "mining_difficulty",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 17.562290814429154,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4035,7 +2821,7 @@
       "name": "minus_di",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10597,
+      "distinctValues": 10605,
       "values": [
         "18.34796631",
         "13.53777778",
@@ -4046,8 +2832,8 @@
         "2.63105041",
         "2.761965"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.897617274758,
+      "evaluations": 10756,
+      "movementRate": 99.85124581628858,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4063,8 +2849,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 16.418466120625467,
+      "evaluations": 10756,
+      "movementRate": 17.09743399033098,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4080,8 +2866,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 30.54728220402085,
+      "evaluations": 10756,
+      "movementRate": 30.345853477129044,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4097,8 +2883,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 30.54728220402085,
+      "evaluations": 10756,
+      "movementRate": 30.345853477129044,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4114,132 +2900,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 33.15338793745346,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "mvrv",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "neural_network",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "new_highs_lows",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "news_sentiment_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "nhnl",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "no_demand",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "no_supply",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 32.45630345853477,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4254,8 +2916,8 @@
         "none",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 25.95867460908414,
+      "evaluations": 10756,
+      "movementRate": 25.511342506507994,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4270,86 +2932,8 @@
         "none",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 15.48771407297096,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "nupl",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "nvi",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (1000) في 10744 تقييم",
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "1000"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "obv",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 58,
-      "values": [
-        "2000",
-        "4000",
-        "6000",
-        "0",
-        "8000",
-        "-2000",
-        "-4000",
-        "-6000"
-      ],
-      "evaluations": 10744,
-      "movementRate": 91.13924050632912,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "on_chain_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 14.745258460394197,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4365,8 +2949,8 @@
         "gap_up",
         "gap_down"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.11169024571854058,
+      "evaluations": 10756,
+      "movementRate": 0.1022685013015991,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4382,8 +2966,8 @@
         "breakout_up",
         "breakout_down"
       ],
-      "evaluations": 10744,
-      "movementRate": 61.79262844378257,
+      "evaluations": 10756,
+      "movementRate": 62.142060245444405,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4399,26 +2983,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 61.79262844378257,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "options_open_interest_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 62.142060245444405,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4434,8 +3000,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 61.79262844378257,
+      "evaluations": 10756,
+      "movementRate": 62.142060245444405,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4451,8 +3017,8 @@
         "bearish",
         "none"
       ],
-      "evaluations": 10744,
-      "movementRate": 60.79672375279226,
+      "evaluations": 10756,
+      "movementRate": 61.19375232428412,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4468,8 +3034,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 7.63216679076694,
+      "evaluations": 10756,
+      "movementRate": 7.883971736705095,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4485,26 +3051,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 9.651898734177216,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "pca",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 9.845667534399405,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4520,26 +3068,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 8.935219657483247,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "pi_cycle",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 8.999628114540721,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4554,8 +3084,8 @@
         "none",
         "pipe_bottom"
       ],
-      "evaluations": 10744,
-      "movementRate": 24.96276991809382,
+      "evaluations": 10756,
+      "movementRate": 24.86984008925251,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4570,8 +3100,8 @@
         "none",
         "pipe_top"
       ],
-      "evaluations": 10744,
-      "movementRate": 23.985480268056588,
+      "evaluations": 10756,
+      "movementRate": 23.726292301970993,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4589,8 +3119,8 @@
         "below_s1",
         "at_pivot"
       ],
-      "evaluations": 10744,
-      "movementRate": 73.09195830230827,
+      "evaluations": 10756,
+      "movementRate": 73.0383042023057,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4600,7 +3130,7 @@
       "name": "plus_di",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10586,
+      "distinctValues": 10601,
       "values": [
         "28.59702562",
         "33.01333333",
@@ -4611,8 +3141,8 @@
         "34.85639687",
         "25.93295383"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.87900223380491,
+      "evaluations": 10756,
+      "movementRate": 99.88843436221644,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4629,8 +3159,8 @@
         "accumulation",
         "distribution_bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.3682055100521222,
+      "evaluations": 10756,
+      "movementRate": 1.338787653402752,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4640,7 +3170,7 @@
       "name": "poc",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 5200,
+      "distinctValues": 5138,
       "values": [
         "175.85288889",
         "176.70844444",
@@ -4651,8 +3181,8 @@
         "176.85633333",
         "176.68666667"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.8324646314222,
+      "evaluations": 10756,
+      "movementRate": 99.83265154332466,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4669,8 +3199,8 @@
         "accumulation",
         "distribution_bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.3682055100521222,
+      "evaluations": 10756,
+      "movementRate": 1.338787653402752,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4680,7 +3210,7 @@
       "name": "ppo",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10740,
+      "distinctValues": 10755,
       "values": [
         "0.01809524",
         "0.10551751",
@@ -4691,8 +3221,8 @@
         "0.35831049",
         "0.39160651"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4707,8 +3237,8 @@
         "none",
         "premium"
       ],
-      "evaluations": 10744,
-      "movementRate": 40.32017870439315,
+      "evaluations": 10756,
+      "movementRate": 40.04276682781703,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4718,7 +3248,7 @@
       "name": "price",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 9074,
+      "distinctValues": 9319,
       "values": [
         "175.854",
         "176.927",
@@ -4729,167 +3259,12 @@
         "178.482",
         "178.507"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.86038719285183,
+      "evaluations": 10756,
+      "movementRate": 99.86984008925252,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "price_vs_vwap",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10584,
-      "values": [
-        "0.26773118",
-        "1.28386869",
-        "1.12104762",
-        "1.13999099",
-        "1.30646154",
-        "2.03258537",
-        "2.43610078",
-        "2.36021481"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.88830975428145,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "put_call_ratio",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "pvi",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (1000) في 10744 تقييم",
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "1000"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "pvt",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10742,
-      "values": [
-        "7.01219164",
-        "13.10510361",
-        "12.55112817",
-        "13.00914577",
-        "14.43561149",
-        "19.03675665",
-        "21.88108965",
-        "22.02233144"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "quantitative_factor_models",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "random_forest",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "reaccumulation",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "realized_pnl",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "rectangle",
@@ -4901,25 +3276,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 9.623976172747579,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "redistribution",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 9.483079211602826,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4936,26 +3294,8 @@
         "trending_volatile",
         "quiet_ranging"
       ],
-      "evaluations": 10744,
-      "movementRate": 45.299702159344754,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "reinforcement_learning_models",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 45.38862030494607,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -4971,26 +3311,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 11.74609084139985,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "relative_rotation_graph",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 11.779471922647824,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5005,44 +3327,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 4.1976917349218175,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "risk_on_off",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "risk_parity_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 4.248791372257345,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5052,7 +3338,7 @@
       "name": "roc",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10721,
+      "distinctValues": 10736,
       "values": [
         "0.25883694",
         "0.9759327",
@@ -5063,70 +3349,18 @@
         "1.87735811",
         "1.50863785"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.88830975428145,
+      "evaluations": 10756,
+      "movementRate": 99.8977314986984,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "rounding_bottom",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "rounding_top",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "rrg",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "rsi",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10449,
+      "distinctValues": 10455,
       "values": [
         "54.15446559",
         "63.45609065",
@@ -5137,8 +3371,8 @@
         "85.05649115",
         "80.03169572"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.88830975428145,
+      "evaluations": 10756,
+      "movementRate": 99.8977314986984,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5148,7 +3382,7 @@
       "name": "rvi",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10446,
+      "distinctValues": 10458,
       "values": [
         "0.03338174",
         "0.14323879",
@@ -5159,48 +3393,12 @@
         "0.28602175",
         "0.23699542"
       ],
-      "evaluations": 10744,
-      "movementRate": 97.26358897989576,
+      "evaluations": 10756,
+      "movementRate": 97.25734473782074,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "seasonality",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "sector_rotation",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "session",
@@ -5211,8 +3409,8 @@
         "active",
         "inactive"
       ],
-      "evaluations": 10744,
-      "movementRate": 23.659717051377513,
+      "evaluations": 10756,
+      "movementRate": 22.833767199702493,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5228,8 +3426,8 @@
         "below",
         "at"
       ],
-      "evaluations": 10744,
-      "movementRate": 55.60312732688012,
+      "evaluations": 10756,
+      "movementRate": 55.476013387876534,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5245,8 +3443,8 @@
         "london_newyork",
         "asian_london"
       ],
-      "evaluations": 10744,
-      "movementRate": 15.003723008190617,
+      "evaluations": 10756,
+      "movementRate": 14.903309780587579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5262,115 +3460,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 2.3734177215189876,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "silver_bullet",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "smart_tape_reading",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "smt_divergence",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "social_sentiment_analysis",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "som",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "sopr",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 2.2499070286351803,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5386,8 +3477,8 @@
         "long_cycle",
         "short_cycle"
       ],
-      "evaluations": 10744,
-      "movementRate": 37.94676098287416,
+      "evaluations": 10756,
+      "movementRate": 38.46225362588323,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5408,26 +3499,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "spoofing",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5437,7 +3510,7 @@
       "name": "sr_resistance",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 1000,
+      "distinctValues": 1014,
       "values": [
         "177.564",
         "177.822",
@@ -5448,8 +3521,8 @@
         "0.36301",
         "0.37674"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.51600893521966,
+      "evaluations": 10756,
+      "movementRate": 99.49795462997398,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5459,7 +3532,7 @@
       "name": "sr_support",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 939,
+      "distinctValues": 949,
       "values": [
         "173.714",
         "219.492",
@@ -5470,8 +3543,8 @@
         "79.001",
         "78.499"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.49739389426657,
+      "evaluations": 10756,
+      "movementRate": 99.50725176645592,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5488,8 +3561,8 @@
         "above_upper",
         "below_lower"
       ],
-      "evaluations": 10744,
-      "movementRate": 51.07036485480268,
+      "evaluations": 10756,
+      "movementRate": 51.05057642246188,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5506,26 +3579,8 @@
         "above_upper",
         "below_lower"
       ],
-      "evaluations": 10744,
-      "movementRate": 51.07036485480268,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "statistical_arbitrage",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 51.05057642246188,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5541,8 +3596,8 @@
         "50",
         "25"
       ],
-      "evaluations": 10744,
-      "movementRate": 60.91772151898734,
+      "evaluations": 10756,
+      "movementRate": 61.28672368910376,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5552,7 +3607,7 @@
       "name": "stoch_cross",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10697,
+      "distinctValues": 10698,
       "values": [
         "2.68983898",
         "2.6347266",
@@ -5563,8 +3618,8 @@
         "-0.09915053",
         "0.4771505"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.897617274758,
+      "evaluations": 10756,
+      "movementRate": 99.90702863518037,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5574,7 +3629,7 @@
       "name": "stoch_d",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10714,
+      "distinctValues": 10733,
       "values": [
         "52.15335327",
         "83.22060653",
@@ -5585,8 +3640,8 @@
         "92.83709386",
         "89.7448915"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.96276991809381,
+      "evaluations": 10756,
+      "movementRate": 99.96281145407214,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5596,7 +3651,7 @@
       "name": "stoch_k",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10710,
+      "distinctValues": 10725,
       "values": [
         "54.84319224",
         "85.85533313",
@@ -5607,30 +3662,12 @@
         "92.73794334",
         "90.222042"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.96276991809381,
+      "evaluations": 10756,
+      "movementRate": 99.95351431759019,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "stock_to_flow",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "supertrend",
@@ -5641,8 +3678,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 43.037974683544306,
+      "evaluations": 10756,
+      "movementRate": 43.02714763852734,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5658,26 +3695,8 @@
         "none",
         "supply"
       ],
-      "evaluations": 10744,
-      "movementRate": 47.114668652271035,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "svm_classifier",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 48.23354406842692,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5693,8 +3712,8 @@
         "bullish",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 8.935219657483247,
+      "evaluations": 10756,
+      "movementRate": 8.999628114540721,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5704,7 +3723,7 @@
       "name": "t3",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10632,
+      "distinctValues": 10650,
       "values": [
         "175.53425523",
         "175.44882571",
@@ -5715,30 +3734,12 @@
         "175.81820789",
         "176.02369215"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.79523454951601,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "tcn",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "td_combo",
@@ -5750,8 +3751,8 @@
         "sell_signal",
         "buy_signal"
       ],
-      "evaluations": 10744,
-      "movementRate": 0.03723008190618019,
+      "evaluations": 10756,
+      "movementRate": 0.03718854592785422,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5767,8 +3768,8 @@
         "buy_setup",
         "sell_setup"
       ],
-      "evaluations": 10744,
-      "movementRate": 12.27661950856292,
+      "evaluations": 10756,
+      "movementRate": 12.05838601710673,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5778,7 +3779,7 @@
       "name": "tema",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10633,
+      "distinctValues": 10642,
       "values": [
         "175.57532082",
         "175.66533014",
@@ -5789,29 +3790,12 @@
         "176.49822712",
         "176.74515366"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.72077438570365,
+      "evaluations": 10756,
+      "movementRate": 99.71178876905913,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "three_drives",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "three_inside",
@@ -5828,8 +3812,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5850,44 +3834,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "tick",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "tick_index",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5902,8 +3850,8 @@
         "inactive",
         "active"
       ],
-      "evaluations": 10744,
-      "movementRate": 13.319061801935964,
+      "evaluations": 10756,
+      "movementRate": 13.239122350316102,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5921,44 +3869,8 @@
         "above_poc",
         "below_val"
       ],
-      "evaluations": 10744,
-      "movementRate": 69.22002978406553,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "transformer",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "transformer_based_time_series",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 68.47341018966159,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -5975,26 +3887,8 @@
         "downtrend",
         "none"
       ],
-      "evaluations": 10744,
-      "movementRate": 63.7192851824274,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "trin",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 63.46225362588322,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6004,7 +3898,7 @@
       "name": "trix",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10742,
+      "distinctValues": 10756,
       "values": [
         "-0.0205032",
         "-0.13551218",
@@ -6015,8 +3909,8 @@
         "-0.28754744",
         "-0.28855847"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6026,7 +3920,7 @@
       "name": "tsi",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10744,
+      "distinctValues": 10756,
       "values": [
         "8.32608673",
         "37.86257457",
@@ -6037,8 +3931,8 @@
         "56.25462697",
         "50.02303446"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.99069247952346,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6054,8 +3948,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 18.224125093075205,
+      "evaluations": 10756,
+      "movementRate": 18.371141688359984,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6076,8 +3970,8 @@
         "three_black_crows",
         "bearish_engulfing"
       ],
-      "evaluations": 10744,
-      "movementRate": 78.40655249441548,
+      "evaluations": 10756,
+      "movementRate": 78.62588322796579,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6087,7 +3981,7 @@
       "name": "ulcer_index",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10743,
+      "distinctValues": 10753,
       "values": [
         "0.48289595",
         "0.77937692",
@@ -6098,8 +3992,8 @@
         "0.8744025",
         "0.68613883"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6109,7 +4003,7 @@
       "name": "ultimate_oscillator",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10744,
+      "distinctValues": 10756,
       "values": [
         "45.77615627",
         "54.14070268",
@@ -6120,36 +4014,18 @@
         "63.37652336",
         "63.01317503"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.99069247952346,
+      "evaluations": 10756,
+      "movementRate": 99.99070286351804,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
     },
     {
-      "name": "us10y",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
       "name": "vah",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 5570,
+      "distinctValues": 5505,
       "values": [
         "175.85288889",
         "176.70844444",
@@ -6160,8 +4036,8 @@
         "177.64722222",
         "177.661"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.8324646314222,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6171,7 +4047,7 @@
       "name": "val",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 5530,
+      "distinctValues": 5494,
       "values": [
         "174.56955556",
         "175.42511111",
@@ -6182,89 +4058,12 @@
         "175.441",
         "174.94166667"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.80454206999255,
+      "evaluations": 10756,
+      "movementRate": 99.80476013387877,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "vcp",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "vix",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "vol_delta",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10740,
-      "values": [
-        "-14.60133618",
-        "34.3857082",
-        "29.20539261",
-        "34.39973242",
-        "12.82978282",
-        "27.04910257",
-        "13.05113666",
-        "30.05010492"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "vol_ratio",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (1) في 10744 تقييم",
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "1"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     },
     {
       "name": "volatility_regime_analysis",
@@ -6276,63 +4075,8 @@
         "high",
         "low"
       ],
-      "evaluations": 10744,
-      "movementRate": 1.2472077438570366,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "volume",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (1) في 10744 تقييم",
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "1"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "volume_oscillator",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "volume_profile",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 3,
-      "values": [
-        "high_volume_node",
-        "neutral",
-        "low_volume_node"
-      ],
-      "evaluations": 10744,
-      "movementRate": 40.71109456440804,
+      "evaluations": 10756,
+      "movementRate": 1.2179248791372257,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6342,7 +4086,7 @@
       "name": "vortex",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10687,
+      "distinctValues": 10713,
       "values": [
         "0.06835693",
         "0.2888",
@@ -6353,8 +4097,8 @@
         "0.64922675",
         "0.4516129"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.94415487714073,
+      "evaluations": 10756,
+      "movementRate": 99.95351431759019,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6364,7 +4108,7 @@
       "name": "vortex_minus",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10639,
+      "distinctValues": 10657,
       "values": [
         "0.96837484",
         "0.86764444",
@@ -6375,8 +4119,8 @@
         "0.66228158",
         "0.77588024"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.90692479523456,
+      "evaluations": 10756,
+      "movementRate": 99.88843436221644,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6386,7 +4130,7 @@
       "name": "vortex_plus",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10658,
+      "distinctValues": 10654,
       "values": [
         "1.03673177",
         "1.15644444",
@@ -6397,49 +4141,8 @@
         "1.31150834",
         "1.22749315"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.85107967237528,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": true
-    },
-    {
-      "name": "vsa",
-      "grade": "B",
-      "reasons": [
-        "معيار 1: قيمة واحدة (none) في 10744 تقييم"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "none"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "vwap",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 10595,
-      "values": [
-        "175.58626882",
-        "175.64313131",
-        "175.70795238",
-        "175.77000901",
-        "175.85353846",
-        "175.94341463",
-        "176.04589922",
-        "176.14678519"
-      ],
-      "evaluations": 10744,
-      "movementRate": 99.81384959046909,
+      "evaluations": 10756,
+      "movementRate": 99.7954629973968,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6456,8 +4159,8 @@
         "below",
         "below_lower"
       ],
-      "evaluations": 10744,
-      "movementRate": 63.06775874906925,
+      "evaluations": 10756,
+      "movementRate": 63.55522499070286,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6474,44 +4177,8 @@
         "mixed",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 64.79895755770663,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "wavenet",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "whale_alert",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 64.80104127928598,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6521,7 +4188,7 @@
       "name": "williams_r",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10093,
+      "distinctValues": 10130,
       "values": [
         "-37.08729082",
         "-6.24048706",
@@ -6532,8 +4199,8 @@
         "-7.55950824",
         "-8.34650648"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.34847356664184,
+      "evaluations": 10756,
+      "movementRate": 99.32130903681666,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6549,8 +4216,8 @@
         "bearish",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 4.84921816827997,
+      "evaluations": 10756,
+      "movementRate": 4.815916697657122,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6567,8 +4234,8 @@
         "above_r1",
         "below_p"
       ],
-      "evaluations": 10744,
-      "movementRate": 72.7475800446761,
+      "evaluations": 10756,
+      "movementRate": 72.53625883227966,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6585,8 +4252,8 @@
         "above_r1",
         "below_p"
       ],
-      "evaluations": 10744,
-      "movementRate": 72.7475800446761,
+      "evaluations": 10756,
+      "movementRate": 72.53625883227966,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6601,29 +4268,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 11.57855547282204,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "wyckoff_phase",
-      "grade": "A",
-      "reasons": [
-        "معيار 3: يقرأ الحجم وهو غير موجود في البيانات"
-      ],
-      "distinctValues": 5,
-      "values": [
-        "none",
-        "utad",
-        "spring_test",
-        "ar",
-        "lps"
-      ],
-      "evaluations": 10744,
-      "movementRate": 24.916232315711095,
+      "evaluations": 10756,
+      "movementRate": 11.705094830792117,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6638,8 +4284,8 @@
         "none",
         "bullish"
       ],
-      "evaluations": 10744,
-      "movementRate": 11.57855547282204,
+      "evaluations": 10756,
+      "movementRate": 11.705094830792117,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6654,44 +4300,8 @@
         "none",
         "bearish"
       ],
-      "evaluations": 10744,
-      "movementRate": 11.113179448994789,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "xgboost",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
-    },
-    {
-      "name": "yield_curve",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
+      "evaluations": 10756,
+      "movementRate": 11.29602082558572,
       "nan": 0,
       "undef": 0,
       "threw": 0,
@@ -6701,7 +4311,7 @@
       "name": "z_score",
       "grade": "alive",
       "reasons": [],
-      "distinctValues": 10743,
+      "distinctValues": 10755,
       "values": [
         "0.7089619",
         "1.87907675",
@@ -6712,30 +4322,12 @@
         "1.8475312",
         "1.56860702"
       ],
-      "evaluations": 10744,
-      "movementRate": 99.98138495904692,
+      "evaluations": 10756,
+      "movementRate": 99.98140572703608,
       "nan": 0,
       "undef": 0,
       "threw": 0,
       "changedBySegmentation": true
-    },
-    {
-      "name": "zweig_breadth",
-      "grade": "A",
-      "reasons": [
-        "معيار 1: قيمة واحدة (0) في 10744 تقييم",
-        "معيار 4: تنفيذ ثابت مكتوب في الكود"
-      ],
-      "distinctValues": 1,
-      "values": [
-        "0"
-      ],
-      "evaluations": 10744,
-      "movementRate": 0,
-      "nan": 0,
-      "undef": 0,
-      "threw": 0,
-      "changedBySegmentation": false
     }
   ]
 }

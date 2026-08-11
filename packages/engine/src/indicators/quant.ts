@@ -502,10 +502,7 @@ register('idnr4', ({ candles }) => idnr4(candles));
 register(['ib', 'initial_balance'], ({ candles, currentPrice }) =>
   initialBalance(candles, currentPrice),
 );
-register('silver_bullet', () => silverBullet());
 register('institutional_candle', ({ candles }) => institutionalCandle(candles));
-register('reaccumulation', ({ candles, currentPrice }) => reaccumulation(candles, currentPrice));
-register('redistribution', ({ candles, currentPrice }) => redistribution(candles, currentPrice));
 register('pipe_top', ({ candles, currentPrice }) => pipePattern(candles, currentPrice, true));
 register('pipe_bottom', ({ candles, currentPrice }) => pipePattern(candles, currentPrice, false));
 register('bump_and_run', ({ candles, currentPrice }) => bumpAndRun(candles, currentPrice));
@@ -529,8 +526,5 @@ register('monte_carlo_risk_simulation', ({ candles, currentPrice }) =>
 
 // `three_drives` routes to the harmonic detector with an unrecognised type, so
 // the switch inside it falls to `default: matches = false` → always 'none'.
-register('three_drives', ({ candles, currentPrice }) =>
-  harmonic(candles, currentPrice, 'three_drives'),
-);
 // `wyckoff` is a second name for the spring detector.
 register('wyckoff', ({ candles, currentPrice }) => wyckoffSpring(candles, currentPrice));

@@ -60,20 +60,15 @@ const WARMUP = 30;
 const MIN_SEGMENT = 35;
 
 /**
- * Judgement is withheld from these when they fail criterion 1 alone: the sample
- * is too narrow to convict them, and a wrong removal is worse than a delay.
+ * There is no reprieve list any more.
+ *
+ * An earlier pass held back two groups — the clock-dependent indicators and the
+ * patterns that appear monthly — on the grounds that the sample could not
+ * convict them. That reasoning was sound and the outcome was not: it left names
+ * in the registry that no one could show did anything, which is the state this
+ * whole exercise exists to end. A name that cannot be demonstrated to compute
+ * is disabled, and comes back the day it can be.
  */
-const CLOCK_DEPENDENT = new Set([
-  'day_of_week', 'judas_swing', 'kill_zone', 'session', 'session_overlap', 'time_analysis',
-  'silver_bullet',
-]);
-
-/** Patterns that legitimately appear once or twice a month. */
-const INHERENTLY_RARE = new Set([
-  'bear_flag', 'bull_flag', 'cup_and_handle', 'island_reversal', 'liquidity',
-  'market_maker_buy_model', 'no_demand', 'no_supply', 'reaccumulation', 'redistribution',
-  'rounding_bottom', 'rounding_top', 'three_drives', 'vcp', 'vsa',
-]);
 
 async function allSymbols(): Promise<string[]> {
   const res = await fetch(`${PROXY}/api/otc/status`, { signal: AbortSignal.timeout(30_000) });
@@ -190,9 +185,20 @@ console.log(`تغطية ${hours.size}/24 ساعة · ${days.size} يوم · ${ev
 
 // ── Criterion 4 ────────────────────────────────────────────────────────────
 
+// The placeholders moved under unavailable/ once they were disabled, so the
+// list is read from wherever it currently lives rather than from a fixed path.
+const PLACEHOLDER_PATHS = [
+  'packages/engine/src/indicators/unavailable/placeholders.ts',
+  'packages/engine/src/indicators/placeholders.ts',
+];
 const HARDCODED = new Set(
-  [...readFileSync('packages/engine/src/indicators/placeholders.ts', 'utf8')
-    .matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]!),
+  PLACEHOLDER_PATHS.flatMap((path) => {
+    try {
+      return [...readFileSync(path, 'utf8').matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]!);
+    } catch {
+      return [];
+    }
+  }),
 );
 
 // ── Probe ──────────────────────────────────────────────────────────────────
@@ -270,14 +276,7 @@ for (const [index, name] of names.entries()) {
   if (VOLUME_DEPENDENT.has(name)) reasons.push('معيار 3: يقرأ الحجم وهو غير موجود في البيانات');
   if (HARDCODED.has(name)) reasons.push('معيار 4: تنفيذ ثابت مكتوب في الكود');
 
-  let grade: Grade = 'alive';
-  if (reasons.length > 0) {
-    const onlyCriterion1 = reasons.length === 1 && reasons[0]!.startsWith('معيار 1');
-    // Criterion 1 alone is not enough to convict something the sample cannot
-    // observe: 3.2 contiguous days cannot judge a session filter, and five days
-    // cannot judge a pattern that appears monthly.
-    grade = onlyCriterion1 && (CLOCK_DEPENDENT.has(name) || INHERENTLY_RARE.has(name)) ? 'B' : 'A';
-  }
+  const grade: Grade = reasons.length > 0 ? 'A' : 'alive';
 
   verdicts.push({
     name, grade, reasons,
@@ -300,7 +299,7 @@ const changed = verdicts.filter((v) => v.changedBySegmentation);
 console.log('\n═══ النتيجة ═══');
 console.log(`حي              : ${alive.length}`);
 console.log(`درجة أ (يتشال)  : ${a.length}`);
-console.log(`درجة ب (ينتظر)  : ${b.length}  →  ${b.map((v) => v.name).join(', ')}`);
+console.log(`درجة ب (ينتظر)  : ${b.length}${b.length ? '  →  ' + b.map((v) => v.name).join(', ') : '  (لم يعد هناك استثناء)'}`);
 console.log(`\nاتغيرت نتيجتهم بتقسيم الفجوات: ${changed.length}`);
 if (changed.length > 0 && changed.length <= 40) {
   console.log(`  ${changed.map((v) => v.name).join(', ')}`);

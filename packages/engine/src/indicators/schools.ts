@@ -288,7 +288,6 @@ register(['momentum', 'momentum_trading'], ({ candles, currentPrice }) =>
 register('mean_reversion', ({ candles, currentPrice }) => meanReversionSignal(candles, currentPrice));
 register('nr4', ({ candles, currentPrice }) => nrPattern(candles, currentPrice, 4));
 register('nr7', ({ candles, currentPrice }) => nrPattern(candles, currentPrice, 7));
-register('vcp', ({ candles, currentPrice }) => vcp(candles, currentPrice));
 register(['orb', 'opening_range_breakout'], ({ candles, currentPrice }) =>
   orbSignal(candles, currentPrice),
 );
@@ -296,9 +295,6 @@ register('heikin_ashi', ({ candles }) => heikinAshi(candles));
 register('anchored_vwap', ({ candles, currentPrice }) => anchoredVwap(candles, currentPrice));
 register('vwap_bands', ({ candles, currentPrice }) => vwapBands(candles, currentPrice));
 register('gann_angle', ({ candles, currentPrice }) => gannAngle(candles, currentPrice));
-register(['vsa', 'no_demand', 'no_supply'], ({ candles, currentPrice }) =>
-  vsaSignal(candles, currentPrice),
-);
 register('wolfe_waves', ({ candles, currentPrice }) => wolfeWave(candles, currentPrice));
 register(['demark', 'td_sequential'], ({ candles }) => demarkSequential(candles));
 register('darvas_box', ({ candles, currentPrice }) => darvasBox(candles, currentPrice));

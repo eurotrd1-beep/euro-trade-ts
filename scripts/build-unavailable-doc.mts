@@ -24,8 +24,30 @@ const audit = JSON.parse(readFileSync('docs/liveness.json', 'utf8')) as {
 };
 
 const registered = new Set(registeredNames());
-const removed = audit.verdicts.filter((v) => v.grade === 'A' && !registered.has(v.name));
-const waiting = audit.verdicts.filter((v) => v.grade === 'B');
+
+/**
+ * Everything the Dart engine has that this one no longer registers.
+ *
+ * Taken from the golden fixture rather than from the audit: the audit only ever
+ * describes what is still registered, so after the last round it reports no
+ * removals at all. The fixture is the full original vocabulary, and anything in
+ * it that is not in the registry now was disabled.
+ */
+const fixture = JSON.parse(
+  readFileSync('packages/engine/golden/engine-golden.json', 'utf8'),
+) as { results: Record<string, unknown> };
+
+const byName = new Map(audit.verdicts.map((v) => [v.name, v]));
+const removed: Verdict[] = Object.keys(fixture.results)
+  .filter((n) => !registered.has(n))
+  .map((n) => byName.get(n) ?? {
+    name: n, grade: 'A' as const, reasons: [], distinctValues: 1,
+    values: [], evaluations: 0, movementRate: 0,
+  })
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+/** No indicator is held back any more; the section stays so its absence is explicit. */
+const waiting: Verdict[] = [];
 
 // ── School ─────────────────────────────────────────────────────────────────
 

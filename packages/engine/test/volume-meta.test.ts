@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import golden from '../golden/engine-golden.json' with { type: 'json' };
 import { computeIndicator, registeredNames } from '../src/registry.js';
+import { vwap } from '../src/indicators/math.js';
 import { makeRule, type Candle } from '../src/types.js';
 import { VOLUME_DEAD, VOLUME_DEGRADES_TO_PRICE, VOLUME_DEPENDENT } from '../src/meta.js';
 import '../src/indicators/index.js';
@@ -57,12 +58,14 @@ describe('volume metadata', () => {
     ).toEqual([]);
   });
 
-  it('keeps only vwap and price_vs_vwap registered among the marked', () => {
-    // The others were disabled. These two stay because a constant volume
-    // cancels out of their formula rather than corrupting it — see the last
-    // test in this file, which pins that claim.
+  it('leaves none of them registered', () => {
+    // vwap and price_vs_vwap were held back at first, on the grounds that a
+    // constant volume cancels out of their formula rather than corrupting it —
+    // which is true, and pinned by the last test in this file. They went with
+    // the rest in the end: a rule applied to some of its cases is not a rule,
+    // and "reads an input that does not exist" is the rule.
     const stillRegistered = [...VOLUME_DEPENDENT].filter((n) => registeredNames().includes(n));
-    expect(stillRegistered.sort()).toEqual(['price_vs_vwap', 'vwap']);
+    expect(stillRegistered).toEqual([]);
   });
 
   it('splits dead from degraded without overlap', () => {
@@ -75,10 +78,12 @@ describe('volume metadata', () => {
   });
 
   it('vwap with a flat volume is exactly the mean typical price', () => {
-    // The claim the "degrades to price" classification rests on. If this ever
-    // stops holding, the note in meta.ts is a lie.
-    const rule = makeRule({ indicator: 'vwap', condition: 'gt', signal: 'CALL', score: 1 });
-    const value = computeIndicator(base, rule, PRICE, CLOCK, new Map()) as number;
+    // Kept although vwap is no longer registered: this is the fact that
+    // explains why it was worth arguing over, and the one to re-check the day
+    // a real volume source arrives and it comes back.
+    // Straight to the function: vwap is no longer registered, so going through
+    // the registry would just return undefined and prove nothing.
+    const value = vwap(base, PRICE);
     const meanTypical =
       base.reduce((sum, c) => sum + (c.high + c.low + c.close) / 3, 0) / base.length;
     expect(Math.abs(value - meanTypical)).toBeLessThan(1e-12);

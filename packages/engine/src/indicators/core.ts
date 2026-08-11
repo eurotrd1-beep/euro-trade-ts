@@ -72,8 +72,6 @@ register('bb_position', ({ candles, rule, currentPrice }) => {
 });
 
 // ── Volume ──────────────────────────────────────────────────────────────────
-register('vwap', ({ candles, currentPrice }) => m.vwap(candles, currentPrice));
-register('price_vs_vwap', ({ candles, currentPrice }) => currentPrice - m.vwap(candles, currentPrice));
 
 // ── Structure levels ────────────────────────────────────────────────────────
 register('sr_support', ({ candles, currentPrice }) =>

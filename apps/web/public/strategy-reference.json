@@ -1,7 +1,7 @@
 {
   "_doc": "MASTER REFERENCE — generated FROM the engine, not written by hand.",
   "_generated_by": "scripts/build-strategy-reference.mts",
-  "_engine_indicators": 245,
+  "_engine_indicators": 229,
   "_sample": {
     "_note": "Every \"observed values\" and every range below comes from running the indicator over THIS sample. A value the sample never produced is absent from the list — that is a limit of the sample, not a fact about the indicator.",
     "live_windows": 20,
@@ -73,9 +73,9 @@
   "_categories": {
     "Advanced Statistics": 10,
     "Oscillators": 10,
-    "Other": 157,
-    "Price Levels": 15,
-    "Rare Patterns": 31,
+    "Other": 145,
+    "Price Levels": 13,
+    "Rare Patterns": 29,
     "Trend": 22
   },
   "name": "Master Reference (generated)",
@@ -118,7 +118,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.3555 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range 0.321 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
     },
     {
       "indicator": "market_regime_classification",
@@ -138,9 +138,11 @@
       "pattern": "bullish",
       "value": 3,
       "period": 14,
+      "fast": 9,
       "slow": 21,
       "smooth": 3,
-      "_note": "returns TEXT. observed values: bearish | bullish | neutral. use eq / neq with `pattern`, or bullish / bearish. reads: period, slow, smooth, value. category: Advanced Statistics"
+      "stddev": 2,
+      "_note": "returns TEXT. observed values: bearish | bullish | neutral. use eq / neq with `pattern`, or bullish / bearish. reads: period, fast, slow, smooth, stddev, value. category: Advanced Statistics"
     },
     {
       "indicator": "regime_detection",
@@ -217,7 +219,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -3.3331 … 1.366 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -2.74 … 1.366 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Oscillators"
     },
     {
       "indicator": "macd_signal",
@@ -292,7 +294,7 @@
       "_note": "returns a NUMBER. observed range -100 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
     },
     {
-      "_section": "━━━━━━━━━━ OTHER (157) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ OTHER (145) ━━━━━━━━━━"
     },
     {
       "indicator": "abandoned_baby",
@@ -396,15 +398,6 @@
       "_note": "returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
-      "indicator": "bear_flag",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
       "indicator": "bear_power",
       "condition": "gt",
       "signal": "CALL",
@@ -449,15 +442,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: active | bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "bull_flag",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
       "indicator": "bull_power",
@@ -900,7 +884,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 1.2365 … 1.6445 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 1.2365 … 1.679 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "fractals",
@@ -1121,15 +1105,6 @@
       "_note": "returns a NUMBER. observed range -51.7836 … 143 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
-      "indicator": "liquidity",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
       "indicator": "liquidity_voids",
       "condition": "bullish",
       "signal": "CALL",
@@ -1249,24 +1224,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "no_demand",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "no_supply",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
       "indicator": "nr4",
       "condition": "bullish",
       "signal": "CALL",
@@ -1382,7 +1339,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -1.5148 … 4.5536 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -1.253 … 4.5536 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "premium_zone",
@@ -1400,16 +1357,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.655 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "reaccumulation",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6509 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "rectangle",
@@ -1421,15 +1369,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "redistribution",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
       "indicator": "rising_wedge",
       "condition": "bullish",
       "signal": "CALL",
@@ -1437,24 +1376,6 @@
       "enabled": false,
       "pattern": "bearish",
       "_note": "returns TEXT. observed values: bearish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "rounding_bottom",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "rounding_top",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
       "indicator": "rvi",
@@ -1492,15 +1413,6 @@
       "enabled": false,
       "pattern": "asian_london",
       "_note": "returns TEXT. observed values: asian_london | london_newyork | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "silver_bullet",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
       "indicator": "spinning_top",
@@ -1673,7 +1585,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6666 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.6655 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "val",
@@ -1683,24 +1595,6 @@
       "enabled": false,
       "value": 0,
       "_note": "returns a NUMBER. observed range 0.6547 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "vcp",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "vsa",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
       "indicator": "wolfe_waves",
@@ -1730,7 +1624,7 @@
       "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "_section": "━━━━━━━━━━ PRICE LEVELS (15) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ PRICE LEVELS (13) ━━━━━━━━━━"
     },
     {
       "indicator": "anchored_vwap",
@@ -1750,7 +1644,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6531 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.649 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_position",
@@ -1772,7 +1666,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6605 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6604 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_width",
@@ -1831,15 +1725,6 @@
       "_note": "returns TEXT. observed values: above_pivot | above_r1 | at_pivot | below_pivot | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
     },
     {
-      "indicator": "price_vs_vwap",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح — لكن الحجم الثابت يُختصر من المعادلة فيتحول لمؤشر سعر صالح باسم مضلِّل (vwap مثلاً يساوي متوسط السعر النموذجي بالضبط). يعمل، لكنه ليس ما يوحي به اسمه.. returns a NUMBER. observed range -9.1425 … 4.5303 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Price Levels"
-    },
-    {
       "indicator": "sr_resistance",
       "condition": "gt",
       "signal": "CALL",
@@ -1858,15 +1743,6 @@
       "_note": "returns a NUMBER. observed range 0.498 … 217 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Price Levels"
     },
     {
-      "indicator": "vwap",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح — لكن الحجم الثابت يُختصر من المعادلة فيتحول لمؤشر سعر صالح باسم مضلِّل (vwap مثلاً يساوي متوسط السعر النموذجي بالضبط). يعمل، لكنه ليس ما يوحي به اسمه.. returns a NUMBER. observed range 0.626 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Price Levels"
-    },
-    {
       "indicator": "vwap_bands",
       "condition": "bullish",
       "signal": "CALL",
@@ -1876,7 +1752,7 @@
       "_note": "returns TEXT. observed values: above | above_upper | at | below | below_lower. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
     },
     {
-      "_section": "━━━━━━━━━━ RARE PATTERNS (31) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ RARE PATTERNS (29) ━━━━━━━━━━"
     },
     {
       "indicator": "5_0",
@@ -2068,15 +1944,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
-      "indicator": "island_reversal",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Rare Patterns"
-    },
-    {
       "indicator": "liquidity_sweep",
       "condition": "bullish",
       "signal": "CALL",
@@ -2120,15 +1987,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
-    },
-    {
-      "indicator": "three_drives",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "none",
-      "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Rare Patterns"
     },
     {
       "indicator": "wyckoff",
@@ -2177,7 +2035,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6555 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6538 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "aroon",
@@ -2246,7 +2104,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6568 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.655 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hma",
@@ -2256,7 +2114,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6547 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6515 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hull_ma",
@@ -2266,7 +2124,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6547 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6515 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "ichimoku",
@@ -2295,7 +2153,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.655 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6519 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "lsma",
@@ -2305,7 +2163,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.655 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6519 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "supertrend",

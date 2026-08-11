@@ -283,8 +283,6 @@ register('symmetrical_triangle', ({ candles, currentPrice }) =>
 );
 register('rising_wedge', ({ candles, currentPrice }) => wedge(candles, currentPrice, true));
 register('falling_wedge', ({ candles, currentPrice }) => wedge(candles, currentPrice, false));
-register('bull_flag', ({ candles, currentPrice }) => flag(candles, currentPrice, true));
-register('bear_flag', ({ candles, currentPrice }) => flag(candles, currentPrice, false));
 register('channel_up', ({ candles }) => channel(candles, true));
 register('channel_down', ({ candles }) => channel(candles, false));
 

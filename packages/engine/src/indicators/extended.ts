@@ -412,15 +412,8 @@ register(['fib_pivot', 'fibonacci_pivot'], ({ candles, currentPrice }) =>
 register(['broadening_wedge', 'megaphone'], ({ candles, currentPrice }) =>
   broadeningWedge(candles, currentPrice),
 );
-register('island_reversal', ({ candles, currentPrice }) => islandReversal(candles, currentPrice));
 register(['diamond', 'diamond_top'], ({ candles, currentPrice }) =>
   diamondPattern(candles, currentPrice),
-);
-register('rounding_bottom', ({ candles, currentPrice }) =>
-  roundingPattern(candles, currentPrice, true),
-);
-register('rounding_top', ({ candles, currentPrice }) =>
-  roundingPattern(candles, currentPrice, false),
 );
 
 register('opening_gap', ({ candles, currentPrice }) => openingGap(candles, currentPrice));

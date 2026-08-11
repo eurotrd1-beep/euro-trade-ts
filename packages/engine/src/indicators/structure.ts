@@ -365,14 +365,6 @@ register('divergence', ({ candles }) => {
 });
 
 
-register('liquidity', ({ candles }) => {
-  const volRatio = volumeProfileStats(candles).ratio;
-  const volDelta = m.volumeDelta(candles);
-  const cmfVal = m.cmf(candles, 20);
-  if (volRatio > 1.5 && volDelta > 0 && cmfVal > 0.05) return 'institutional_buying';
-  if (volRatio > 1.5 && volDelta < 0 && cmfVal < -0.05) return 'institutional_selling';
-  return 'none';
-});
 
 // Both cases read the same ratio in Dart.
 

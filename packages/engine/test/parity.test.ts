@@ -108,14 +108,15 @@ describe('engine parity with the Dart implementation', () => {
    * Full reasoning per name: docs/unavailable-indicators.md
    * Audit: scripts/audit-liveness.mts, 2026-08-11.
    */
+  /**
+   * The audit only ever reports on what is still registered, so it cannot be
+   * the source of truth for what was removed — by the final round it lists
+   * nothing at all. docs/unavailable-indicators.md is generated from the same
+   * runs and does hold the full set, so the names are read back from there.
+   */
   const DISABLED = new Set(
-    (JSON.parse(readFileSync(new URL('../../../docs/liveness.json', import.meta.url), 'utf8')) as {
-      verdicts: Array<{ name: string; grade: string }>;
-    }).verdicts
-      .filter((v) => v.grade === 'A')
-      .map((v) => v.name)
-      // Two grade-A names were kept on purpose; see meta.ts.
-      .filter((n) => n !== 'vwap' && n !== 'price_vs_vwap'),
+    [...readFileSync(new URL('../../../docs/unavailable-indicators.md', import.meta.url), 'utf8')
+      .matchAll(/^\| `([a-z0-9_]+)` \|/gm)].map((m) => m[1]!),
   );
 
   const ported = names.filter(isRegistered);
