@@ -13,8 +13,6 @@ import * as m from './math.js';
 // ── Momentum ────────────────────────────────────────────────────────────────
 register('rsi', ({ candles, rule }) => m.rsi(candles, rule.period));
 register('cci', ({ candles, rule }) => m.cci(candles, rule.period));
-register('mfi', ({ candles, rule }) => m.mfi(candles, rule.period));
-register('cmf', ({ candles, rule }) => m.cmf(candles, rule.period));
 register('roc', ({ candles, rule, currentPrice }) => m.roc(candles, rule.period, currentPrice));
 register('williams_r', ({ candles, rule, currentPrice }) =>
   m.williamsR(candles, rule.period, currentPrice),
@@ -74,8 +72,6 @@ register('bb_position', ({ candles, rule, currentPrice }) => {
 });
 
 // ── Volume ──────────────────────────────────────────────────────────────────
-register('obv', ({ candles }) => m.obv(candles));
-register('vol_delta', ({ candles }) => m.volumeDelta(candles));
 register('vwap', ({ candles, currentPrice }) => m.vwap(candles, currentPrice));
 register('price_vs_vwap', ({ candles, currentPrice }) => currentPrice - m.vwap(candles, currentPrice));
 

@@ -1,4 +1,23 @@
 /**
+ * DISABLED — not imported by indicators/index.ts, so none of these names reach
+ * the registry.
+ *
+ * Reason: every one is a hardcoded `0.0`. They were ported faithfully from a
+ * Dart switch branch that returns 0 for "requires external data" / "requires
+ * trained models", so the port is correct and the data has never existed.
+ * A strategy naming one of them adds nothing and is told nothing.
+ *
+ * Re-enable: when a real source exists for that family — a market-data feed for
+ * breadth and macro, an inference endpoint for the ML names, a chain indexer
+ * for the on-chain ones. Add the import back to indicators/index.ts and only
+ * for the names actually implemented.
+ *
+ * Verified 2026-08-11 across 10,744 evaluations per indicator on 405 contiguous
+ * segments (33,501 candles, 183 symbols, 24/24 hours). Every one returned the
+ * same single value throughout.
+ *
+ * ── original header ────────────────────────────────────────────────────────
+ *
  * Placeholder indicators.
  *
  * These names exist in the strategy vocabulary but were never implemented in
@@ -10,7 +29,7 @@
  * live signal scoring, which the migration explicitly forbids.
  */
 
-import { register } from '../registry.js';
+import { register } from '../../registry.js';
 
 export const PLACEHOLDER_INDICATORS = [
   'smt_divergence',

@@ -526,7 +526,6 @@ register('monte_carlo_risk_simulation', ({ candles, currentPrice }) =>
 );
 // History is not part of the indicator context; with none supplied this matches
 // the engine's own "fewer than 10 signals" path, which returns 0.
-register('kelly_criterion', () => kellyValue([]));
 
 // `three_drives` routes to the harmonic detector with an unrecognised type, so
 // the switch inside it falls to `default: matches = false` → always 'none'.

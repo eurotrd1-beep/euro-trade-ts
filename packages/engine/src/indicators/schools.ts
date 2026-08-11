@@ -299,7 +299,6 @@ register('gann_angle', ({ candles, currentPrice }) => gannAngle(candles, current
 register(['vsa', 'no_demand', 'no_supply'], ({ candles, currentPrice }) =>
   vsaSignal(candles, currentPrice),
 );
-register(['cvd', 'cumulative_volume_delta'], ({ candles }) => cvd(candles));
 register('wolfe_waves', ({ candles, currentPrice }) => wolfeWave(candles, currentPrice));
 register(['demark', 'td_sequential'], ({ candles }) => demarkSequential(candles));
 register('darvas_box', ({ candles, currentPrice }) => darvasBox(candles, currentPrice));

@@ -1,7 +1,7 @@
 {
   "_doc": "MASTER REFERENCE — generated FROM the engine, not written by hand.",
   "_generated_by": "scripts/build-strategy-reference.mts",
-  "_engine_indicators": 359,
+  "_engine_indicators": 245,
   "_sample": {
     "_note": "Every \"observed values\" and every range below comes from running the indicator over THIS sample. A value the sample never produced is absent from the list — that is a limit of the sample, not a fact about the indicator.",
     "live_windows": 20,
@@ -71,11 +71,11 @@
     "minimum_gap": "The two directions must differ by at least 4.0 after multipliers, or the setup is rejected as unclear."
   },
   "_categories": {
-    "Advanced Statistics": 11,
-    "Oscillators": 12,
-    "Other": 267,
+    "Advanced Statistics": 10,
+    "Oscillators": 10,
+    "Other": 157,
     "Price Levels": 15,
-    "Rare Patterns": 32,
+    "Rare Patterns": 31,
     "Trend": 22
   },
   "name": "Master Reference (generated)",
@@ -91,7 +91,7 @@
   },
   "rules": [
     {
-      "_section": "━━━━━━━━━━ ADVANCED STATISTICS (11) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ ADVANCED STATISTICS (10) ━━━━━━━━━━"
     },
     {
       "indicator": "anomaly_detection",
@@ -118,16 +118,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.3192 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
-    },
-    {
-      "indicator": "kelly_criterion",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range 0.3555 … 0.7635 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Advanced Statistics"
     },
     {
       "indicator": "market_regime_classification",
@@ -147,11 +138,9 @@
       "pattern": "bullish",
       "value": 3,
       "period": 14,
-      "fast": 9,
       "slow": 21,
       "smooth": 3,
-      "stddev": 2,
-      "_note": "returns TEXT. observed values: bearish | bullish | neutral. use eq / neq with `pattern`, or bullish / bearish. reads: period, fast, slow, smooth, stddev, value. category: Advanced Statistics"
+      "_note": "returns TEXT. observed values: bearish | bullish | neutral. use eq / neq with `pattern`, or bullish / bearish. reads: period, slow, smooth, value. category: Advanced Statistics"
     },
     {
       "indicator": "regime_detection",
@@ -197,10 +186,10 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -3.2727 … 2.6349 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Advanced Statistics"
+      "_note": "returns a NUMBER. observed range -3.2727 … 2.7658 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Advanced Statistics"
     },
     {
-      "_section": "━━━━━━━━━━ OSCILLATORS (12) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ OSCILLATORS (10) ━━━━━━━━━━"
     },
     {
       "indicator": "cci",
@@ -210,17 +199,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -350 … 259 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
-    },
-    {
-      "indicator": "cmf",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "period": 14,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح — لكن الحجم الثابت يُختصر من المعادلة فيتحول لمؤشر سعر صالح باسم مضلِّل (vwap مثلاً يساوي متوسط السعر النموذجي بالضبط). يعمل، لكنه ليس ما يوحي به اسمه.. returns a NUMBER. observed range -0.4473 … 0.5419 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -342 … 271 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
     },
     {
       "indicator": "macd_histogram",
@@ -238,7 +217,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -3.6127 … 1.366 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -3.3331 … 1.366 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Oscillators"
     },
     {
       "indicator": "macd_signal",
@@ -248,16 +227,6 @@
       "enabled": false,
       "value": 0,
       "_note": "returns a NUMBER. observed range -4.8285 … 1.6204 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Oscillators"
-    },
-    {
-      "indicator": "mfi",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "period": 14,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح — لكن الحجم الثابت يُختصر من المعادلة فيتحول لمؤشر سعر صالح باسم مضلِّل (vwap مثلاً يساوي متوسط السعر النموذجي بالضبط). يعمل، لكنه ليس ما يوحي به اسمه.. returns a NUMBER. observed range 0 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
     },
     {
       "indicator": "roc",
@@ -288,7 +257,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range -13.7143 … 7.6598 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range -13.7143 … 10.4 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "stoch_d",
@@ -299,7 +268,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range 1.15 … 99.1085 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range 1.15 … 98.4906 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "stoch_k",
@@ -310,7 +279,7 @@
       "value": 0,
       "period": 14,
       "smooth": 3,
-      "_note": "returns a NUMBER. observed range 1.1502 … 99.1991 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
+      "_note": "returns a NUMBER. observed range 1.1502 … 98.8524 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, smooth. category: Oscillators"
     },
     {
       "indicator": "williams_r",
@@ -323,7 +292,7 @@
       "_note": "returns a NUMBER. observed range -100 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Oscillators"
     },
     {
-      "_section": "━━━━━━━━━━ OTHER (267) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ OTHER (157) ━━━━━━━━━━"
     },
     {
       "indicator": "abandoned_baby",
@@ -332,7 +301,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ac",
@@ -341,7 +310,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -3.8778 … 0.956 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -3.8778 … 0.8758 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "accelerator_oscillator",
@@ -350,7 +319,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -3.8778 … 0.956 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -3.8778 … 0.8758 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "accumulation",
@@ -362,40 +331,13 @@
       "_note": "returns TEXT. observed values: bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "ad_line",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "advance_decline",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "advance_decline_line",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "advanced_candle",
       "condition": "bullish",
       "signal": "CALL",
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "adx",
@@ -405,7 +347,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.1049 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range 0.1902 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "amd_cycle",
@@ -426,15 +368,6 @@
       "_note": "returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
-      "indicator": "arms_index",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "ascending_triangle",
       "condition": "bullish",
       "signal": "CALL",
@@ -442,15 +375,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "astro",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "atr",
@@ -463,15 +387,6 @@
       "_note": "returns a NUMBER. observed range 0.0008 … 2.1334 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
-      "indicator": "autoencoder",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "awesome_oscillator",
       "condition": "gt",
       "signal": "CALL",
@@ -479,15 +394,6 @@
       "enabled": false,
       "value": 0,
       "_note": "returns a NUMBER. observed range -7.8799 … 2.4395 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "bayesian_networks",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "bear_flag",
@@ -515,7 +421,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "bop",
@@ -524,25 +430,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -1 … 0.9857 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "bpi",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "breadth_thrust",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -0.9883 … 0.9951 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "break_of_structure",
@@ -580,15 +468,6 @@
       "value": 0,
       "period": 14,
       "_note": "returns a NUMBER. observed range -7.8713 … 2.6627 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
-    },
-    {
-      "indicator": "bullish_percent_index",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "bump_and_run",
@@ -691,15 +570,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "clustering_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "cmo",
       "condition": "gt",
       "signal": "CALL",
@@ -708,33 +578,6 @@
       "value": 0,
       "period": 14,
       "_note": "returns a NUMBER. observed range -100 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
-    },
-    {
-      "indicator": "cnn_pattern",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "cointegration_spread_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "commitment_of_traders",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "connors_rsi",
@@ -755,33 +598,6 @@
       "_note": "returns TEXT. observed values: bearish_ce | bullish_ce | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "cot_report",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "cross_asset_flow_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "cumulative_volume_delta",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "negative",
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns TEXT. observed values: negative | neutral | positive. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
       "indicator": "cup_and_handle",
       "condition": "bullish",
       "signal": "CALL",
@@ -789,15 +605,6 @@
       "enabled": false,
       "pattern": "none",
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "cvd",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "negative",
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns TEXT. observed values: negative | neutral | positive. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "darvas_box",
@@ -818,15 +625,6 @@
       "_note": "returns TEXT. observed values: friday | monday | thursday | tuesday | wednesday | weekend. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "dealer_positioning_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "dealing_range",
       "condition": "bullish",
       "signal": "CALL",
@@ -834,24 +632,6 @@
       "enabled": false,
       "pattern": "discount",
       "_note": "returns TEXT. observed values: discount | equilibrium | premium. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "deep_learning_pattern_recognition",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "delta_exposure",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "demark",
@@ -941,16 +721,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "dom",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "donchian_channel",
@@ -997,35 +768,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "dxy",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "ease_of_movement",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "period": 14,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -121177 … 53124 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
-    },
-    {
-      "indicator": "economic_calendar_impact_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "elder_bear_power",
@@ -1048,15 +791,6 @@
       "_note": "returns a NUMBER. observed range -7.8713 … 2.6627 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
-      "indicator": "elder_force_index",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -9955 … 1141 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "ema_cross",
       "condition": "gt",
       "signal": "CALL",
@@ -1066,34 +800,6 @@
       "fast": 9,
       "slow": 21,
       "_note": "returns a NUMBER. observed range -3.0123 … 1.0106 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: fast, slow. category: Other"
-    },
-    {
-      "indicator": "emv",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "period": 14,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -121177 … 53124 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
-    },
-    {
-      "indicator": "exchange_netflow",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "exchange_reserves",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "expansion",
@@ -1188,22 +894,13 @@
       "_note": "returns a NUMBER. observed range -3.8002 … 3.8002 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
-      "indicator": "footprint",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "fractal_dimension",
       "condition": "gt",
       "signal": "CALL",
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 1.2365 … 1.6808 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 1.2365 … 1.6445 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "fractals",
@@ -1213,24 +910,6 @@
       "enabled": false,
       "pattern": "bullish_fractal",
       "_note": "returns TEXT. observed values: bearish_fractal | bullish_fractal | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "funding_rate_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "gamma_exposure",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "gann_angle",
@@ -1251,40 +930,13 @@
       "_note": "returns TEXT. observed values: below_1x1 | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "gaussian_process_regression",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "gold_ratio",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "gradient_boosting",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "gravestone_doji",
       "condition": "bullish",
       "signal": "CALL",
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "harami",
@@ -1293,16 +945,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "hash_rate",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "head_and_shoulders",
@@ -1321,24 +964,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bearish | bullish | none | strong_bearish | strong_bullish. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "hidden_liquidity_models",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "hidden_markov_models",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "historical_volatility",
@@ -1377,24 +1002,6 @@
       "enabled": false,
       "pattern": "above_ibh",
       "_note": "returns TEXT. observed values: above_ibh | below_ibl | inside_ib. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "ica",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "iceberg_orders",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "idnr4",
@@ -1451,15 +1058,6 @@
       "_note": "returns TEXT. observed values: bearish_institutional | bullish_institutional | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "intermarket",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "internal_bos",
       "condition": "bullish",
       "signal": "CALL",
@@ -1487,15 +1085,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "kalman_filter",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "keltner_channel",
       "condition": "bullish",
       "signal": "CALL",
@@ -1511,7 +1100,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "kill_zone",
@@ -1523,24 +1112,6 @@
       "_note": "returns TEXT. observed values: asian_killzone | london_killzone | newyork_killzone | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "klinger",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -2507 … 2507 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "klinger_oscillator",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -2507 … 2507 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "kst",
       "condition": "gt",
       "signal": "CALL",
@@ -1548,24 +1119,6 @@
       "enabled": false,
       "value": 0,
       "_note": "returns a NUMBER. observed range -51.7836 … 143 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "latency_arbitrage_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "liquidation_heatmap_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "liquidity",
@@ -1577,24 +1130,6 @@
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
-      "indicator": "liquidity_heatmaps",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "liquidity_score",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range 0 … 100 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "liquidity_voids",
       "condition": "bullish",
       "signal": "CALL",
@@ -1604,42 +1139,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "long_short_ratio_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "lstm",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "lunar_cycle",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "macro_cycle_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "manipulation",
       "condition": "bullish",
       "signal": "CALL",
@@ -1647,15 +1146,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "market_breadth",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "market_maker_buy_model",
@@ -1700,7 +1190,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "mass_index",
@@ -1711,33 +1201,6 @@
       "value": 0,
       "period": 14,
       "_note": "returns a NUMBER. observed range 6.582 … 27.1481 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
-    },
-    {
-      "indicator": "max_pain_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "mcclellan_oscillator",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "mcclellan_summation",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "mean_reversion",
@@ -1758,24 +1221,6 @@
       "_note": "returns TEXT. observed values: active | bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "microstructure_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "mining_difficulty",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "minus_di",
       "condition": "gt",
       "signal": "CALL",
@@ -1783,7 +1228,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0 … 70.0506 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
+      "_note": "returns a NUMBER. observed range 0 … 61.3893 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "momentum",
@@ -1802,51 +1247,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "mvrv",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "neural_network",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "new_highs_lows",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "news_sentiment_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "nhnl",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "no_demand",
@@ -1885,42 +1285,6 @@
       "_note": "returns TEXT. observed values: active | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "nupl",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "nvi",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — القيمة ثابتة ولا تتغير أبداً. لا تستخدمه.. returns a NUMBER. observed range 1000 … 1000 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "obv",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -117000 … 117000 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "on_chain_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "opening_gap",
       "condition": "bullish",
       "signal": "CALL",
@@ -1928,15 +1292,6 @@
       "enabled": false,
       "pattern": "gap_down",
       "_note": "returns TEXT. observed values: gap_down | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "options_open_interest_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "ote",
@@ -1957,15 +1312,6 @@
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "pca",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "pennant",
       "condition": "bullish",
       "signal": "CALL",
@@ -1973,15 +1319,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "pi_cycle",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "pipe_bottom",
@@ -2045,7 +1382,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range -1.6367 … 4.5536 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -1.5148 … 4.5536 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "premium_zone",
@@ -2063,52 +1400,7 @@
       "score": 1,
       "enabled": false,
       "value": 0,
-      "_note": "returns a NUMBER. observed range 0.6548 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "put_call_ratio",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "pvi",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — القيمة ثابتة ولا تتغير أبداً. لا تستخدمه.. returns a NUMBER. observed range 1000 … 1000 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "pvt",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -68.3867 … 345 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "quantitative_factor_models",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "random_forest",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range 0.655 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "reaccumulation",
@@ -2118,15 +1410,6 @@
       "enabled": false,
       "pattern": "none",
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "realized_pnl",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "rectangle",
@@ -2147,24 +1430,6 @@
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
-      "indicator": "reinforcement_learning_models",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "relative_rotation_graph",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "rising_wedge",
       "condition": "bullish",
       "signal": "CALL",
@@ -2172,24 +1437,6 @@
       "enabled": false,
       "pattern": "bearish",
       "_note": "returns TEXT. observed values: bearish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "risk_on_off",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "risk_parity_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "rounding_bottom",
@@ -2210,15 +1457,6 @@
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
-      "indicator": "rrg",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "rvi",
       "condition": "gt",
       "signal": "CALL",
@@ -2226,25 +1464,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -0.4185 … 0.5242 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
-    },
-    {
-      "indicator": "seasonality",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "sector_rotation",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns a NUMBER. observed range -0.4466 … 0.5242 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Other"
     },
     {
       "indicator": "session",
@@ -2283,67 +1503,13 @@
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
-      "indicator": "smart_tape_reading",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "smt_divergence",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "social_sentiment_analysis",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "som",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "sopr",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "spinning_top",
       "condition": "bullish",
       "signal": "CALL",
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "spoofing",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "starc",
@@ -2364,15 +1530,6 @@
       "_note": "returns TEXT. observed values: above_upper | below_lower | lower_half | upper_half. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "statistical_arbitrage",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "stc",
       "condition": "gt",
       "signal": "CALL",
@@ -2380,15 +1537,6 @@
       "enabled": false,
       "value": 0,
       "_note": "returns a NUMBER. observed range 25 … 75 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "stock_to_flow",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "supply_demand",
@@ -2400,15 +1548,6 @@
       "_note": "returns TEXT. observed values: demand | none | supply. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "svm_classifier",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "indicator": "symmetrical_triangle",
       "condition": "bullish",
       "signal": "CALL",
@@ -2416,15 +1555,6 @@
       "enabled": false,
       "pattern": "bullish",
       "_note": "returns TEXT. observed values: bearish | bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "tcn",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "td_combo",
@@ -2451,7 +1581,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "three_outside",
@@ -2460,25 +1590,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "tick",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "tick_index",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "time_analysis",
@@ -2497,33 +1609,6 @@
       "enabled": false,
       "pattern": "above_poc",
       "_note": "returns TEXT. observed values: above_poc | above_vah | at_poc | below_poc | below_val. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "transformer",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "transformer_based_time_series",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "trin",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "trix",
@@ -2560,7 +1645,7 @@
       "score": 1,
       "enabled": false,
       "pattern": "bullish_engulfing",
-      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_harami_cross | bullish_marubozu | dark_cloud_cover | doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
+      "_note": "returns TEXT. observed values: bearish_engulfing | bearish_harami | bearish_harami_cross | bearish_kicker | bearish_marubozu | bullish_engulfing | bullish_harami | bullish_kicker | bullish_marubozu | dark_cloud_cover | doji | dragonfly_doji | evening_star | gravestone_doji | hammer | hanging_man | inverted_hammer | long_legged_doji | morning_star | none | piercing_line | shooting_star | spinning_top | three_black_crows | three_inside_down | three_inside_up | three_white_soldiers | tweezer_bottom | tweezer_top. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
       "indicator": "ulcer_index",
@@ -2580,15 +1665,6 @@
       "enabled": false,
       "value": 0,
       "_note": "returns a NUMBER. observed range 19.8519 … 81.2208 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "us10y",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "vah",
@@ -2618,62 +1694,6 @@
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
     },
     {
-      "indicator": "vix",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "vol_delta",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns a NUMBER. observed range -73.6517 … 82.9022 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "vol_ratio",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — القيمة ثابتة ولا تتغير أبداً. لا تستخدمه.. returns a NUMBER. observed range 1 … 1 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "volume",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — القيمة ثابتة ولا تتغير أبداً. لا تستخدمه.. returns a NUMBER. observed range 1 … 1 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "volume_oscillator",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "fast": 9,
-      "slow": 21,
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — القيمة ثابتة ولا تتغير أبداً. لا تستخدمه.. returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: fast, slow. category: Other"
-    },
-    {
-      "indicator": "volume_profile",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "high_volume_node",
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns TEXT. observed values: high_volume_node | low_volume_node | neutral. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
-    },
-    {
       "indicator": "vsa",
       "condition": "bullish",
       "signal": "CALL",
@@ -2681,24 +1701,6 @@
       "enabled": false,
       "pattern": "none",
       "_note": "returns TEXT. observed values: none. use eq / neq with `pattern`, or bullish / bearish. RARE — never triggered across 20 live windows covering 24/24 hours and 5 days. That is not evidence it is broken; several of these fire a few times a month. Treat it as unverified, not unusable. takes no parameters. category: Other"
-    },
-    {
-      "indicator": "wavenet",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "whale_alert",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
     },
     {
       "indicator": "wolfe_waves",
@@ -2728,33 +1730,6 @@
       "_note": "returns TEXT. observed values: above_p | above_r1 | below_p | below_s1. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Other"
     },
     {
-      "indicator": "xgboost",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "yield_curve",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
-      "indicator": "zweig_breadth",
-      "condition": "gt",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "value": 0,
-      "_note": "returns a NUMBER. observed range 0 … 0 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). takes no parameters. category: Other"
-    },
-    {
       "_section": "━━━━━━━━━━ PRICE LEVELS (15) ━━━━━━━━━━"
     },
     {
@@ -2775,7 +1750,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6532 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6531 … 223 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_position",
@@ -2786,7 +1761,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range -31.8182 … 116 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range -31.8182 … 119 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_upper",
@@ -2797,7 +1772,7 @@
       "value": 0,
       "period": 14,
       "stddev": 2,
-      "_note": "returns a NUMBER. observed range 0.6606 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
+      "_note": "returns a NUMBER. observed range 0.6605 … 232 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period, stddev. category: Price Levels"
     },
     {
       "indicator": "bb_width",
@@ -2901,7 +1876,7 @@
       "_note": "returns TEXT. observed values: above | above_upper | at | below | below_lower. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Price Levels"
     },
     {
-      "_section": "━━━━━━━━━━ RARE PATTERNS (32) ━━━━━━━━━━"
+      "_section": "━━━━━━━━━━ RARE PATTERNS (31) ━━━━━━━━━━"
     },
     {
       "indicator": "5_0",
@@ -3165,15 +2140,6 @@
       "_note": "returns TEXT. observed values: bullish | none. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
     },
     {
-      "indicator": "wyckoff_phase",
-      "condition": "bullish",
-      "signal": "CALL",
-      "score": 1,
-      "enabled": false,
-      "pattern": "ar",
-      "_note": "⚠️ يقرا الحجم، والحجم غير متاح من Pocket Option — الرقم يتحرك لكنه مبني على ثابت مخترع. لا تستخدمه.. returns TEXT. observed values: ar | lps | none | spring_test | utad. use eq / neq with `pattern`, or bullish / bearish. takes no parameters. category: Rare Patterns"
-    },
-    {
       "indicator": "wyckoff_spring",
       "condition": "bullish",
       "signal": "CALL",
@@ -3280,7 +2246,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.657 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6568 … 226 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hma",
@@ -3290,7 +2256,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6543 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6547 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "hull_ma",
@@ -3300,7 +2266,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6543 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6547 … 228 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "ichimoku",
@@ -3319,7 +2285,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6567 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.6559 … 225 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "linear_regression",
@@ -3329,7 +2295,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6555 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.655 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "lsma",
@@ -3339,7 +2305,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6555 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.655 … 227 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "supertrend",
@@ -3389,7 +2355,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range -0.7097 … 1.0057 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range -0.8548 … 1.0057 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "vortex_minus",
@@ -3399,7 +2365,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.4999 … 1.3776 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.4999 … 1.4434 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     },
     {
       "indicator": "vortex_plus",
@@ -3409,7 +2375,7 @@
       "enabled": false,
       "value": 0,
       "period": 14,
-      "_note": "returns a NUMBER. observed range 0.6393 … 1.5056 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
+      "_note": "returns a NUMBER. observed range 0.5886 … 1.5056 on the sample data. use gt / lt / gte / lte / between with `value` (or value_min + value_max). reads: period. category: Trend"
     }
   ]
 }

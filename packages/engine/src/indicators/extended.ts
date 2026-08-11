@@ -378,8 +378,6 @@ export function gannFan(candles: readonly Candle[], currentPrice: number): strin
 
 // ── Registrations ───────────────────────────────────────────────────────────
 
-register('pvi', ({ candles }) => pvi(candles));
-register('volume_oscillator', ({ candles, rule }) => volumeOscillator(candles, rule.fast, rule.slow));
 register('fractals', ({ candles }) => fractals(candles));
 register('inside_bar', ({ candles }) => insideBar(candles));
 register('outside_bar', ({ candles }) => outsideBar(candles));
@@ -393,7 +391,6 @@ register(['ce', 'consequent_encroachment'], ({ candles, currentPrice }) =>
   consequentEncroachment(candles, currentPrice),
 );
 register('inducement', ({ candles, currentPrice }) => inducement(candles, currentPrice));
-register('wyckoff_phase', ({ candles, currentPrice }) => wyckoffPhase(candles, currentPrice));
 
 register('poc', ({ candles, currentPrice }) => marketProfile(candles, currentPrice).poc);
 register('vah', ({ candles, currentPrice }) => marketProfile(candles, currentPrice).vah);

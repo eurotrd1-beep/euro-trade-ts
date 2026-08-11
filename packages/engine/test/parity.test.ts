@@ -13,6 +13,7 @@
  * Recorded by: tools/golden-dart/test/generate_golden_test.dart
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import golden from '../golden/engine-golden.json' with { type: 'json' };
 import { computeIndicator, isRegistered, registeredNames } from '../src/registry.js';
@@ -95,8 +96,35 @@ describe('engine parity with the Dart implementation', () => {
     expect(names.length + Object.keys(fixture.errors).length).toBe(fixture.indicatorCount);
   });
 
+  /**
+   * Names the Dart engine has that this engine deliberately does NOT register.
+   *
+   * They were ported, verified against the fixture, and then disabled because
+   * the data they need does not exist — 93 hardcoded placeholders, 20 that read
+   * a volume the feed never carries, and kelly_criterion which needs a trade
+   * history an indicator is never handed. The implementations are intact under
+   * indicators/unavailable/; only the registrations moved.
+   *
+   * Full reasoning per name: docs/unavailable-indicators.md
+   * Audit: scripts/audit-liveness.mts, 2026-08-11.
+   */
+  const DISABLED = new Set(
+    (JSON.parse(readFileSync(new URL('../../../docs/liveness.json', import.meta.url), 'utf8')) as {
+      verdicts: Array<{ name: string; grade: string }>;
+    }).verdicts
+      .filter((v) => v.grade === 'A')
+      .map((v) => v.name)
+      // Two grade-A names were kept on purpose; see meta.ts.
+      .filter((n) => n !== 'vwap' && n !== 'price_vs_vwap'),
+  );
+
   const ported = names.filter(isRegistered);
-  const pending = names.filter((n) => !isRegistered(n));
+  const disabled = names.filter((n) => !isRegistered(n) && DISABLED.has(n));
+  const pending = names.filter((n) => !isRegistered(n) && !DISABLED.has(n));
+
+  it('every unregistered Dart indicator is deliberately disabled, not forgotten', () => {
+    expect(pending, `not ported and not on the disabled list: ${pending.join(', ')}`).toEqual([]);
+  });
 
   it(`reports migration progress`, () => {
     const pct = ((ported.length / names.length) * 100).toFixed(1);

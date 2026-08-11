@@ -2,7 +2,7 @@
  * Registers every ported indicator. Importing this module populates the
  * registry; the parity test imports it and then diffs against the Dart golden.
  */
-import './placeholders.js';
+
 import './core.js';
 import './structure.js';
 import './patterns.js';

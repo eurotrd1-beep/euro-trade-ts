@@ -45,7 +45,10 @@ function readsVolume(name: string): boolean {
 }
 
 describe('volume metadata', () => {
-  it('lists every indicator that reacts to volume', () => {
+  it('lists every registered indicator that reacts to volume', () => {
+    // Most of the marked names are no longer registered — they were moved to
+    // indicators/unavailable/volume.ts precisely because of this flag. What
+    // matters now is that nothing STILL registered reads volume unmarked.
     const observed = registeredNames().filter(readsVolume);
     const missing = observed.filter((n) => !VOLUME_DEPENDENT.has(n));
     expect(
@@ -54,15 +57,12 @@ describe('volume metadata', () => {
     ).toEqual([]);
   });
 
-  it('does not mark indicators that ignore volume', () => {
-    // The reverse direction matters too: a false mark tells an operator to
-    // avoid a perfectly good indicator.
-    //
-    // A name may legitimately sit in the list while this fixture cannot move it
-    // — the audit ran over a far wider sample. So a marked indicator is only
-    // reported if it is not registered at all.
-    const unknown = [...VOLUME_DEPENDENT].filter((n) => !registeredNames().includes(n));
-    expect(unknown, `marked but not registered: ${unknown.join(', ')}`).toEqual([]);
+  it('keeps only vwap and price_vs_vwap registered among the marked', () => {
+    // The others were disabled. These two stay because a constant volume
+    // cancels out of their formula rather than corrupting it — see the last
+    // test in this file, which pins that claim.
+    const stillRegistered = [...VOLUME_DEPENDENT].filter((n) => registeredNames().includes(n));
+    expect(stillRegistered.sort()).toEqual(['price_vs_vwap', 'vwap']);
   });
 
   it('splits dead from degraded without overlap', () => {

@@ -514,7 +514,6 @@ register(['elder_bull_power', 'bull_power'], ({ candles, rule, currentPrice }) =
 register(['elder_bear_power', 'bear_power'], ({ candles, rule, currentPrice }) =>
   elderBearPower(candles, rule.period, currentPrice),
 );
-register('elder_force_index', ({ candles }) => elderForceIndex(candles));
 
 register('aroon_up', ({ candles, rule }) => aroon(candles, rule.period).up);
 register('aroon_down', ({ candles, rule }) => aroon(candles, rule.period).down);
@@ -535,10 +534,6 @@ register(['historical_volatility', 'hv'], ({ candles, rule }) =>
 register('ulcer_index', ({ candles, rule }) => ulcerIndex(candles, rule.period));
 register('chaikin_volatility', ({ candles, rule }) => chaikinVolatility(candles, rule.period));
 
-register(['emv', 'ease_of_movement'], ({ candles, rule }) => emv(candles, rule.period));
-register('pvt', ({ candles }) => pvt(candles));
-register(['klinger', 'klinger_oscillator'], ({ candles }) => klinger(candles));
-register('nvi', ({ candles }) => nvi(candles));
 
 register('alligator', ({ candles, currentPrice }) => alligator(candles, currentPrice));
 register(['chande_kroll_stop', 'ckstop'], ({ candles, currentPrice }) =>

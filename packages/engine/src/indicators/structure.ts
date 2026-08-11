@@ -364,14 +364,6 @@ register('divergence', ({ candles }) => {
   return d === 'bullish' ? 1.0 : d === 'bearish' ? -1.0 : 0.0;
 });
 
-register('liquidity_score', ({ candles, currentPrice }) => liquidityZones(candles, currentPrice).score);
-
-register('volume_profile', ({ candles, currentPrice }) => {
-  const score = liquidityZones(candles, currentPrice).score;
-  if (score > 65) return 'high_volume_node';
-  if (score < 35) return 'low_volume_node';
-  return 'neutral';
-});
 
 register('liquidity', ({ candles }) => {
   const volRatio = volumeProfileStats(candles).ratio;
@@ -383,7 +375,6 @@ register('liquidity', ({ candles }) => {
 });
 
 // Both cases read the same ratio in Dart.
-register(['vol_ratio', 'volume'], ({ candles }) => volumeProfileStats(candles).ratio);
 
 // Clock-driven. Note the two differing defaults for the session name.
 register('kill_zone', ({ clock }) => killZone(clock));
