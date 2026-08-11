@@ -918,13 +918,25 @@ window.CandleChart = (function () {
        ever. The slot width is chosen so the most-recent candles span the full
        width, clamped to a readable thickness. step == candleW so body N ends
        exactly where body N+1 begins. */
-    var total   = this.candles.length;
-    // Show EVERY candle we have (up to the 50-cap), sized to fill the plot width
-    // with a small gap between bodies (Pocket Option style). The slot is capped
-    // only from ABOVE (so a FEW candles don't become giant) — never from below,
-    // so all 50 always fit even on a narrow screen instead of clipping the oldest.
+    var total = this.candles.length;
+
+    /* The slot is clamped from BOTH sides now, and the lower clamp is the one
+       that matters on a phone.
+
+       Fitting all 100 candles used to win unconditionally: on a 360px screen
+       the plot is about 244px, so the slot came out at 2.4px and the body at
+       TWO PIXELS. A 2px body under a full-height wick is a vertical hair — you
+       cannot tell a body from a wick, or green from red, and the chart reads as
+       a comb. More history on screen is worth nothing if none of it is legible.
+
+       So the BODY width is what stays roughly constant (~6px) across devices
+       and the NUMBER of visible candles is what varies, which is how every real
+       trading app behaves: a phone shows ~30 candles, a desktop all 100, both
+       readable. The older ones are still there — scrollRight reaches them. */
+    var MIN_SLOT = 8;
     var MAX_SLOT = 14;
-    var showN = Math.max(1, total);
+    var fitsAtMin = Math.max(1, Math.floor(cw / MIN_SLOT));
+    var showN = Math.max(1, Math.min(total, fitsAtMin));
     var slot  = Math.min(cw / showN, MAX_SLOT);
     var step  = slot;                                      // fractional is fine on canvas
     this.candleW = Math.max(1, Math.round(step * 0.72));   // body ~72% of slot → small gap

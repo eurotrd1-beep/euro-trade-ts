@@ -34,6 +34,13 @@ const CORS: Record<string, string> = {
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
+  // Without this the browser hides both headers from JS. Only seven response
+  // headers are readable cross-origin by default and neither of these is among
+  // them, so `x-edge-ts` was being set, cached, served — and dropped before any
+  // caller could read it. The app judges feed freshness against `x-edge-ts`
+  // precisely so it does not have to trust the device clock; see the note on
+  // referenceNowSeconds in apps/web/lib/candles.ts.
+  'Access-Control-Expose-Headers': 'X-Cache, x-edge-ts, Date',
 };
 
 /** Fetches from the origin, stamps it with an edge timestamp, and caches it. */

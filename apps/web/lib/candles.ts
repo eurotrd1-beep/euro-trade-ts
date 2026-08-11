@@ -97,6 +97,30 @@ export interface OtcStatus {
  */
 const STALE_AFTER_SECONDS = 60;
 
+/**
+ * A reference "now" that is NOT the user's device clock.
+ *
+ * This is the whole fix for a banner that showed while prices were live and
+ * never went away. Sample age was `Date.now() - entry.t`, so a phone whose
+ * clock runs two minutes fast makes every sample look two minutes old — for
+ * ever, on a feed that is working perfectly. Device clocks are wrong all the
+ * time; they are not a thing to measure a server's freshness with.
+ *
+ * The edge worker stamps `x-edge-ts` when it fetches from the origin: server
+ * time, and it accounts for cache age. `Date` is the fallback. Only if both are
+ * missing does the feed's own newest sample stand in — that still catches one
+ * stalled symbol on a live feed, which is the more common failure anyway.
+ */
+function referenceNowSeconds(res: Response, newestSample: number): number {
+  const edge = Number(res.headers.get('x-edge-ts'));
+  if (Number.isFinite(edge) && edge > 0) return Math.floor(edge / 1000);
+
+  const date = Date.parse(res.headers.get('date') ?? '');
+  if (Number.isFinite(date) && date > 0) return Math.floor(date / 1000);
+
+  return newestSample;
+}
+
 interface OtcPriceEntry {
   /** Last price. */
   p?: number;
@@ -136,10 +160,16 @@ export async function fetchOtcStatus(activeSymbol: string): Promise<OtcStatus | 
       if (entry?.po === false) closedPairs[symbol] = true;
     }
 
-    const entry = prices[activeSymbol];
-    const nowSec = Math.floor(Date.now() / 1000);
-    const age = nowSec - (entry?.t ?? 0);
+    let newestSample = 0;
+    for (const e of Object.values(prices)) {
+      if (typeof e?.t === 'number' && e.t > newestSample) newestSample = e.t;
+    }
 
+    const entry = prices[activeSymbol];
+    const age = referenceNowSeconds(res, newestSample) - (entry?.t ?? 0);
+
+    // A sample stamped in the FUTURE is a clock disagreement, not a stall.
+    // Math.abs would be wrong here: only lateness means the feed stopped.
     return {
       closedPairs,
       healthy: entry !== undefined && age < STALE_AFTER_SECONDS,

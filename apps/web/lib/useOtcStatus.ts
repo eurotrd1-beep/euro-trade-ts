@@ -13,6 +13,19 @@ import { fetchOtcStatus, type OtcStatus } from './candles';
 /** Dart polls on this cadence. */
 const POLL_MS = 20_000;
 
+/**
+ * Consecutive bad polls before the banner appears.
+ *
+ * The banner makes a claim about the price provider, so it should take more
+ * than one sample to make it: a single 8s timeout while a phone changes cell
+ * tower is not an outage. Two in a row is 20+ seconds of nothing, which is.
+ *
+ * Recovery is deliberately NOT hysteretic — the first good poll clears it at
+ * once. Being slow to say "there is a problem" is caution; being slow to say
+ * "it is fixed" is a stuck banner, which is the bug this exists to end.
+ */
+const UNHEALTHY_AFTER = 2;
+
 export interface MarketStatus {
   closedPairs: Record<string, boolean>;
   /** False when the feed has stalled — shows the reconnecting banner. */
@@ -36,12 +49,35 @@ export function useOtcStatus(activeSymbol: string, enabled: boolean): MarketStat
   useEffect(() => {
     if (!enabled || !activeSymbol) return;
     let cancelled = false;
+    let badPolls = 0;
 
     async function poll(): Promise<void> {
       const s: OtcStatus | null = await fetchOtcStatus(activeSymbol);
-      // null means the poll failed — keep the previous state rather than
-      // false-closing the market on a network blip.
-      if (cancelled || s === null) return;
+      if (cancelled) return;
+
+      // A failed poll used to freeze the whole state, which is how the banner
+      // got stuck on: one unhealthy reading followed by fetches that never
+      // landed left it showing for ever. It still must not false-CLOSE the
+      // market — closedPairs and open keep their last known values — but the
+      // health flag has to keep moving, because a fetch that will not complete
+      // IS the problem the banner describes.
+      if (s === null) {
+        badPolls++;
+        if (badPolls >= UNHEALTHY_AFTER) {
+          setStatus((prev) => (prev.healthy ? { ...prev, healthy: false } : prev));
+        }
+        return;
+      }
+
+      if (!s.healthy) {
+        badPolls++;
+        // Below the threshold, take everything EXCEPT the verdict — the pair
+        // list and market state are still good, only the claim is premature.
+        setStatus(badPolls >= UNHEALTHY_AFTER ? s : { ...s, healthy: true });
+        return;
+      }
+
+      badPolls = 0;
       setStatus(s);
     }
 
