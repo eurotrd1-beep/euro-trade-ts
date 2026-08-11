@@ -62,6 +62,11 @@ END $$;
 ALTER TABLE public.price_snapshot ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.price_snapshot FROM anon, authenticated;
 
+-- صريح عن قصد. service_role بيتخطّى RLS لكنه لسه محتاج صلاحية على الجدول،
+-- ومشروعات Supabase بتمنحها افتراضيًا للجداول الجديدة — الاعتماد على ده
+-- ضمنيًا معناه إن كل الهجرة دي تفشل عند أول كتابة من البروكسي.
+GRANT ALL ON public.price_snapshot TO service_role;
+
 -- نقل آخر قيمة معروفة، عشان أول إقلاع للبروكسي الجديد ميلاقيش الجدول فاضي.
 INSERT INTO public.price_snapshot (id, data)
 SELECT 'otc_prices', c.data FROM public.configs c WHERE c.id = 'otc_prices'
