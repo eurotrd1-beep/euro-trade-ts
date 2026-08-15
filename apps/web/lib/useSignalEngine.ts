@@ -14,6 +14,12 @@
  *   4. WAIT for the current candle to close, counting down
  *   5. market-closed checks (weekend forex, frozen price on non-OTC)
  *   6. generate the signal — with a fallback if scoring throws
+ *
+ * The one departure from Dart is `guaranteed_win`: there it only forced the
+ * CLOSE onto the winning side, so a forced account could still be told "no
+ * opportunity now" by the strategy. Here it forces the OPEN as well — a random
+ * direction, no scoring, no gates — because an account that always wins is not
+ * an account the strategy has anything to say about.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -84,6 +90,11 @@ export interface UseSignalEngineArgs {
   /** 'simulator' skips the real feed entirely, as `disableRealCandles` does. */
   priceSystem: string;
   role: string;
+  /**
+   * Admin-controlled, per user. Bypasses the strategy on the way in (random
+   * direction, no gates) and forces the close onto the winning side on the way
+   * out. Statistics exclude these — `signals.forced` in signal_stats.sql.
+   */
   guaranteedWin: boolean;
   /** Raw `configs` row; null means fall back to the parametric V2 scorer. */
   strategyJson: Record<string, unknown> | null;
@@ -250,6 +261,9 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   /**
    * Produces the signal itself — Dart's `_generateNextSignal`. Returns null
    * when a gate blocked it, with the reason already written into state.
+   *
+   * Guaranteed-win accounts skip all of that: they get a random signal that no
+   * gate can block. See the branch below.
    */
   const generate = useCallback(
     (selectedMinutes: number, forMonitoring = false): TradingSignal | null => {
@@ -265,6 +279,43 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const strategy = forMonitoring
       ? ((a.role === 'vip' ? monVip : monStd) ?? monStd ?? monVip ?? instant)
       : instant;
+
+    // ── Guaranteed win: the strategy is never consulted ───────────────────
+    // A forced account is not being measured, so scoring it is pointless and
+    // actively harmful — a min_score gate or a blocked pyramid would hand a
+    // "no opportunity now" banner to the one user who is supposed to win every
+    // trade. The direction is a coin flip and the confidence is drawn from the
+    // same band a scored signal lands in, so the card is indistinguishable
+    // from a real one; the settlement above forces the WIN.
+    //
+    // The randomness stays here rather than in `@euro/engine` on purpose: the
+    // engine is vendored into the proxy generator, whose whole job is writing
+    // signals that statistics are computed from. A forced signal must never be
+    // reachable from there.
+    if (a.guaranteedWin) {
+      const aligned = alignExpiry(Date.now(), selectedMinutes);
+      const live = livePriceRef.current?.() ?? 0;
+      const entry = live > 0 ? live : currentPrice;
+      const base = strategy?.confidenceBase ?? 92.5;
+      const max = strategy?.confidenceMax ?? 98.9;
+
+      return {
+        pair: a.pair,
+        direction: (Math.random() < 0.5 ? 'CALL' : 'PUT') as Direction,
+        durationMinutes: selectedMinutes,
+        entryPrice: entry,
+        currentPrice: entry,
+        confidence: base + Math.random() * (max - base),
+        entryTime: aligned.entryTime,
+        expiryTime: aligned.expiryTime,
+        status: 'ACTIVE',
+        exitPrice: null,
+        candlesSnapshot: null,
+        marketCondition: '',
+        recommendation: '',
+        origin: forMonitoring ? 'monitoring' : 'instant',
+      };
+    }
 
     const ctx = { candles, currentPrice, clock: systemClock() };
 

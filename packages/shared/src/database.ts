@@ -69,7 +69,10 @@ export interface UserRow {
   fcm_token: string;
   login_count: number;
   vip_expiry: string | null;
-  /** Admin-controlled: forces every trade to close as a win. */
+  /**
+   * Admin-controlled: the account's signals are generated at random, ignoring
+   * the strategy entirely, and every trade closes as a win.
+   */
   guaranteed_win: boolean;
   clicked_broker: string;
   created_at: string;
