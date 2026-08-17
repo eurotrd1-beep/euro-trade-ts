@@ -52,6 +52,7 @@ import { outcomeFor } from '../signal.js';
 import {
   NO_EVENT,
   type ArmedSetup,
+  type SetupDiagnostics,
   type ProgramContext,
   type ProgramEvent,
   type ProgramState,
@@ -64,6 +65,25 @@ const FIB = 0.236;
 
 /** How many past setups to remember for A4. Two an hour would be busy; 32 is weeks. */
 const FIRED_MEMORY = 32;
+
+/**
+ * A fresh tally for one candle.
+ *
+ * Counting only. Not one field below is read by any decision in this file —
+ * they are written on the way past, and the backtest adds them up.
+ */
+function blankDiagnostics(): SetupDiagnostics {
+  return {
+    pairsExamined: 0,
+    rejectedShape: 0,
+    rejectedSwingTouched: 0,
+    rejectedBroken: 0,
+    rejectedAlreadyFired: 0,
+    armed: false,
+    retiredBroken: false,
+    retiredAged: false,
+  };
+}
 
 /** A confirmed swing point. */
 interface Pivot {
@@ -135,9 +155,28 @@ function contiguousTail(candles: readonly Candle[], timeframeMs: number, end: nu
  *
  * `upTo` is `N - 2` and not `N`: the test reads two candles on each side, so a
  * pivot at `N - 1` is still open to being disproved by the candle after next.
- * A bar that is both a high and a low — an outside bar swallowing its
- * neighbours — is dropped, because it cannot be both ends of one leg and
- * picking one arbitrarily would decide trades by the order of two if-statements.
+ *
+ * ── THE OUTSIDE BAR ────────────────────────────────────────────────────────
+ *
+ * A bar can satisfy both tests — swallowing its four neighbours top and bottom.
+ * This used to DROP it, on the grounds that one candle cannot be both ends of
+ * one leg. That was a rule nobody asked for, and it had a consequence nobody
+ * would have predicted: for a peak candle to reach its own 23.6% level its wick
+ * usually has to dip below its neighbours' lows, which made it an outside bar —
+ * so it was discarded before the author's own exclusion rule ever ran. Two
+ * different rules, the same silence, and no way to tell which one had spoken.
+ *
+ * It is kept now, as BOTH a high and a low, and the ordinary Setup checks
+ * judge it. The degenerate pair — the same candle as its own origin and end —
+ * needs no special handling either: its level lands inside the candle by
+ * construction, so `findSetup` rejects it on the 0.236 rule, which is exactly
+ * the rule that should be doing the rejecting.
+ *
+ * One residual arbitrary bit, stated rather than hidden: the high is pushed
+ * before the low. OHLC does not record which came first inside the bar, so
+ * SOME order has to be chosen, and the choice decides which neighbouring pairs
+ * exist — `(previous, high@i)` and `(low@i, next)` rather than the mirror.
+ * Flipping the two lines flips that.
  */
 function confirmedPivots(candles: readonly Candle[], from: number, upTo: number): Pivot[] {
   const out: Pivot[] = [];
@@ -151,9 +190,8 @@ function confirmedPivots(candles: readonly Candle[], from: number, upTo: number)
       c.low < candles[i - 1]!.low && c.low < candles[i - 2]!.low &&
       c.low < candles[i + 1]!.low && c.low < candles[i + 2]!.low;
 
-    if (isHigh && isLow) continue;
     if (isHigh) out.push({ kind: 'high', index: i, price: c.high });
-    else if (isLow) out.push({ kind: 'low', index: i, price: c.low });
+    if (isLow) out.push({ kind: 'low', index: i, price: c.low });
   }
   return out;
 }
@@ -183,16 +221,24 @@ function findSetup(
   from: number,
   n: number,
   firedKeys: readonly string[],
+  diag: SetupDiagnostics = blankDiagnostics(),
 ): Setup | null {
   const pivots = confirmedPivots(candles, from, n - 2);
 
   for (let i = pivots.length - 1; i >= 1; i--) {
     const end = pivots[i]!;
     const origin = pivots[i - 1]!;
-    if (origin.kind === end.kind) continue;
+    diag.pairsExamined++;
+    if (origin.kind === end.kind) {
+      diag.rejectedShape++;
+      continue;
+    }
 
     const range = Math.abs(end.price - origin.price);
-    if (range <= 0) continue; // ‹A7›
+    if (range <= 0) { // ‹A7›
+      diag.rejectedShape++;
+      continue;
+    }
 
     // The leg's own direction decides the trade. The touch is only the trigger.
     const direction: Direction = origin.kind === 'low' ? 'CALL' : 'PUT';
@@ -202,13 +248,21 @@ function findSetup(
     // to have already reached the level disqualifies the whole move, because
     // the signal is supposed to come from a LATER retracement into it. Checked
     // by containment on both candles, high and low, not on their closes.
-    if (touches(candles[origin.index]!, level)) continue;
-    if (touches(candles[end.index]!, level)) continue;
+    if (touches(candles[origin.index]!, level) || touches(candles[end.index]!, level)) {
+      diag.rejectedSwingTouched++;
+      continue;
+    }
 
-    if (brokenAfter(candles, end, direction, n)) continue; // ‹A9›
+    if (brokenAfter(candles, end, direction, n)) { // ‹A9›
+      diag.rejectedBroken++;
+      continue;
+    }
 
     const key = `${candles[origin.index]!.time}:${candles[end.index]!.time}`;
-    if (firedKeys.includes(key)) continue; // ‹A4›
+    if (firedKeys.includes(key)) { // ‹A4›
+      diag.rejectedAlreadyFired++;
+      continue;
+    }
 
     return {
       direction,
@@ -257,16 +311,16 @@ function stillValid(
   candles: readonly Candle[],
   from: number,
   n: number,
-): boolean {
-  if (armed.endTime < candles[from]!.time) return false; // aged out of the window
+): 'valid' | 'aged' | 'broken' {
+  if (armed.endTime < candles[from]!.time) return 'aged';
 
   for (let j = n; j >= from; j--) {
     const candle = candles[j]!;
     if (candle.time <= armed.endTime) break;
-    if (armed.direction === 'CALL' && candle.high > armed.endPrice) return false;
-    if (armed.direction === 'PUT' && candle.low < armed.endPrice) return false;
+    if (armed.direction === 'CALL' && candle.high > armed.endPrice) return 'broken';
+    if (armed.direction === 'PUT' && candle.low < armed.endPrice) return 'broken';
   }
-  return true;
+  return 'valid';
 }
 
 function remember(state: ProgramState, key: string): void {
@@ -287,6 +341,8 @@ export const fib236Touch: StrategyProgram = {
 
   onCandleClose(ctx: ProgramContext, state: ProgramState): ProgramEvent {
     const { candles, timeframeMs, now } = ctx;
+
+    const diagnostics = blankDiagnostics();
 
     const n = lastClosedIndex(candles, timeframeMs, now);
     if (n < 0) return NO_EVENT;
@@ -364,20 +420,27 @@ export const fib236Touch: StrategyProgram = {
 
     // ── Watching ─────────────────────────────────────────────────────────
     const from = contiguousTail(candles, timeframeMs, n);
-    if (n - from < 11) return NO_EVENT; // two candles each side of a pivot, plus room to retrace
+    // two candles each side of a pivot, plus room to retrace
+    if (n - from < 11) return { ...NO_EVENT, diagnostics };
 
     // Retire the armed setup before anything else, so a dead one cannot be
     // touched and a live one cannot be replaced.
-    if (state.armed !== null && !stillValid(state.armed, candles, from, n)) {
-      state.armed = null;
+    if (state.armed !== null) {
+      const verdict = stillValid(state.armed, candles, from, n);
+      if (verdict !== 'valid') {
+        diagnostics.retiredBroken = verdict === 'broken';
+        diagnostics.retiredAged = verdict === 'aged';
+        state.armed = null;
+      }
     }
 
     // Nothing armed: adopt the newest swing that passes every check, and stop.
     // Adopting and firing on the same candle would mean the touch happened
     // before the setup existed.
     if (state.armed === null) {
-      const setup = findSetup(candles, from, n, state.firedKeys);
-      if (setup === null) return NO_EVENT;
+      const setup = findSetup(candles, from, n, state.firedKeys, diagnostics);
+      if (setup === null) return { ...NO_EVENT, diagnostics };
+      diagnostics.armed = true;
       state.armed = {
         direction: setup.direction,
         level: setup.level,
@@ -385,7 +448,7 @@ export const fib236Touch: StrategyProgram = {
         endTime: candles[setup.endIndex]!.time,
         key: setup.key,
       };
-      return NO_EVENT;
+      return { ...NO_EVENT, diagnostics };
     }
 
     // ‹A3› The touch has to be on the candle that just closed, and after the
@@ -394,8 +457,8 @@ export const fib236Touch: StrategyProgram = {
     // candles after the trigger is a different strategy from the one
     // specified, and quietly so.
     const armed = state.armed;
-    if (candle.time <= armed.endTime) return NO_EVENT;
-    if (!touches(candle, armed.level)) return NO_EVENT;
+    if (candle.time <= armed.endTime) return { ...NO_EVENT, diagnostics };
+    if (!touches(candle, armed.level)) return { ...NO_EVENT, diagnostics };
 
     remember(state, armed.key); // ‹A4›
     state.armed = null;
@@ -408,9 +471,12 @@ export const fib236Touch: StrategyProgram = {
       settled: null,
       signal: { direction: armed.direction, stage: 'primary', entryTime: nextCandleTime },
       cycleEnd: null,
+      diagnostics,
     };
   },
 };
 
 /** Exported for the tests, which check the pieces as well as the whole. */
-export const _internals = { touches, confirmedPivots, findSetup, lastClosedIndex, contiguousTail };
+export const _internals = {
+  touches, confirmedPivots, findSetup, lastClosedIndex, contiguousTail, blankDiagnostics,
+};

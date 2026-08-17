@@ -183,6 +183,177 @@
   a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 </style>
 
+<style>
+  :root {
+    --ground: #F6F5F9;
+    --surface: #FFFFFF;
+    --surface-2: #EFEDF6;
+    --ink: #17132A;
+    --ink-muted: #5A5672;
+    --line: #E1DEEC;
+    --accent: #06746E;
+    --accent-soft: #0E9A92;
+    --accent-wash: #E3F3F1;
+    --up: #0C7C45;
+    --down: #BE1A4A;
+    --warn: #855400;
+    --warn-wash: #FBF1DC;
+    --code-bg: #F2F0F8;
+    --shadow: 0 1px 2px rgba(23, 19, 42, .06), 0 8px 24px rgba(23, 19, 42, .05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0A0714;
+      --surface: #141024;
+      --surface-2: #1B1534;
+      --ink: #E9E7F2;
+      --ink-muted: #918DA8;
+      --line: #2A2350;
+      --accent: #3BE3D8;
+      --accent-soft: #7AF0E8;
+      --accent-wash: #0E2B2C;
+      --up: #3FE08D;
+      --down: #FF5C87;
+      --warn: #FFB833;
+      --warn-wash: #29200F;
+      --code-bg: #100C1E;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0A0714;
+    --surface: #141024;
+    --surface-2: #1B1534;
+    --ink: #E9E7F2;
+    --ink-muted: #918DA8;
+    --line: #2A2350;
+    --accent: #3BE3D8;
+    --accent-soft: #7AF0E8;
+    --accent-wash: #0E2B2C;
+    --up: #3FE08D;
+    --down: #FF5C87;
+    --warn: #FFB833;
+    --warn-wash: #29200F;
+    --code-bg: #100C1E;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .3);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); margin: 0;
+  }
+
+  h1 { margin: 0; font-size: clamp(1.9rem, 5vw, 2.9rem); line-height: 1.15; font-weight: 800; letter-spacing: -.015em; text-wrap: balance; }
+  .lede { margin: 0; max-width: 46rem; font-size: 1.06rem; color: var(--ink-muted); }
+  .masthead { display: flex; flex-direction: column; gap: 1rem; }
+
+  .facts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .25rem; }
+  .fact {
+    display: inline-flex; align-items: baseline; gap: .45rem;
+    padding: .34rem .7rem; border: 1px solid var(--line); border-radius: 2px;
+    background: var(--surface); font-size: .8rem;
+  }
+  .fact b { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
+
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  .sec-head { display: flex; align-items: baseline; gap: .85rem; border-bottom: 2px solid var(--ink); padding-bottom: .5rem; }
+  .sec-no { font-family: ui-monospace, Consolas, monospace; font-size: .9rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  h2 { margin: 0; font-size: clamp(1.15rem, 2.6vw, 1.45rem); font-weight: 750; letter-spacing: -.01em; text-wrap: balance; }
+  h3 { margin: .9rem 0 0; font-size: 1rem; font-weight: 700; color: var(--accent); }
+
+  p { margin: 0; max-width: 48rem; }
+  ul, ol { margin: 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: .45rem; max-width: 48rem; }
+  li::marker { color: var(--accent); }
+  strong { font-weight: 750; }
+
+  code:not(pre code) {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 2px;
+    padding: .06em .38em; font-size: .87em; white-space: nowrap;
+  }
+
+  .note {
+    background: var(--surface); border: 1px solid var(--line);
+    border-inline-start: 3px solid var(--accent); border-radius: 2px;
+    padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .5rem;
+  }
+  .note.warn { border-inline-start-color: var(--warn); background: var(--warn-wash); }
+  .note-label { font-family: ui-monospace, Consolas, monospace; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-muted); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 2px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+  th, td { text-align: start; padding: .62rem .85rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { background: var(--surface-2); font-size: .73rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); font-weight: 700; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.id, td.t { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .tag { display: inline-block; padding: .1rem .45rem; border-radius: 2px; font-family: ui-monospace, Consolas, monospace; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+  .tag.up { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+  .tag.down { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
+  .tag.neutral { background: var(--surface-2); color: var(--ink-muted); }
+  .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+
+  pre {
+    margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 3px;
+    padding: 1rem 1.15rem; overflow-x: auto; font-size: .84rem; line-height: 1.65;
+    direction: ltr; text-align: left; tab-size: 2;
+  }
+  pre .cm { color: var(--ink-muted); font-style: italic; }
+  pre .kw { color: var(--accent); font-weight: 700; }
+  pre.mermaid { direction: ltr; background: var(--surface); display: flex; justify-content: center; }
+
+  /* Ordered decision steps — the numbers carry the ORDER, which is the point. */
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: .6rem; list-style: none; padding: 0; max-width: 48rem; }
+  .steps li {
+    counter-increment: step; position: relative; padding-inline-start: 2.6rem;
+    padding-block: .55rem; border-bottom: 1px dotted var(--line);
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before {
+    content: counter(step); position: absolute; inset-inline-start: 0; top: .5rem;
+    width: 1.85rem; height: 1.85rem; display: grid; place-items: center;
+    font-family: ui-monospace, Consolas, monospace; font-size: .78rem; font-weight: 700;
+    color: var(--accent); border: 1px solid var(--line); border-radius: 2px; background: var(--surface);
+  }
+
+  .example { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .ex-card { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: .5rem; box-shadow: var(--shadow); }
+  .ex-card h4 { margin: 0; font-size: .95rem; font-weight: 750; }
+  .ex-row { display: flex; justify-content: space-between; gap: 1rem; font-size: .85rem; border-bottom: 1px dotted var(--line); padding-bottom: .28rem; }
+  .ex-row:last-of-type { border-bottom: none; }
+  .ex-row span:last-child { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ex-row .label { color: var(--ink-muted); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 1.25rem; color: var(--ink-muted); font-size: .85rem; }
+  a { color: var(--accent); text-underline-offset: .2em; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
 <div class="doc" dir="rtl">
 
   <header class="masthead">
@@ -287,9 +458,30 @@ high[i] &gt; high[i+1] <span class="kw">&amp;&amp;</span> high[i] &gt; high[i+2]
 <span class="cm">// القاع نفس الشيء مقلوب على low. المقارنة أكبر من / أصغر من تمامًا —</span>
 <span class="cm">// التساوي مش قمة.</span></pre>
     <p>
-      الشمعة اللي بتنطبق عليها الحالتين (بتبلع جيرانها من فوق ومن تحت) <strong>بتتشال</strong> — ما
-      ينفعش تكون طرفَي حركة في نفس الوقت.
+      الشمعة اللي بتنطبق عليها الحالتين (بتبلع جيرانها من فوق ومن تحت) <strong>بتتحسب قمة وقاع في
+      نفس الوقت</strong>، والاتنين بيدخلوا القايمة. مفيش قاعدة بتشيلها.
     </p>
+    <div class="note">
+      <span class="note-label">كانت بتتشال، وبقت متسيبة</span>
+      <p>
+        النسخة الأولى كانت بتحذفها. القاعدة دي ماكانتش مطلوبة، وكان ليها أثر جانبي: عشان شمعة القمة
+        تلمس مستوى 0.236 بتاعها لازم ذيلها ينزل تحت جيرانها، فكانت بتتحسب «الاتنين» و<strong>تتشال
+        قبل ما قاعدة الاستبعاد بتاعتك تتنفّذ أصلًا</strong> — نفس النتيجة، بسبب مختلف.
+      </p>
+      <p>
+        دلوقتي بتفضل، وقاعدة 0.236 هي الحكم. والزوج المتولّد من نفس الشمعة مع نفسها بيترفض لوحده:
+        مستواه بيقع جوه نطاقها بالضرورة، فقاعدة الاستبعاد بترفضه من غير أي معالجة خاصة.
+      </p>
+      <p>
+        القياس: <strong>نقطة واحدة من 178</strong> على 8 أزواج حيّة كانت بتختفي (0.6%)، وعلى
+        الـ400 شمعة الثابتة النسختين طلّعوا <strong>نفس الإشارات بالظبط</strong>. تصحيح منطقي، مش
+        تغيير سلوك.
+      </p>
+      <p>
+        فاضل اختيار واحد مذكور صراحة: القمة بتتحط في القايمة قبل القاع. الـOHLC مش بيسجّل مين حصل
+        الأول جوه الشمعة، فلازم ترتيب ما — وهو بيحدد الأزواج المتاحة.
+      </p>
+    </div>
 
     <h3>ب. التأكيد — ودي أهم نقطة في منع الـ Repainting</h3>
     <p>
@@ -861,14 +1053,14 @@ PUT :  exit &lt; entry ? WIN : LOSS</pre>
           <tr><td class="id">A7</td><td>مدى أكبر من صفر</td><td><span class="tag neutral">ضرورة تقنية</span></td></tr>
           <tr><td class="id">A8</td><td><strong>الحركة بتتثبّت لما تتبنّى</strong></td><td><span class="tag up">اتصلّح</span></td></tr>
           <tr><td class="id">A9</td><td>الحركة تموت لو السعر عدّى طرفها</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A10</td><td>شمعة القمة والقاع معًا: تفضل، وقاعدة 0.236 هي اللي بترفض</td><td><span class="tag up">اتصلّح</span></td></tr>
         </tbody>
       </table>
     </div>
     <p>
-      <strong>A1 و A2 هما اللي محتاجين مراجعتك.</strong> لو قصدك كان «التطبيق يشوف الـ100 شمعة
-      ويختار أعلى قمة وأوطى قاع فيهم» — دي استراتيجية مختلفة: زوج واحد ثابت، من غير بحث ولا
-      استبعاد ولا تأكيد بشمعتين. التغيير محصور في دالة واحدة، وباقي التقرير ده كله بيفضل صحيح زي
-      ما هو.
+      <strong>A1 و A2 اتراجعوا واتثبّتوا كما هما:</strong> شمعتين على كل ناحية، وأحدث زوج متجاور
+      متبادل صالح — مش الأكبر مدى، ومش أعلى قمة مع أوطى قاع، ومش زوج بيتخطّى نقطة وسيطة.
+      و<strong>A10</strong> اتصلّح: قاعدة حذف الشمعة المزدوجة اتشالت، وقاعدة 0.236 بقت هي الحكم.
     </p>
   </section>
 

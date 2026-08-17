@@ -93,6 +93,7 @@ export {
   type ProgramContext,
   type ProgramEvent,
   type ProgramStage,
+  type SetupDiagnostics,
   type TradeResult,
   type CycleResult,
   type ProgramCycle,

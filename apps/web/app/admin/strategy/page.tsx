@@ -183,6 +183,12 @@ function BacktestPanel({ report, program }: { report: BacktestReport; program: S
 
       <p className={toneClass}>{v.text}</p>
 
+      <p className={styles.switchHint}>
+        الأرقام دي بتقول <strong>الاستراتيجية اتنفّذت إزاي على التاريخ ده</strong> — مش إنها
+        بتكسب. صحة التنفيذ حاجة، والأداء التاريخي حاجة تانية، والعيّنة الصغيرة مبتقولش أي حاجة عن
+        الاتنين.
+      </p>
+
       <div className={styles.statRow}>
         <div
           className={`${styles.stat} ${
@@ -244,6 +250,69 @@ function BacktestPanel({ report, program }: { report: BacktestReport; program: S
           </tbody>
         </table>
       </div>
+
+      <h3 className={styles.cardTitle} style={{ fontSize: 14, marginTop: 16 }}>البحث عن الحركات</h3>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <tbody>
+            <tr><td>أزواج اتفحصت</td><td>{report.search.pairsExamined}</td></tr>
+            <tr><td>حركات اتعتمدت واتراقبت</td><td>{report.search.armed}</td></tr>
+            <tr>
+              <td>اترفضت — شمعة الحركة نفسها لمست 0.236</td>
+              <td>{report.search.rejectedSwingTouched}</td>
+            </tr>
+            <tr>
+              <td>اترفضت وقت الاختيار — السعر كان عدّى طرف الحركة</td>
+              <td>{report.search.rejectedBroken}</td>
+            </tr>
+            <tr>
+              <td>ماتت بعد الاعتماد — السعر كسر طرف الحركة</td>
+              <td>{report.search.retiredBroken}</td>
+            </tr>
+            <tr><td>ماتت — الحركة خرجت من نافذة الـ100 شمعة</td><td>{report.search.retiredAged}</td></tr>
+            <tr><td>اترفضت — الحركة دي اشتغلت قبل كده</td><td>{report.search.rejectedAlreadyFired}</td></tr>
+            <tr><td>اترفضت — نفس النوع أو مدى صفر</td><td>{report.search.rejectedShape}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className={styles.cardTitle} style={{ fontSize: 14, marginTop: 16 }}>الصفقات</h3>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr><th></th><th>عدد</th><th>ربح</th><th>خسارة</th><th>تعادل</th><th>النسبة</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>الأساسية</td>
+              <td>{report.primary.signals}</td>
+              <td>{report.primary.wins}</td>
+              <td>{report.primary.losses}</td>
+              <td>{report.primary.ties}</td>
+              <td>{report.primary.winRate.toFixed(1)}%</td>
+            </tr>
+            <tr>
+              <td>المضاعفة</td>
+              <td>{report.martingale.count}</td>
+              <td>{report.martingale.wins}</td>
+              <td>{report.martingale.losses}</td>
+              <td>{report.martingale.ties}</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>اتجاه الإشارات الأساسية</td>
+              <td colSpan={5}>
+                CALL {report.primary.call} · PUT {report.primary.put}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p className={styles.switchHint} style={{ marginTop: 8 }}>
+        نسبة الخسارة النهائية: <strong>{report.finalLossRate.toFixed(1)}%</strong> من الدورات
+        المحسومة. دي الدورة اللي بتكلّف تلات أضعاف رهان واحد.
+      </p>
 
       {report.warnings.some((w) => w.startsWith('⚠️')) && (
         <p className={styles.warn} style={{ marginTop: 12 }}>

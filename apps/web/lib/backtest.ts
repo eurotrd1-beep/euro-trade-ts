@@ -58,6 +58,7 @@ import {
   type Candle,
   type CycleResult,
   type ProgramStage,
+  type SetupDiagnostics,
   type StrategyProgram,
 } from '@euro/engine';
 import { fetchCandles } from './candles';
@@ -186,6 +187,33 @@ export interface Trade {
  * reads as break-even and is wrong in both directions. So the trades are
  * reported for detail and the cycles are reported for the verdict.
  */
+/**
+ * What the search did across the whole replay.
+ *
+ * Every one of these is a decision the program reported having made — none of
+ * it is recomputed here. That distinction is the point: a backtest that worked
+ * out for itself why a setup was refused would be a second copy of the rules,
+ * and the two copies would drift.
+ */
+export interface SearchTally {
+  /** Candidate pairs the search looked at, across every candle. */
+  pairsExamined: number;
+  /** Refused: same kind, or no range. */
+  rejectedShape: number;
+  /** Refused: a swing candle already contained its own 23.6% level. */
+  rejectedSwingTouched: number;
+  /** Refused at selection: price had already left the end of the leg. */
+  rejectedBroken: number;
+  /** Refused: that swing had already produced its one signal. */
+  rejectedAlreadyFired: number;
+  /** Setups adopted and watched. */
+  armed: number;
+  /** Adopted setups retired later because price broke the end of the leg. */
+  retiredBroken: number;
+  /** Adopted setups retired because the leg aged out of the window. */
+  retiredAged: number;
+}
+
 export interface CycleTally {
   total: number;
   /** Won on the first trade, no double needed. */
@@ -216,8 +244,25 @@ export interface BacktestReport {
   avgCandlesBetweenSignals: number | null;
   /** Signals per 100 candles, the frequency measure that survives sample size. */
   signalsPer100: number;
+  /** What the search did — examined, refused, adopted, retired. */
+  search: SearchTally;
+  /** Signals by direction, primary trades only. */
+  primary: {
+    signals: number;
+    call: number;
+    put: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    /** Wins over decided primaries, ties excluded. */
+    winRate: number;
+  };
+  /** The doubles. */
+  martingale: { count: number; wins: number; losses: number; ties: number };
   /** Cycles, tallied by how they ended. */
   cycles: CycleTally;
+  /** Final losses over cycles decided. The number that costs 3× a stake. */
+  finalLossRate: number;
   /**
    * Cycles won as a percentage of cycles decided — recovered counts as won.
    *
@@ -242,6 +287,18 @@ export interface BacktestReport {
   warnings: string[];
 }
 
+/** One candle's counters, into the running total. */
+function addDiagnostics(t: SearchTally, d: SetupDiagnostics): void {
+  t.pairsExamined += d.pairsExamined;
+  t.rejectedShape += d.rejectedShape;
+  t.rejectedSwingTouched += d.rejectedSwingTouched;
+  t.rejectedBroken += d.rejectedBroken;
+  t.rejectedAlreadyFired += d.rejectedAlreadyFired;
+  if (d.armed) t.armed++;
+  if (d.retiredBroken) t.retiredBroken++;
+  if (d.retiredAged) t.retiredAged++;
+}
+
 /** One finished cycle, into the bucket that describes it. */
 function tallyCycle(t: CycleTally, result: CycleResult): void {
   t.total++;
@@ -261,6 +318,12 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   const trades: Trade[] = [];
   const perPair: BacktestReport['perPair'] = [];
   const cycles: CycleTally = { total: 0, won: 0, recovered: 0, finalLoss: 0, tie: 0, aborted: 0 };
+  const search: SearchTally = {
+    pairsExamined: 0, rejectedShape: 0, rejectedSwingTouched: 0, rejectedBroken: 0,
+    rejectedAlreadyFired: 0, armed: 0, retiredBroken: 0, retiredAged: 0,
+  };
+  let callSignals = 0;
+  let putSignals = 0;
   const warnings: string[] = [];
   const signalGaps: number[] = [];
 
@@ -355,7 +418,13 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
           else if (t.result === 'LOSS') pairLosses++;
         }
 
+        if (event.diagnostics !== undefined) addDiagnostics(search, event.diagnostics);
+
         if (event.signal !== null) {
+          if (event.signal.stage === 'primary') {
+            if (event.signal.direction === 'CALL') callSignals++;
+            else putSignals++;
+          }
           if (lastSignalAt !== null) signalGaps.push(i - lastSignalAt);
           lastSignalAt = i;
         }
@@ -390,6 +459,14 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   const ties = trades.filter((t) => t.outcome === 'TIE').length;
   const decided = wins + losses;
 
+  const of = (stage: ProgramStage, outcome: Trade['outcome']) =>
+    trades.filter((t) => t.stage === stage && t.outcome === outcome).length;
+
+  const pWins = of('primary', 'WIN');
+  const pLosses = of('primary', 'LOSS');
+  const pDecided = pWins + pLosses;
+  const mCount = trades.filter((t) => t.stage === 'martingale').length;
+
   // A cycle is decided when it ended in profit or in loss. Ties and aborts are
   // neither, exactly as ties are excluded from the per-trade rate.
   const cyclesWon = cycles.won + cycles.recovered;
@@ -408,7 +485,24 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
     losses,
     ties,
     winRate: decided > 0 ? (wins / decided) * 100 : 0,
+    search,
+    primary: {
+      signals: callSignals + putSignals,
+      call: callSignals,
+      put: putSignals,
+      wins: pWins,
+      losses: pLosses,
+      ties: of('primary', 'TIE'),
+      winRate: pDecided > 0 ? (pWins / pDecided) * 100 : 0,
+    },
+    martingale: {
+      count: mCount,
+      wins: of('martingale', 'WIN'),
+      losses: of('martingale', 'LOSS'),
+      ties: of('martingale', 'TIE'),
+    },
     cycles,
+    finalLossRate: cyclesDecided > 0 ? (cycles.finalLoss / cyclesDecided) * 100 : 0,
     cycleWinRate: cyclesDecided > 0 ? (cyclesWon / cyclesDecided) * 100 : 0,
     evaluated,
     pairsUsed,

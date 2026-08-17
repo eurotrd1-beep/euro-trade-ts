@@ -212,6 +212,178 @@ describe('a setup that the market has moved past', () => {
   });
 });
 
+/**
+ * A series that turns at each price given, three bars per leg.
+ *
+ * Each turn is a single bar whose wick reaches the price exactly while its body
+ * stops short, which is what makes it a clean 5-candle fractal. Three bars a leg
+ * gives every turn its two clear neighbours on each side.
+ */
+function swings(turns: readonly number[], endAt: number): Candle[] {
+  const out: Candle[] = [];
+  const reach = 0.0002;
+  let i = 0;
+  const step = (from: number, to: number) => {
+    for (let k = 1; k <= 3; k++) {
+      const o = from + ((to - from) * (k - 1)) / 3;
+      const cl = from + ((to - from) * k) / 3;
+      out.push(c(i++, o, Math.max(o, cl) + 0.00002, Math.min(o, cl) - 0.00002, cl));
+    }
+  };
+
+  let at = turns[0]! > turns[1]! ? turns[0]! - reach * 6 : turns[0]! + reach * 6;
+  for (let t = 0; t < turns.length; t++) {
+    const price = turns[t]!;
+    const next = turns[t + 1];
+    const isHigh = next === undefined ? price > turns[t - 1]! : price > next;
+
+    step(at, isHigh ? price - reach * 2 : price + reach * 2);
+    out.push(
+      isHigh
+        ? c(i++, price - reach * 2, price, price - reach * 2 - 0.00002, price - reach)
+        : c(i++, price + reach * 2, price + reach * 2 + 0.00002, price, price + reach),
+    );
+    at = isHigh ? price - reach : price + reach;
+  }
+  step(at, endAt);
+  return out;
+}
+
+/**
+ * A rise from `low` to 1.1000 whose PEAK candle is an outside bar: it swallows
+ * its four neighbours upward and downward at once, so it satisfies both the
+ * swing-high and the swing-low test.
+ */
+function outsideBarAtPeak(low: number, wick: number): Candle[] {
+  const out: Candle[] = [
+    c(0, low + 0.003, low + 0.0034, low + 0.0026, low + 0.003),
+    c(1, low + 0.002, low + 0.0024, low + 0.0016, low + 0.002),
+    c(2, low + 0.0006, low + 0.001, low, low + 0.0004), //           ← the swing low
+  ];
+  // A smooth climb to the tight consolidation under the peak.
+  for (let k = 1; k <= 2; k++) {
+    const o = low + 0.001 + ((1.0965 - low - 0.001) * (k - 1)) / 2;
+    const cl = low + 0.001 + ((1.0965 - low - 0.001) * k) / 2;
+    out.push(c(2 + k, o, cl + 0.00002, o - 0.00002, cl));
+  }
+  out.push(c(5, 1.0966, 1.097, 1.0965, 1.0968));
+  out.push(c(6, 1.0968, 1.0972, 1.0966, 1.097));
+  out.push(c(7, 1.098, 1.1, wick, 1.0985)); //                        ← the outside bar
+  out.push(c(8, 1.0975, 1.0979, 1.0966, 1.0975));
+  out.push(c(9, 1.0972, 1.0976, 1.0967, 1.0972));
+  out.push(c(10, 1.097, 1.0974, 1.0965, 1.097));
+  out.push(c(11, 1.0968, 1.0972, 1.0963, 1.0968));
+  return out;
+}
+
+describe('choosing the swing — A1 / A2', () => {
+  /** The 23.6% of a leg, as the engine computes it. */
+  const level = (origin: number, end: number) => end + 0.236 * (origin - end);
+
+  it('takes the newest adjacent pair when the window holds several swings', () => {
+    // Three complete moves behind it; the newest pair is 1.0930 → 1.0975.
+    const candles = swings([1.085, 1.098, 1.091, 1.102, 1.093, 1.0975], 1.0968);
+    const setup = _internals.findSetup(candles, 0, candles.length - 1, [])!;
+
+    expect(setup).not.toBeNull();
+    expect(setup.direction).toBe('CALL');
+    expect(setup.level).toBeCloseTo(level(1.093, 1.0975), 5);
+  });
+
+  it('prefers the recent small move over an older larger one', () => {
+    // The old leg runs 200 pips (1.0800 → 1.1000); the recent one runs 50
+    // (1.0900 → 1.0950). Size is not the criterion — recency is.
+    const candles = swings([1.08, 1.1, 1.09, 1.095], 1.0942);
+    const setup = _internals.findSetup(candles, 0, candles.length - 1, [])!;
+
+    expect(setup.level, 'drawn on the recent leg, not the big one').toBeCloseTo(
+      level(1.09, 1.095),
+      5,
+    );
+  });
+
+  it('never reaches past an intermediate swing to pair two older points', () => {
+    // 1.0800 → 1.1000 is the tidier move to a human eye, and it is NOT
+    // available: the low at 1.0850 sits between them, so the only pair the
+    // engine may take is 1.0850 → 1.1000.
+    const candles = swings([1.08, 1.09, 1.085, 1.1], 1.0985);
+    const setup = _internals.findSetup(candles, 0, candles.length - 1, [])!;
+
+    expect(setup.level).toBeCloseTo(level(1.085, 1.1), 5);
+    expect(setup.level, 'not the leg that skips the intermediate low').not.toBeCloseTo(
+      level(1.08, 1.1),
+      5,
+    );
+  });
+
+  it('confirms a swing only after two more candles close  ‹A1›', () => {
+    const candles = swings([1.085, 1.098, 1.091, 1.1], 1.0985);
+    const peak = candles.reduce((best, x, i) => (x.high > candles[best]!.high ? i : best), 0);
+
+    // One candle after the peak: the test needs `peak + 2`, which has not
+    // closed, so the pivot does not exist yet.
+    expect(
+      _internals.confirmedPivots(candles, 0, peak - 1).some((pv) => pv.index === peak),
+      'not a pivot while the window still ends before peak + 2',
+    ).toBe(false);
+
+    // Two candles later it is confirmed, and from then on it never changes.
+    expect(
+      _internals.confirmedPivots(candles, 0, peak).some((pv) => pv.index === peak && pv.kind === 'high'),
+    ).toBe(true);
+  });
+});
+
+describe('a candle that is both a high and a low — A3', () => {
+  it('is not discarded — it stands as both, and the Setup rules judge it', () => {
+    // Wick to 1.0950, under the four neighbouring lows: the bar satisfies the
+    // swing-high test AND the swing-low test at the same time.
+    const candles = outsideBarAtPeak(1.06, 1.095);
+    const atPeak = _internals.confirmedPivots(candles, 0, 9).filter((pv) => pv.index === 7);
+
+    // The old rule dropped it outright, so this list was empty and the swing
+    // vanished for a reason nobody had written down.
+    expect(atPeak.map((pv) => pv.kind).sort()).toEqual(['high', 'low']);
+  });
+
+  it('is usable as a swing when its own wick stays off the level', () => {
+    // Leg 1.0600 → 1.1000, so 23.6% sits at 1.09056 — below the 1.0950 wick.
+    // The bar is an outside bar and the setup is still perfectly good.
+    const candles = outsideBarAtPeak(1.06, 1.095);
+    const setup = _internals.findSetup(candles, 0, candles.length - 1, [])!;
+
+    expect(setup).not.toBeNull();
+    expect(setup.endIndex, 'the outside bar is the end of the leg').toBe(7);
+    expect(setup.level).toBeCloseTo(1.1 + 0.236 * (1.06 - 1.1), 5);
+  });
+
+  it('is refused by the 0.236 rule when its wick does reach the level', () => {
+    // Same bar, shorter leg: 1.0900 → 1.1000 puts 23.6% at 1.09764, inside the
+    // candle's own range. The author's exclusion rule is what rejects it —
+    // not a separate rule about outside bars.
+    const candles = outsideBarAtPeak(1.09, 1.095);
+    const levelOf = 1.1 + 0.236 * (1.09 - 1.1);
+
+    expect(_internals.touches(candles[7]!, levelOf), 'the peak candle contains its own level').toBe(true);
+
+    const setup = _internals.findSetup(candles, 0, candles.length - 1, []);
+    expect(setup?.endIndex, 'so that swing is not used').not.toBe(7);
+  });
+
+  it('never pairs the candle with itself', () => {
+    // The list now holds `high@7` then `low@7`, so the engine does try them as
+    // a pair. Its 23.6% lands inside the candle by construction, so the 0.236
+    // rule throws it out — no special case needed.
+    const candles = outsideBarAtPeak(1.06, 1.095);
+    const setup = _internals.findSetup(candles, 0, candles.length - 1, []);
+
+    expect(
+      setup === null || setup.originIndex !== setup.endIndex,
+      'a candle is never both ends of its own move',
+    ).toBe(true);
+  });
+});
+
 describe('the adopted setup is held still', () => {
   it('keeps its level when a newer swing forms underneath it', () => {
     // The retracement carves a small leg of its own — a minor low then a minor

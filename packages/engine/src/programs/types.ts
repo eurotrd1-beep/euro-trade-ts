@@ -109,6 +109,34 @@ export interface ProgramContext {
 }
 
 /**
+ * What the search did on one candle, for counting — never for deciding.
+ *
+ * Every number here reports a decision that was already made by the rules
+ * above it. Nothing reads it back, and removing it would not change a single
+ * signal. It exists because the alternative was a backtest that re-implements
+ * the rejection rules in order to count them, and two copies of a rule are two
+ * rules that will eventually disagree.
+ */
+export interface SetupDiagnostics {
+  /** Candidate pairs the search looked at on this candle. */
+  pairsExamined: number;
+  /** Refused: the two points were the same kind, or the leg had no range. */
+  rejectedShape: number;
+  /** Refused: a swing candle already contained the 23.6% level. */
+  rejectedSwingTouched: number;
+  /** Refused: price had already left the end of the leg behind. */
+  rejectedBroken: number;
+  /** Refused: that swing has already produced its one signal. */
+  rejectedAlreadyFired: number;
+  /** A setup was adopted on this candle. */
+  armed: boolean;
+  /** The armed setup was retired because price broke the end of its leg. */
+  retiredBroken: boolean;
+  /** The armed setup was retired because its leg aged out of the window. */
+  retiredAged: boolean;
+}
+
+/**
  * What happened on one candle. All three fields can be filled at once: a losing
  * primary trade settles AND opens the martingale on the same close.
  */
@@ -127,6 +155,11 @@ export interface ProgramEvent {
     entryTime: number;
   } | null;
   cycleEnd: CycleResult | null;
+  /**
+   * Counters, when the program keeps them. Optional so a future program is not
+   * forced to invent numbers it has no meaning for.
+   */
+  diagnostics?: SetupDiagnostics;
 }
 
 /** Nothing happened. Returned far more often than anything else. */
