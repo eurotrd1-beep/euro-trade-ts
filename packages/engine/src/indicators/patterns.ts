@@ -7,7 +7,26 @@
  * Reordering these checks would silently change which pattern the app reports.
  */
 
-import { register } from '../registry.js';
+/**
+ * NOT INDICATORS ANY MORE.
+ *
+ * Everything in this file used to register a name a strategy could put in a
+ * rule. Those registrations are gone with the rest of the 231: the registry now
+ * answers to the Fibonacci family and nothing else, and a rule naming anything
+ * here scores 0.0 exactly as it would for a name that never existed.
+ *
+ * The functions themselves stay because two callers that are not strategies
+ * still read them:
+ *
+ *   • the twelve analysis stages the button prints (apps/web/lib/analysis.ts),
+ *     which show live values so the user can see their pair being read
+ *   • the V2 parametric scorer (scoring.ts), the fallback for when no strategy
+ *     is uploaded at all
+ *
+ * Deleting them would have taken the analysis screen and the fallback with
+ * them, which is not what "remove the indicators" meant.
+ */
+
 import type { Candle } from '../types.js';
 
 /**
@@ -262,33 +281,3 @@ export function rectangle(candles: readonly Candle[], currentPrice: number): str
   if (currentPrice < l1) return 'bearish';
   return 'none';
 }
-
-// ── Registrations ───────────────────────────────────────────────────────────
-
-register('candle_pattern', ({ candles }) => candlePatterns(candles));
-register('double_top', ({ candles, currentPrice }) => doubleTop(candles, currentPrice));
-register('double_bottom', ({ candles, currentPrice }) => doubleBottom(candles, currentPrice));
-register('head_and_shoulders', ({ candles, currentPrice }) =>
-  headAndShoulders(candles, currentPrice),
-);
-register('inverse_head_and_shoulders', ({ candles, currentPrice }) =>
-  inverseHeadAndShoulders(candles, currentPrice),
-);
-register('ascending_triangle', ({ candles, currentPrice }) => ascendingTriangle(candles, currentPrice));
-register('descending_triangle', ({ candles, currentPrice }) =>
-  descendingTriangle(candles, currentPrice),
-);
-register('symmetrical_triangle', ({ candles, currentPrice }) =>
-  symmetricalTriangle(candles, currentPrice),
-);
-register('rising_wedge', ({ candles, currentPrice }) => wedge(candles, currentPrice, true));
-register('falling_wedge', ({ candles, currentPrice }) => wedge(candles, currentPrice, false));
-register('channel_up', ({ candles }) => channel(candles, true));
-register('channel_down', ({ candles }) => channel(candles, false));
-
-// Dart reuses two detectors under a second name each: `pennant` is the
-// symmetrical triangle, `horizontal_channel` is the rectangle.
-register(['rectangle', 'horizontal_channel'], ({ candles, currentPrice }) =>
-  rectangle(candles, currentPrice),
-);
-register('pennant', ({ candles, currentPrice }) => symmetricalTriangle(candles, currentPrice));

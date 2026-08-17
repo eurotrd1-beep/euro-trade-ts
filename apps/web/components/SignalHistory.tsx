@@ -65,6 +65,11 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
   const winsCount = filtered.filter((s) => s.status === 'WIN').length;
   const lossesCount = filtered.filter((s) => s.status === 'LOSS').length;
   const tiesCount = filtered.filter((s) => s.status === 'TIE').length;
+  // Running, or opened in a session that closed before expiry. Counted so the
+  // breakdown still adds up to the total now that open trades are stored — and
+  // kept out of `decidedCount`, because a trade with no result cannot move a
+  // win rate in either direction.
+  const openCount = filtered.filter((s) => s.status === 'ACTIVE' || s.status === 'PENDING').length;
   const decidedCount = winsCount + lossesCount;
   const winRate = decidedCount > 0 ? (winsCount / decidedCount) * 100 : 0;
 
@@ -150,7 +155,12 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
               : tr(`${winsCount} رابحة / ${lossesCount} خاسرة`, `${winsCount} won / ${lossesCount} lost`)}
           </span>
           <span className={styles.statSub}>
-            {tr(`(${totalCount} صفقات إجمالية)`, `(${totalCount} trades total)`)}
+            {openCount > 0
+              ? tr(
+                  `(${totalCount} صفقات إجمالية · ${openCount} بلا نتيجة)`,
+                  `(${totalCount} trades total · ${openCount} undecided)`,
+                )
+              : tr(`(${totalCount} صفقات إجمالية)`, `(${totalCount} trades total)`)}
           </span>
         </div>
       </div>
@@ -163,9 +173,16 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
       ) : (
         <ul className={styles.list}>
           {filtered.map((sig, i) => {
+            // An undecided trade must never fall through to "loss". The
+            // fallthrough used to be safe because only settled trades were ever
+            // stored; now an open trade is saved the moment it is placed, so a
+            // running trade — or one whose session closed before it expired —
+            // reaches this list with no result at all.
             const isWin = sig.status === 'WIN';
             const isTie = sig.status === 'TIE';
-            const outcome = isTie ? 'tie' : isWin ? 'win' : 'loss';
+            const isRunning = sig.status === 'ACTIVE';
+            const isUnknown = sig.status === 'PENDING';
+            const outcome = isRunning || isUnknown ? 'open' : isTie ? 'tie' : isWin ? 'win' : 'loss';
             const isCall = sig.direction === 'CALL';
             const isMon = sig.origin === 'monitoring';
             const entry = new Date(sig.entryTime);
@@ -174,7 +191,15 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
             return (
               <li key={`${sig.entryTime}-${i}`} className={`${styles.row} ${styles[`row_${outcome}`]}`}>
                 <span className={`${styles.pill} ${styles[`pill_${outcome}`]}`}>
-                  {isTie ? tr('➖ تعادل', '➖ Tie') : isWin ? tr('✓ كسب', '✓ Win') : tr('✗ خسارة', '✗ Loss')}
+                  {isRunning
+                    ? tr('⏳ شغالة', '⏳ Running')
+                    : isUnknown
+                      ? tr('❔ بلا نتيجة', '❔ No result')
+                      : isTie
+                        ? tr('➖ تعادل', '➖ Tie')
+                        : isWin
+                          ? tr('✓ كسب', '✓ Win')
+                          : tr('✗ خسارة', '✗ Loss')}
                 </span>
 
                 <span className={styles.details}>
@@ -184,7 +209,7 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
                       {isCall ? tr('صعود', 'Up') : tr('هبوط', 'Down')}
                     </span>
                     <span className={`${styles.originBadge} ${isMon ? styles.originMon : styles.originInstant}`}>
-                      {isMon ? tr('🎯 مراقبة', '🎯 Monitor') : tr('⚡ فوري', '⚡ Instant')}
+                      {isMon ? tr('🎯 بعد انتظار', '🎯 After waiting') : tr('⚡ أول شمعة', '⚡ First candle')}
                     </span>
                   </span>
                   <span className={styles.prices}>

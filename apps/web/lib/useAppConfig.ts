@@ -21,11 +21,6 @@ export interface AppConfig {
   displaySource: string;
   maintenance: { isActive: boolean; message: string; endsAt: string | null };
   social: { telegram: string; whatsapp: string; youtube: string };
-  /** Rule-based strategies, passed straight to the engine. */
-  strategyStandard: Record<string, unknown> | null;
-  strategyVip: Record<string, unknown> | null;
-  monitoringStandard: Record<string, unknown> | null;
-  monitoringVip: Record<string, unknown> | null;
 }
 
 const INITIAL: AppConfig = {
@@ -34,10 +29,6 @@ const INITIAL: AppConfig = {
   displaySource: 'all',
   maintenance: { isActive: false, message: '', endsAt: null },
   social: { telegram: '', whatsapp: '', youtube: '' },
-  strategyStandard: null,
-  strategyVip: null,
-  monitoringStandard: null,
-  monitoringVip: null,
 };
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
@@ -81,10 +72,6 @@ export function useAppConfig(): AppConfig {
         }),
       ),
 
-      watchConfig('strategy_standard', (d) => patch({ strategyStandard: d })),
-      watchConfig('strategy_vip', (d) => patch({ strategyVip: d })),
-      watchConfig('monitoring_standard', (d) => patch({ monitoringStandard: d })),
-      watchConfig('monitoring_vip', (d) => patch({ monitoringVip: d })),
     ];
 
     return () => {

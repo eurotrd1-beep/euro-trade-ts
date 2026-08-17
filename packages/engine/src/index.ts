@@ -1,20 +1,24 @@
 /**
  * @euro/engine — the EURO TRADE signal engine.
  *
- * A line-for-line TypeScript port of `signal_engine.dart`, proven identical to
- * the Dart original by the parity suite in `test/`:
+ * ── WHAT IS LEFT, AND WHY IT IS SO SMALL ───────────────────────────────────
  *
- *   • 359 indicators           — every value diffed against a recorded Dart run
- *   • pyramid decision layer   — 8 scenarios covering every accept/reject path
- *   • V2 parametric scorer     — 4 configurations
- *   • confidence and outcomes  — the numbers shown on each trade
+ * This was a line-for-line port of `signal_engine.dart`: 237 registered
+ * indicators, a pyramid decision layer, a correlation calibration, and a
+ * parity suite that diffed every indicator value against a recorded Dart run.
  *
- * The one exception is `monte_carlo_risk_simulation`, which draws random
- * samples and so cannot be value-matched in any runtime; the parity test
- * documents it explicitly rather than skipping it quietly.
+ * The indicators and the pyramid were removed on request. What a strategy can
+ * name is now eight things — the Fibonacci family drawn from the intermediate
+ * swing, and the two support/resistance readings taken from the same swing —
+ * and how they are scored is a flat sum. The parity suite went with them:
+ * there is nothing left for it to compare, because the values it guarded no
+ * longer exist. `test/scoring-parity.test.ts` still holds the V2 scorer to its
+ * Dart numbers, and that scorer only runs when no strategy is uploaded.
  *
- * Regenerate the fixture with:
- *   cd tools/golden-dart && flutter test test/generate_golden_test.dart
+ * Stated plainly so nobody goes looking: the maths in `indicators/math.ts`,
+ * `structure.ts` and `patterns.ts` survives and is exported below, but none of
+ * it is registered. It feeds the analysis stages the app prints and the V2
+ * fallback. A rule naming any of it scores 0.0, exactly like a typo.
  */
 
 // Core types
@@ -53,22 +57,16 @@ export {
   type AliasGroup,
 } from './aliases.js';
 
-// Registers all 359 indicators as a side effect. Importing the package is
+// Registers the eight indicators as a side effect. Importing the package is
 // enough; no explicit setup call is needed.
 import './indicators/index.js';
 
 // Strategy layer
 export {
   checkCondition,
-  categoryForIndicator,
-  evaluateStrategyPro,
   evaluateRules,
   effectiveMaxScore,
-  pyramidFromJson,
-  DEFAULT_PYRAMID,
   type DynamicStrategy,
-  type PyramidConfig,
-  type ProResult,
   type EvalContext,
 } from './strategy.js';
 
@@ -80,9 +78,31 @@ export {
 } from './config.js';
 export { scoreV2, scoreStandard } from './scoring.js';
 
+// Strategy programs — state machines that read a SEQUENCE of candles, for
+// strategies the rule scorer cannot express. See programs/types.ts.
+export {
+  DEFAULT_PROGRAM_ID,
+  programFor,
+  programForPlan,
+  registeredPrograms,
+  fib236Touch,
+  NO_EVENT,
+  type Plan,
+  type StrategyProgram,
+  type ProgramState,
+  type ProgramContext,
+  type ProgramEvent,
+  type ProgramStage,
+  type SetupDiagnostics,
+  type TradeResult,
+  type CycleResult,
+  type ProgramCycle,
+} from './programs/index.js';
+
 // Signal lifecycle
 export {
   confidenceFor,
+  CONFIDENCE_SATURATION_SCORE,
   alignExpiry,
   tieEpsilon,
   outcomeFor,
@@ -94,8 +114,9 @@ export {
   type AlignedExpiry,
 } from './signal.js';
 
-// Individual indicator maths — the analysis sequence in the app prints live
-// values from these, so they are part of the public surface.
+// Indicator maths, exported as FUNCTIONS and registered nowhere. The analysis
+// sequence in the app prints live values from these, so they are part of the
+// public surface — but no strategy can reach them.
 export {
   rsi, sma, ema, atr, vwap, obv, cmf, cci, mfi, roc,
   williamsR, volumeDelta, stochastic, bollingerBands, fullMacd,

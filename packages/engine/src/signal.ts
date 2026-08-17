@@ -28,17 +28,42 @@ export interface TradingSignal {
   marketCondition: string;
   recommendation: string;
   origin: 'instant' | 'monitoring';
+  /**
+   * Which trade of a strategy cycle this is.
+   *
+   * Absent on everything a rule-based strategy produced, and on every trade
+   * recorded before programs existed — hence optional rather than defaulted.
+   * A `martingale` trade is the one the user must be told about explicitly:
+   * it is entered at a doubled stake on the back of a loss, and a card that
+   * looked like any other would be the app hiding the only decision that
+   * costs real money.
+   */
+  stage?: 'primary' | 'martingale';
 }
 
 /**
- * signal_engine.dart — the confidence curve for non-VIP signals:
- * `base + (|score| / 45) × (max − base)`, clamped to [base, max].
+ * The score at which the confidence curve reaches `confidenceMax`.
  *
- * The 45 is a hard-coded normaliser in the original: a strategy whose scores
- * never approach 45 can never reach `confidenceMax`.
+ * It was an unnamed 45.0 sitting inside the formula, and the number matters
+ * more than its anonymity suggested: it is an ABSOLUTE score on a scale every
+ * strategy sets for itself. A strategy whose rules can only ever total 20 tops
+ * out around the midpoint of its own confidence range and can never present a
+ * high-confidence signal, however unanimous its evidence — and nothing anywhere
+ * said so. Named here so that ceiling is visible at the call site instead of
+ * being discovered by wondering why confidence never moves.
+ *
+ * The value is inherited from the original engine and is deliberately NOT
+ * derived from the strategy: changing it changes the confidence shown on every
+ * signal, which is a product decision, not a refactor.
+ */
+export const CONFIDENCE_SATURATION_SCORE = 45.0;
+
+/**
+ * signal_engine.dart — the confidence curve for non-VIP signals:
+ * `base + (|score| / SATURATION) × (max − base)`, clamped to [base, max].
  */
 export function confidenceFor(absScore: number, base: number, max: number): number {
-  const c = base + (absScore / 45.0) * (max - base);
+  const c = base + (absScore / CONFIDENCE_SATURATION_SCORE) * (max - base);
   return c < base ? base : c > max ? max : c;
 }
 

@@ -4,7 +4,7 @@
  * Asset selector.
  *
  * The pair list used to sit open on the screen as a grid. It took a lot of
- * vertical space and, with 183 symbols, still meant a lot of scrolling.
+ * vertical space and, with 89 symbols, still meant a lot of scrolling.
  *
  * Now the categories are the only thing on screen; tapping one opens a dialog
  * holding just that category's pairs, with the search focused and ready. The
@@ -16,12 +16,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { tr, type PairRow } from '@euro/shared';
 import styles from './AssetSelector.module.css';
 
-/** Fixed order and copy, matching the Dart tab row. */
+/**
+ * Fixed order and copy, matching the Dart tab row.
+ *
+ * Stocks and indices are gone, and not because the tabs would be empty — the
+ * row already hides a category with no pairs. They are gone because the
+ * scraper no longer subscribes to a single one of them, so a tab for them
+ * could only ever be an empty promise. The same policy is what cut commodities
+ * to gold and silver and crypto to BTC, ETH and SOL; those two keep their tabs
+ * because they still hold something. See `isAllowedAsset` in po-scraper.js.
+ */
 const CATEGORIES: Array<{ id: string; ar: string; en: string; icon: string }> = [
   { id: 'currencies', ar: 'عملات', en: 'Currencies', icon: '💱' },
   { id: 'commodities', ar: 'سلع', en: 'Commodities', icon: '🛢️' },
-  { id: 'stocks', ar: 'أسهم', en: 'Stocks', icon: '🏢' },
-  { id: 'indices', ar: 'مؤشرات', en: 'Indices', icon: '📈' },
   { id: 'crypto', ar: 'كريبتو', en: 'Crypto', icon: '₿' },
 ];
 

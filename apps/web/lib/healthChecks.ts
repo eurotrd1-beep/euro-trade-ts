@@ -913,19 +913,17 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
       }
 
       case 'd_engine': {
-        const ids = ['strategy_standard', 'strategy_vip', 'monitoring_standard', 'monitoring_vip'];
-        const { data } = await supabase().from('configs').select('id,data').in('id', ids);
-        const rows = (data as Array<{ data: unknown }> | null) ?? [];
-        const present = rows.filter(
-          (r) => r.data !== null && typeof r.data === 'object' && Object.keys(r.data).length > 0,
-        ).length;
+        // The strategies used to live in `configs` and this counted the rows.
+        // They are compiled into the engine now, so their existence is a
+        // deploy-time fact that tests cover and nothing here can check. What
+        // is left worth checking is the input: a strategy reading stale
+        // candles is the failure this section can still catch.
         const st = await otcStatus(ctx.activeProxy);
-        const freshOk = (st?.newestAge ?? 999) <= 90;
-        if (present >= 2 && freshOk) return res('ok', `الاستراتيجيات (${present}/4) + أسعار طازة ✅`);
-        if (present < 2) {
-          return res('warn', `استراتيجيات ناقصة (${present}/4)`, { cause: 'configs الاستراتيجيات فاضية' });
-        }
-        return res('warn', 'الأسعار مش طازة → المحرك على بيانات قديمة', { cause: 'راجع قسم الأسعار' });
+        const age = st?.newestAge ?? 999;
+        if (age <= 90) return res('ok', `المحرك على أسعار عمرها ${age}s ✅`);
+        return res('warn', `أحدث سعر عمره ${age}s — المحرك بيقرا بيانات قديمة`, {
+          cause: 'راجع قسم الأسعار',
+        });
       }
 
       // ---- supabase ----

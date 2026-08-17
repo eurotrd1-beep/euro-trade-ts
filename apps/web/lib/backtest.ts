@@ -30,10 +30,19 @@
  * chart is ten views of the SAME 100 minutes — three hours of the day, always
  * the most recent three. Measured on the live proxy:
  *
- *     1m  × 100 →  0.1 day,   3/24 hours
- *     5m  × 100 →  0.3 day,   9/24 hours
- *     15m × 100 →  1.0 day,  24/24 hours
- *     1h  ×  71 → 34.3 days, 24/24 hours
+ *     1m  × 100 → 0.07 day,  2/24 hours
+ *     15m × 100 → 1.03 days, 24/24 hours
+ *     1h  × 100 → 4.13 days, 24/24 hours
+ *
+ * Those numbers were re-measured against the live proxy. An earlier version of
+ * this note claimed `1h × 71 → 34.3 days`, which described a history riddled
+ * with holes: 71 stored bars spread thin across a month. The proxy now returns
+ * 100 essentially contiguous bars per timeframe, so an hour of chart is an hour
+ * of history — better data, and a quarter of the span the old line promised.
+ * Anyone sizing a backtest off 34 days was sizing it off a gap.
+ *
+ * Gap splitting then costs more than it looks: of 183 symbols, 98 survive with
+ * a segment long enough to clear the warm-up. The rest are simply too short.
  *
  * This is not academic. A first pass over 1m candles reported kill_zone as
  * "none" on all 500 evaluations and it was read as a dead filter; on a 15m+1h
@@ -46,33 +55,23 @@
  */
 
 import {
-  evaluateStrategyPro,
   type Candle,
-  type DynamicStrategy,
-  type EngineClock,
+  type CycleResult,
+  type ProgramStage,
+  type SetupDiagnostics,
+  type StrategyProgram,
 } from '@euro/engine';
 import { fetchCandles } from './candles';
 
-/** Indicators look back up to ~50 bars; start after that or they see noise. */
-const WARMUP = 55;
-
 /**
- * Indicators whose answer depends on the hour or the weekday.
+ * Bars fed to the program before its answers are counted.
  *
- * Found two ways, and this is the union: a static scan of each registered
- * indicator's source for `clock` / `utcHour` / `weekday`, and an empirical
- * sweep running every indicator against seven different clocks to catch any
- * that reach the reading through a helper. The scan found six; the sweep
- * confirmed five of them move on the sample data — judas_swing reads the clock
- * but happened to answer the same either way there, which is precisely why the
- * static scan is the authority and the sweep only corroborates.
+ * It used to be 55, sized for indicators looking back fifty bars. A program
+ * has its own minimum and enforces it — fib236 refuses to look at all until it
+ * has twelve candles behind the one it is judging — so this only has to be
+ * enough for that, and every bar above it is history thrown away.
  */
-const CLOCK_DEPENDENT = new Set([
-  'day_of_week', 'judas_swing', 'kill_zone', 'session', 'session_overlap', 'time_analysis',
-]);
-
-/** Below this the day is not represented and a session rule cannot be judged. */
-const MIN_HOURS_COVERED = 24;
+const WARMUP = 15;
 
 /**
  * Seconds between bars, per timeframe — used to spot a hole in the history.
@@ -86,6 +85,16 @@ const MIN_HOURS_COVERED = 24;
 const STEP_SECONDS: Record<string, number> = {
   '1m': 60, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '4h': 14_400, '1d': 86_400,
 };
+
+/**
+ * Below this the sample is a slice of one part of the day.
+ *
+ * It used to gate the clock-reading indicators, which no longer exist. It still
+ * matters for a different reason: an hour of the London session and an hour of
+ * the Asian one are different markets, and a result measured on one of them is
+ * a result about that hour.
+ */
+const MIN_HOURS_COVERED = 24;
 
 /** A gap wider than this many steps starts a new segment. */
 const GAP_TOLERANCE = 1.5;
@@ -144,25 +153,79 @@ export const BREAKEVEN_HIGH = 55.6;
 export const MIN_TRADES_TO_JUDGE = 30;
 
 export interface BacktestArgs {
-  strategy: DynamicStrategy;
+  /**
+   * The program to replay — the plan's own, whichever that is.
+   *
+   * Not a strategy id and not a JSON file: the thing handed in here is the
+   * same object the live app drives, so what this measures cannot drift from
+   * what ships. The timeframe and the trade length come from it too, which is
+   * why neither is a parameter any more.
+   */
+  program: StrategyProgram;
   /** OTC symbols to replay, e.g. ['EURUSD_otc', 'GBPUSD_otc']. */
   symbols: string[];
-  interval: string;
-  /** Trade length in candles — 1 on a 1m chart is a one-minute trade. */
-  horizon: number;
   onProgress?: (done: number, total: number) => void;
 }
 
 export interface Trade {
   symbol: string;
   direction: 'CALL' | 'PUT';
+  /** Which trade of its cycle this was. */
+  stage: ProgramStage;
   entry: number;
   exit: number;
   outcome: 'WIN' | 'LOSS' | 'TIE';
-  /** Candle index the signal fired on. */
+  /** Candle index the trade ran on. */
   at: number;
-  scoreCall: number;
-  scorePut: number;
+}
+
+/**
+ * Cycles, which is the unit that actually decides whether this makes money.
+ *
+ * A martingale strategy cannot be judged on trades. Two trades at 1× and 2×
+ * that go loss-then-win are a PROFIT; counted as trades they are 50%, which
+ * reads as break-even and is wrong in both directions. So the trades are
+ * reported for detail and the cycles are reported for the verdict.
+ */
+/**
+ * What the search did across the whole replay.
+ *
+ * Every one of these is a decision the program reported having made — none of
+ * it is recomputed here. That distinction is the point: a backtest that worked
+ * out for itself why a setup was refused would be a second copy of the rules,
+ * and the two copies would drift.
+ */
+export interface SearchTally {
+  /** Candidate pairs the search looked at, across every candle. */
+  pairsExamined: number;
+  /** Refused: same kind, or no range. */
+  rejectedShape: number;
+  /** Refused: a swing candle already contained its own 23.6% level. */
+  rejectedSwingTouched: number;
+  /** Refused at selection: price had already left the end of the leg. */
+  rejectedBroken: number;
+  /** Refused: that swing had already produced its one signal. */
+  rejectedAlreadyFired: number;
+  /** Setups adopted and watched. */
+  armed: number;
+  /** Adopted setups retired later because price broke the end of the leg. */
+  retiredBroken: number;
+  /** Adopted setups retired because the leg aged out of the window. */
+  retiredAged: number;
+}
+
+export interface CycleTally {
+  total: number;
+  /** Won on the first trade, no double needed. */
+  won: number;
+  /** Lost the first, won the double — net positive at 2× stake. */
+  recovered: number;
+  /** Lost both. This is the one that costs 3× a single stake. */
+  finalLoss: number;
+  /** Ended level. Excluded from the rate, as ties are everywhere else. */
+  tie: number;
+  /** The entry candle never arrived — nothing was traded. */
+  aborted: number;
 }
 
 export interface BacktestReport {
@@ -181,8 +244,34 @@ export interface BacktestReport {
   avgCandlesBetweenSignals: number | null;
   /** Signals per 100 candles, the frequency measure that survives sample size. */
   signalsPer100: number;
-  /** Why the pyramid said no, tallied — shows what is actually gating. */
-  blockedReasons: Array<{ reason: string; count: number }>;
+  /** What the search did — examined, refused, adopted, retired. */
+  search: SearchTally;
+  /** Signals by direction, primary trades only. */
+  primary: {
+    signals: number;
+    call: number;
+    put: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    /** Wins over decided primaries, ties excluded. */
+    winRate: number;
+  };
+  /** The doubles. */
+  martingale: { count: number; wins: number; losses: number; ties: number };
+  /** Cycles, tallied by how they ended. */
+  cycles: CycleTally;
+  /** Final losses over cycles decided. The number that costs 3× a stake. */
+  finalLossRate: number;
+  /**
+   * Cycles won as a percentage of cycles decided — recovered counts as won.
+   *
+   * This is the headline. `winRate` above it is per TRADE and is the more
+   * flattering of the two whenever the martingale is doing badly, because a
+   * losing double adds one loss to a denominator that already counted its
+   * cause.
+   */
+  cycleWinRate: number;
   perPair: Array<{ symbol: string; trades: number; wins: number; losses: number }>;
   /** What window the sample actually spanned. */
   coverage: {
@@ -190,8 +279,6 @@ export interface BacktestReport {
     hours: number;
     /** Distinct calendar days seen. */
     days: number;
-    /** Clock-dependent rules in this strategy that the window cannot judge. */
-    unjudgeable: string[];
     /** Holes in the scraped history that the replay was split at. */
     gaps: number;
     /** Bars thrown away because their segment was shorter than the warm-up. */
@@ -200,25 +287,43 @@ export interface BacktestReport {
   warnings: string[];
 }
 
-/**
- * Dart's clock convention, derived from a candle instead of the wall clock.
- *
- * `Candle.time` is MILLISECONDS (see the type). Multiplying it again put every
- * replay somewhere around the year 58,000, so kill_zone, session, day_of_week
- * and the rest were judged against a meaningless hour.
- */
-function clockFor(candle: Candle): EngineClock {
-  const d = new Date(candle.time);
-  const jsDay = d.getDay();
-  return { utcHour: d.getUTCHours(), weekday: jsDay === 0 ? 7 : jsDay };
+/** One candle's counters, into the running total. */
+function addDiagnostics(t: SearchTally, d: SetupDiagnostics): void {
+  t.pairsExamined += d.pairsExamined;
+  t.rejectedShape += d.rejectedShape;
+  t.rejectedSwingTouched += d.rejectedSwingTouched;
+  t.rejectedBroken += d.rejectedBroken;
+  t.rejectedAlreadyFired += d.rejectedAlreadyFired;
+  if (d.armed) t.armed++;
+  if (d.retiredBroken) t.retiredBroken++;
+  if (d.retiredAged) t.retiredAged++;
+}
+
+/** One finished cycle, into the bucket that describes it. */
+function tallyCycle(t: CycleTally, result: CycleResult): void {
+  t.total++;
+  if (result === 'WIN') t.won++;
+  else if (result === 'RECOVERED') t.recovered++;
+  else if (result === 'FINAL_LOSS') t.finalLoss++;
+  else if (result === 'TIE' || result === 'RECOVERED_TIE') t.tie++;
+  else t.aborted++;
 }
 
 export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
-  const { strategy, symbols, interval, horizon, onProgress } = args;
+  const { program, symbols, onProgress } = args;
+
+  const interval = program.timeframe;
+  const timeframeMs = (STEP_SECONDS[interval] ?? 60) * 1000;
 
   const trades: Trade[] = [];
   const perPair: BacktestReport['perPair'] = [];
-  const blocked = new Map<string, number>();
+  const cycles: CycleTally = { total: 0, won: 0, recovered: 0, finalLoss: 0, tie: 0, aborted: 0 };
+  const search: SearchTally = {
+    pairsExamined: 0, rejectedShape: 0, rejectedSwingTouched: 0, rejectedBroken: 0,
+    rejectedAlreadyFired: 0, armed: 0, retiredBroken: 0, retiredAged: 0,
+  };
+  let callSignals = 0;
+  let putSignals = 0;
   const warnings: string[] = [];
   const signalGaps: number[] = [];
 
@@ -242,7 +347,7 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       candles = null;
     }
 
-    if (!candles || candles.length < WARMUP + horizon + 5) {
+    if (!candles || candles.length < WARMUP + 5) {
       warnings.push(`${symbol}: تاريخ غير كافٍ (${candles?.length ?? 0} شمعة) — تم تخطّيه`);
       continue;
     }
@@ -256,10 +361,8 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
     // Split at the holes BEFORE replaying. Everything below runs per segment.
     const step = STEP_SECONDS[interval];
     const segments =
-      step === undefined
-        ? [candles]
-        : contiguousRuns(candles, step, WARMUP + horizon + 5);
-    const dropped = candles.length - segments.reduce((n, s) => n + s.length, 0);
+      step === undefined ? [candles] : contiguousRuns(candles, step, WARMUP + 5);
+    const dropped = candles.length - segments.reduce((n2, seg) => n2 + seg.length, 0);
     if (dropped > 0) {
       gapsFound += Math.max(0, segments.length - 1);
       barsDropped += dropped;
@@ -275,62 +378,58 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
     let pairLosses = 0;
 
     for (const segment of segments) {
+      // A fresh mind per segment: state carried across a hole would settle a
+      // trade opened days earlier against the wrong candle.
+      const state = program.init();
       let lastSignalAt: number | null = null;
-      let blockedUntil = -1;
 
-      for (let i = WARMUP; i < segment.length - horizon; i++) {
-      // Only the past, and only within this segment — a window that reached
-      // across a gap would carry a jump of days as if it were one candle.
-      const window = segment.slice(0, i + 1);
-      const current = window[window.length - 1]!;
-      evaluated++;
+      for (let i = WARMUP; i < segment.length; i++) {
+        // Only the past, and only within this segment. The window handed over
+        // is exactly what the live app would have had at that moment, and
+        // `now` is the instant that candle closed — so a program that reaches
+        // for a candle it should not see gets nothing, here as in production.
+        const window = segment.slice(0, i + 1);
+        const closed = window[i]!;
+        evaluated++;
 
-      if (i < blockedUntil) continue;
-
-      let pro;
-      try {
-        pro = evaluateStrategyPro(strategy, {
-          candles: window,
-          currentPrice: current.close,
-          clock: clockFor(current),
-        });
-      } catch {
-        continue;
-      }
-
-      if (pro.result !== 'SIGNAL' || pro.direction === null) {
-        if (pro.reasonBlocked) {
-          blocked.set(pro.reasonBlocked, (blocked.get(pro.reasonBlocked) ?? 0) + 1);
+        let event;
+        try {
+          event = program.onCandleClose(
+            { candles: window, timeframeMs, now: closed.time + timeframeMs },
+            state,
+          );
+        } catch {
+          continue;
         }
-        continue;
-      }
 
-      const entry = current.close;
-      const exit = segment[i + horizon]!.close;
-      const direction = pro.direction;
-      const outcome: Trade['outcome'] =
-        exit === entry ? 'TIE' : direction === 'CALL' ? (exit > entry ? 'WIN' : 'LOSS') : exit < entry ? 'WIN' : 'LOSS';
+        if (event.settled !== null) {
+          const t = event.settled;
+          trades.push({
+            symbol,
+            direction: t.direction,
+            stage: t.stage,
+            entry: t.entryPrice,
+            exit: t.exitPrice,
+            outcome: t.result,
+            at: i,
+          });
+          pairTrades++;
+          if (t.result === 'WIN') pairWins++;
+          else if (t.result === 'LOSS') pairLosses++;
+        }
 
-      trades.push({
-        symbol,
-        direction,
-        entry,
-        exit,
-        outcome,
-        at: i,
-        scoreCall: pro.finalScore.CALL,
-        scorePut: pro.finalScore.PUT,
-      });
+        if (event.diagnostics !== undefined) addDiagnostics(search, event.diagnostics);
 
-      pairTrades++;
-      if (outcome === 'WIN') pairWins++;
-      else if (outcome === 'LOSS') pairLosses++;
+        if (event.signal !== null) {
+          if (event.signal.stage === 'primary') {
+            if (event.signal.direction === 'CALL') callSignals++;
+            else putSignals++;
+          }
+          if (lastSignalAt !== null) signalGaps.push(i - lastSignalAt);
+          lastSignalAt = i;
+        }
 
-      if (lastSignalAt !== null) signalGaps.push(i - lastSignalAt);
-      lastSignalAt = i;
-
-      // One trade at a time, as the live engine enforces.
-      blockedUntil = i + horizon;
+        if (event.cycleEnd !== null) tallyCycle(cycles, event.cycleEnd);
       }
     }
 
@@ -338,15 +437,6 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   }
 
   onProgress?.(symbols.length, symbols.length);
-
-  // Which clock-dependent rules is this window unable to judge?
-  const unjudgeable = [
-    ...new Set(
-      strategy.rules
-        .filter((r) => r.enabled && CLOCK_DEPENDENT.has(r.indicator))
-        .map((r) => r.indicator),
-    ),
-  ];
 
   if (gapsFound > 0) {
     warnings.push(
@@ -358,13 +448,9 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
 
   if (hoursSeen.size < MIN_HOURS_COVERED) {
     warnings.push(
-      `⚠️ العينة تغطي ${hoursSeen.size} ساعة فقط من 24 (${daysSeen.size} يوم) — ` +
-        (unjudgeable.length > 0
-          ? `والاستراتيجية فيها ${unjudgeable.join(' و ')}. نتيجتهم غير موثوقة على النافذة دي.`
-          : 'المؤشرات الزمنية (kill_zone / session / session_overlap / judas_swing / day_of_week / time_analysis) نتائجها غير موثوقة على نافذة بالضيق ده.'),
-    );
-    warnings.push(
-      'وسّع النافذة بتغيير الفريم (15m يغطّي يوم كامل، 1h يغطّي شهر) — زيادة الأزواج مش بتوسّع الزمن، كلهم بيتسجّلوا في نفس اللحظات.',
+      `⚠️ العينة تغطي ${hoursSeen.size} ساعة فقط من 24 (${daysSeen.size} يوم). الاستراتيجية دي ` +
+        'مبتقراش الساعة، فالتغطية مش بتأثر على صحة الحساب — لكنها بتأثر على حجم العيّنة، وسوق ' +
+        'الساعة دي مش شرط يشبه باقي اليوم.',
     );
   }
 
@@ -373,24 +459,59 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   const ties = trades.filter((t) => t.outcome === 'TIE').length;
   const decided = wins + losses;
 
+  const of = (stage: ProgramStage, outcome: Trade['outcome']) =>
+    trades.filter((t) => t.stage === stage && t.outcome === outcome).length;
+
+  const pWins = of('primary', 'WIN');
+  const pLosses = of('primary', 'LOSS');
+  const pDecided = pWins + pLosses;
+  const mCount = trades.filter((t) => t.stage === 'martingale').length;
+
+  // A cycle is decided when it ended in profit or in loss. Ties and aborts are
+  // neither, exactly as ties are excluded from the per-trade rate.
+  const cyclesWon = cycles.won + cycles.recovered;
+  const cyclesDecided = cyclesWon + cycles.finalLoss;
+
+  if (cycles.recovered + cycles.finalLoss > 0 && cycles.recovered === 0) {
+    warnings.push(
+      `⚠️ المضاعفة اشتغلت ${cycles.finalLoss} مرة وما عوّضتش ولا مرة على العيّنة دي. ` +
+        'المضاعفة بتضاعف حجم الخسارة لما تفشل، فالرقم ده أهم من نسبة الصفقات فوقه.',
+    );
+  }
+
   return {
     trades,
     wins,
     losses,
     ties,
     winRate: decided > 0 ? (wins / decided) * 100 : 0,
+    search,
+    primary: {
+      signals: callSignals + putSignals,
+      call: callSignals,
+      put: putSignals,
+      wins: pWins,
+      losses: pLosses,
+      ties: of('primary', 'TIE'),
+      winRate: pDecided > 0 ? (pWins / pDecided) * 100 : 0,
+    },
+    martingale: {
+      count: mCount,
+      wins: of('martingale', 'WIN'),
+      losses: of('martingale', 'LOSS'),
+      ties: of('martingale', 'TIE'),
+    },
+    cycles,
+    finalLossRate: cyclesDecided > 0 ? (cycles.finalLoss / cyclesDecided) * 100 : 0,
+    cycleWinRate: cyclesDecided > 0 ? (cyclesWon / cyclesDecided) * 100 : 0,
     evaluated,
     pairsUsed,
     pairsRequested: symbols.length,
     avgCandlesBetweenSignals:
       signalGaps.length > 0 ? signalGaps.reduce((a, b) => a + b, 0) / signalGaps.length : null,
     signalsPer100: evaluated > 0 ? (trades.length / evaluated) * 100 : 0,
-    blockedReasons: [...blocked]
-      .map(([reason, count]) => ({ reason, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5),
     perPair: perPair.sort((a, b) => b.trades - a.trades),
-    coverage: { hours: hoursSeen.size, days: daysSeen.size, unjudgeable, gaps: gapsFound, barsDropped },
+    coverage: { hours: hoursSeen.size, days: daysSeen.size, gaps: gapsFound, barsDropped },
     warnings,
   };
 }
@@ -415,7 +536,7 @@ export function verdict(r: BacktestReport): { tone: 'good' | 'ok' | 'bad'; text:
   if (r.trades.length === 0) {
     return {
       tone: 'bad',
-      text: 'لم تصدر أي إشارة على كل التاريخ المتاح — الشروط متشددة جداً أو متناقضة. شوف أسباب الرفض تحت.',
+      text: 'لم تصدر أي إشارة على كل التاريخ المتاح — يا إما مفيش سوينج صالح في العيّنة، يا إما السعر ما لمسش 0.236 ولا مرة.',
     };
   }
   // No judgement at all below the sample floor. The old text called 20 trades

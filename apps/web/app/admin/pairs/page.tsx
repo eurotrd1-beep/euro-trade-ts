@@ -13,7 +13,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, type PairRow } from '@euro/shared';
 import styles from '../admin.module.css';
 
-const CATEGORIES = ['currencies', 'commodities', 'stocks', 'indices', 'crypto'];
+/**
+ * Three, not five. The scraper refuses to subscribe to stocks and indices at
+ * all (`isAllowedAsset` in po-scraper.js), so filing a pair under either would
+ * produce a row the app lists and the feed never fills — which is worse than
+ * not being able to file it.
+ */
+const CATEGORIES = ['currencies', 'commodities', 'crypto'];
 
 export default function PairsView() {
   const [pairs, setPairs] = useState<PairRow[] | null>(null);

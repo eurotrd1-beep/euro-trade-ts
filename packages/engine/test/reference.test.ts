@@ -16,9 +16,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  evaluateStrategyPro,
+  evaluateRules,
   isRegistered,
-  pyramidFromJson,
   registeredNames,
   ruleFromJson,
   systemClock,
@@ -74,7 +73,11 @@ describe('the generated strategy reference', () => {
     expect([...CONDITIONS].filter((c) => !listed.has(c))).toEqual([]);
   });
 
-  it('produces a working strategy once roles are assigned', () => {
+  it('produces a working strategy once the rules are enabled', () => {
+    // The smoke test used to build a three-layer pyramid out of supertrend,
+    // market_structure and rsi. None of those exist any more, and neither does
+    // the pyramid: what it now proves is that the eight documented indicators
+    // resolve to real scores rather than the zeros an unknown name produces.
     const byName = (name: string) => {
       const raw = rules.find((r) => r['indicator'] === name);
       expect(raw, `${name} missing from the reference`).toBeDefined();
@@ -87,41 +90,35 @@ describe('the generated strategy reference', () => {
       maxScore: 0,
       confidenceBase: doc.confidence_base,
       confidenceMax: doc.confidence_max,
-      pyramid: pyramidFromJson({
-        min_primary_score: 3,
-        confirmation_ratio: 0.5,
-        require_all_filters: false,
-      }),
       rules: [
-        { ...byName('supertrend'), enabled: true, role: 'primary', score: 3 },
         {
-          ...byName('market_structure'),
+          ...byName('fib_zone'),
           enabled: true,
-          role: 'primary',
+          signal: 'CALL',
           score: 3,
-          pattern: 'higher_high_higher_low',
+          condition: 'neq',
+          pattern: 'none',
         },
         {
-          ...byName('rsi'),
+          ...byName('fib_retracement'),
           enabled: true,
-          role: 'confirm',
+          signal: 'PUT',
           score: 2,
-          condition: 'between',
-          valueMin: 40,
-          valueMax: 70,
+          condition: 'gt',
+          value: -2,
         },
       ],
     };
 
-    const pro = evaluateStrategyPro(strategy, {
+    const net = evaluateRules(strategy, {
       candles,
       currentPrice: candles[candles.length - 1]!.close,
       clock: systemClock(),
     });
 
-    // The direction depends on the fixture; what matters is that the rules
-    // resolved to real scores instead of the zeros an unknown name produces.
-    expect(pro.finalScore.CALL + pro.finalScore.PUT).toBeGreaterThan(0);
-    expect(pro.categoryCount.CALL + pro.categoryCount.PUT).toBeGreaterThan(0);
+    // Both rules are written to be true on any window that has a swing at all,
+    // so the two sides cancel to 3 − 2. A zero here would mean the reference is
+    // naming indicators the registry does not have.
+    expect(net).toBe(1);
   });
 });

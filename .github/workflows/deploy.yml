@@ -76,18 +76,6 @@ jobs:
           echo "next:  $(node -e "console.log(require.resolve('next/dist/bin/next'))" || echo 'NOT RESOLVABLE')"
           ls -d node_modules/next apps/web/node_modules 2>/dev/null || true
 
-      # The four published strategy rows decide every signal every user gets, and
-      # each way they break is silent — the engine answers an unknown indicator
-      # with 0.0 and prints nothing. Three of the four were found dead this way,
-      # having broken AFTER they were published, when the engine around them
-      # changed names. A check at upload time cannot catch that; this can.
-      #
-      # `--warn-only` while the live rows are still being repaired. Drop the flag
-      # once they pass, and a broken strategy stops a deploy instead of riding
-      # along with it.
-      - name: Check published strategies
-        run: npx tsx scripts/check-live-strategies.mts --warn-only
-
       - name: Build static site
         env:
           # GitHub Pages serves project sites from /<repo>/, so every asset URL
