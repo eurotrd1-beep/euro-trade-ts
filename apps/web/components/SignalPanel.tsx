@@ -135,8 +135,8 @@ function MonitoringView({ monitoring, waitNotice, onStopMonitoring }: SignalPane
 
       <p className={styles.watching}>
         {tr(
-          'مش محتاج تضغط تاني، ولا تفضل قاعد قدام الشاشة — أول ما الشروط تتحقق الإشارة هتفتح لوحدها وهيوصلك تنبيه.',
-          'No need to press again or sit and watch — the moment the conditions hold, the trade opens on its own and you get an alert.',
+          'المراقبة شغالة على كل الأزواج، مش على الزوج اللي قدامك بس. مش محتاج تضغط تاني ولا تفضل قاعد قدام الشاشة — هيوصلك تنبيه أول ما فرصة تتكوّن، وتنبيه تاني أول ما تقرب، وتنبيه أول ما تتحقق. والشارت هيقلب لوحده على الزوج اللي طلعت منه.',
+          'The watch runs on every pair, not just the one on screen. You get an alert when an opportunity forms, another when it gets close, and one the moment it triggers — and the chart switches to the pair on its own.',
         )}
       </p>
 
@@ -230,8 +230,8 @@ function IdleView({
 
       <p className={styles.description}>
         {tr(
-          `اضغط أدناه عشان الاستراتيجية تشتغل على الزوج ${name} بفريم ${timeframe}، وتفضل شغالة على كل شمعة لحد ما تطلع الصفقة ذات الاحتمالية الأكبر.`,
-          `Tap below to run the strategy on ${name} at ${timeframe}, and keep it running candle by candle until the highest-probability trade comes out.`,
+          `اضغط أدناه عشان الاستراتيجية تشتغل على ${name} وعلى باقي الأزواج كلها بفريم ${timeframe}، وتفضل شغالة على كل شمعة لحد ما تطلع صفقة — وأول ما تطلع، الشارت هيقلب لزوجها لوحده.`,
+          `Tap below to run the strategy on ${name} and every other pair at ${timeframe}, candle by candle, until a trade appears — and the chart will switch to its pair on its own.`,
         )}
       </p>
 
@@ -358,6 +358,11 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
           </div>
         )}
         <div className={`${styles.signalCard} ${isCall ? styles.call : styles.put}`}>
+          {/* The pair, first and unmissable. The watch scans every market, so
+              the trade on screen is frequently NOT the chart the user was
+              looking at a second ago — and a direction without a market is
+              worse than no card at all. */}
+          <p className={styles.signalPair}>{signal.pair}</p>
           <div className={styles.directionRow}>
             <span className={styles.direction}>
               {isCall ? '▲' : '▼'} {signal.direction}
@@ -393,6 +398,7 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
   return (
     <section className={styles.panel}>
       <div className={`${styles.signalCard} ${cls}`}>
+        <p className={styles.signalPair}>{signal.pair}</p>
         <p className={styles.resultText}>{resultLabel}</p>
 
         <dl className={styles.metrics}>

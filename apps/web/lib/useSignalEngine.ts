@@ -48,7 +48,7 @@ import {
   type StrategyProgram,
   type TradingSignal,
 } from '@euro/engine';
-import { fetchCandles } from './candles';
+import { fetchCandles, fetchCandlesBulk, fetchOtcStatus } from './candles';
 import { loadProgramState, saveProgramState } from './programState';
 import {
   fetchRemoteHistory,
@@ -87,6 +87,24 @@ const CANDLE_POLL_MS = 15_000;
  * evaluates a bar the market has already moved past.
  */
 const PROGRAM_SETTLE_MS = 200;
+
+/**
+ * How often the live price of every pair is read while the watch runs.
+ *
+ * One request for all of them — the proxy publishes the whole map. Four
+ * seconds is fast enough to catch a level being reached inside a
+ * sixty-second candle and slow enough to be nothing.
+ */
+const PRICE_POLL_MS = 4000;
+
+/**
+ * How close to the level counts as "nearly there", as a fraction of the leg.
+ *
+ * A DISPLAY threshold, and nothing else: no trade, no setup and no settlement
+ * reads it. It decides when a phone buzzes, and moving it changes when the
+ * user is told — never what the strategy does.
+ */
+const NEAR_FRACTION = 0.2;
 
 export interface EngineState {
   candles: Candle[];
@@ -153,6 +171,19 @@ export interface UseSignalEngineArgs {
    * Null means fall back to the rule scorer.
    */
   programId: string | null;
+  /**
+   * Every pair the watch scans, as chart symbols.
+   *
+   * The strategy does not care which chart is on screen: a setup on GBP/JPY is
+   * as good as one on the pair the user happens to be looking at, and watching
+   * only the visible one throws away 88 of the 89 chances a minute offers. The
+   * chart follows the signal rather than the other way round.
+   */
+  watchSymbols: readonly string[];
+  /** True while the watch is running — gates the between-candle price polling. */
+  watching: boolean;
+  /** Called when a signal lands on a pair other than the one on screen. */
+  onPairSwitch?: (chartSymbol: string) => void;
   pair: string;
   /**
    * Which account's history to load and save. Null until the session resolves.
@@ -213,6 +244,29 @@ function differs(a: readonly TradingSignal[], b: readonly TradingSignal[]): bool
  * (a rising two-oscillator chime for the button, the CALL/PUT alerts for
  * monitoring); the notification is the same for both.
  */
+/**
+ * A chart symbol turned into something a person reads.
+ *
+ * `EURUSD_otc` → `EUR/USD`. The pair matters more than it used to: the watch
+ * scans every pair, so a notification arriving on a phone has to say which
+ * market it is about before it says anything else.
+ */
+function displayNameFor(chartSymbol: string): string {
+  const base = chartSymbol.replace(/_otc$/i, '').replace(/^#/, '');
+  return /^[A-Za-z]{6}$/.test(base) ? `${base.slice(0, 3)}/${base.slice(3)}`.toUpperCase() : base;
+}
+
+/** The same name the pair list and the history use, so one trade reads alike everywhere. */
+function pairNameFor(chartSymbol: string): string {
+  const name = displayNameFor(chartSymbol);
+  return /_otc$/i.test(chartSymbol) ? `${name} OTC` : name;
+}
+
+/** Prices at the precision the pair is quoted to — three decimals for yen. */
+function formatLevel(price: number): string {
+  return price.toFixed(price >= 50 ? 3 : 5);
+}
+
 function announceSignal(signal: TradingSignal): void {
   if (signal.origin === 'monitoring') {
     if (signal.direction === 'CALL') playCallSound();
@@ -346,23 +400,47 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   const programRef = useRef<StrategyProgram | null>(program);
   programRef.current = program;
 
-  const programStateRef = useRef<ProgramState | null>(null);
+  /**
+   * One program state per pair, built lazily.
+   *
+   * The states are NOT persisted, with one exception below. An armed setup is
+   * a pure function of the candles, so it rebuilds itself within a couple of
+   * closes; an open cycle is not — it remembers a trade that has already been
+   * placed and a martingale that may be owed — so that one is written to
+   * storage and read back.
+   */
+  const programStatesRef = useRef(new Map<string, ProgramState>());
 
-  // The state is per account, pair and timeframe, and it is read back from
-  // storage rather than rebuilt: an open cycle has to survive a reload or the
-  // martingale it earned is lost silently. See lib/programState.ts.
+  /** The pair holding the open cycle, or null. Nothing else is ticked while set. */
+  const cycleSymbolRef = useRef<string | null>(null);
+
+  /** The loudest alert already sent for a pair's current setup, keyed by setup. */
+  const alertedRef = useRef(new Map<string, string>());
+
+  const stateFor = useCallback((symbol: string): ProgramState => {
+    const prog = programRef.current;
+    if (prog === null) return { cycle: null, armed: null, firedKeys: [], lastCandleTime: 0 };
+
+    const held = programStatesRef.current.get(symbol);
+    if (held !== undefined) return held;
+
+    const a = argsRef.current;
+    const fresh = a.accountId
+      ? loadProgramState(prog, a.accountId, symbol, a.timeframe)
+      : prog.init();
+    programStatesRef.current.set(symbol, fresh);
+    if (fresh.cycle !== null) cycleSymbolRef.current = symbol;
+    return fresh;
+  }, []);
+
+  // Everything is dropped when the program or the account changes: states
+  // belong to one account on one program, and carrying them across would
+  // settle one user's trade with another's candles.
   useEffect(() => {
-    if (program === null || args.accountId === null) {
-      programStateRef.current = null;
-      return;
-    }
-    programStateRef.current = loadProgramState(
-      program,
-      args.accountId,
-      args.chartSymbol,
-      args.timeframe,
-    );
-  }, [program, args.accountId, args.chartSymbol, args.timeframe]);
+    programStatesRef.current = new Map();
+    cycleSymbolRef.current = null;
+    alertedRef.current = new Map();
+  }, [program, args.accountId, args.timeframe]);
 
   /**
    * Writes a settled trade everywhere it has to appear, at once.
@@ -435,82 +513,219 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * turns on reading exactly that one. Missing it would not error; it would
    * quietly evaluate the wrong bar.
    */
+  /**
+   * Applies one closed candle to one pair, and does whatever the answer says.
+   *
+   * Returns what the tick came to, so the caller can stop scanning the moment
+   * a trade opens.
+   */
+  const applyEvent = useCallback(
+    (symbol: string, prog: StrategyProgram, candles: Candle[], progState: ProgramState): TickResult => {
+      const a = argsRef.current;
+      const armedBefore = progState.armed?.key ?? null;
+
+      const event = prog.onCandleClose(
+        { candles, timeframeMs: timeframeSeconds(a.timeframe) * 1000, now: Date.now() },
+        progState,
+      );
+
+      // Only the cycle is worth storing — see `stateFor`.
+      if (a.accountId && (progState.cycle !== null || event.cycleEnd !== null)) {
+        saveProgramState(prog, a.accountId, symbol, a.timeframe, progState);
+      }
+
+      // A newly adopted setup is the first thing worth telling the user about:
+      // the swing is found and validated, and only the touch is outstanding.
+      const armedNow = progState.armed;
+      if (armedNow !== null && armedNow.key !== armedBefore) {
+        alertedRef.current.set(symbol, `${armedNow.key}|armed`);
+        notify(
+          `فرصة بتتكوّن — ${displayNameFor(symbol)}`,
+          `${armedNow.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط'} · مستنيين السعر يوصل ${formatLevel(armedNow.level)}`,
+        );
+      }
+      if (armedNow === null && armedBefore !== null) alertedRef.current.delete(symbol);
+
+      if (event.settled !== null) {
+        const open = stateRef.current.activeSignal;
+        if (open !== null && open.status === 'ACTIVE') {
+          settleTo(open, event.settled.result, event.settled.entryPrice, event.settled.exitPrice);
+        }
+      }
+
+      if (event.signal !== null) {
+        cycleSymbolRef.current = symbol;
+        // The chart follows the signal. Told before the card appears, so the
+        // user is never reading a price for one pair beside a trade on another.
+        if (symbol !== a.chartSymbol) a.onPairSwitch?.(symbol);
+
+        const signal: TradingSignal = {
+          pair: pairNameFor(symbol),
+          direction: event.signal.direction,
+          durationMinutes: prog.durationMinutes,
+          entryPrice: candles[candles.length - 1]!.close,
+          currentPrice: candles[candles.length - 1]!.close,
+          confidence: prog.confidence,
+          entryTime: event.signal.entryTime,
+          expiryTime: event.signal.entryTime + prog.durationMinutes * 60_000,
+          status: 'ACTIVE',
+          exitPrice: null,
+          candlesSnapshot: null,
+          marketCondition: '',
+          recommendation: '',
+          origin: event.signal.stage === 'martingale' ? 'monitoring' : 'instant',
+          stage: event.signal.stage,
+        };
+
+        announceSignal(signal);
+        recordOpen(signal);
+        setState((st) => ({
+          ...st,
+          activeSignal: signal,
+          secondsRemaining: Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000)),
+          waitNotice: '',
+        }));
+      }
+
+      if (event.cycleEnd !== null) {
+        cycleSymbolRef.current = null;
+        return 'cycle_end';
+      }
+      return event.signal !== null ? 'signal' : 'none';
+    },
+    [recordOpen, settleTo],
+  );
+
+  /**
+   * One closed candle, across every pair being watched.
+   *
+   * Two modes, and the difference matters:
+   *
+   *   • a cycle is open → ONLY that pair is ticked. Its trade has to settle and
+   *     may owe a martingale, and no other pair may open a second trade while
+   *     it runs. The others are not ticked at all rather than ticked and
+   *     ignored — ignoring a signal would leave that pair believing it had a
+   *     trade open that the app never showed.
+   *   • otherwise → every pair, in one bulk request, stopping at the first
+   *     signal. The pairs after it keep their state untouched for the same
+   *     reason.
+   */
   const tickProgram = useCallback(async (): Promise<TickResult> => {
     const prog = programRef.current;
-    const progState = programStateRef.current;
     const a = argsRef.current;
-    if (prog === null || progState === null) return 'none';
+    if (prog === null) return 'none';
 
-    const fresh = await fetchCandles(a.chartSymbol, a.timeframe);
-    const candles = fresh ?? stateRef.current.candles;
-    if (candles.length === 0) return 'none';
-    if (fresh !== null) {
-      setState((st) => ({ ...st, candles, currentPrice: candles[candles.length - 1]!.close }));
+    // ── A cycle owns the engine ──────────────────────────────────────────
+    const busy = cycleSymbolRef.current;
+    if (busy !== null) {
+      const fresh = await fetchCandles(busy, a.timeframe);
+      if (fresh === null || fresh.length === 0) return 'none';
+      if (busy === a.chartSymbol) {
+        setState((st) => ({ ...st, candles: fresh, currentPrice: fresh[fresh.length - 1]!.close }));
+      }
+      return applyEvent(busy, prog, fresh, stateFor(busy));
     }
 
-    const event = prog.onCandleClose(
-      {
-        candles,
-        timeframeMs: timeframeSeconds(a.timeframe) * 1000,
-        now: Date.now(),
-      },
-      progState,
-    );
+    // ── Scanning ─────────────────────────────────────────────────────────
+    const symbols = a.watchSymbols.length > 0 ? a.watchSymbols : [a.chartSymbol];
+    const bulk = await fetchCandlesBulk(symbols, a.timeframe);
 
-    if (a.accountId) {
-      saveProgramState(prog, a.accountId, a.chartSymbol, a.timeframe, progState);
+    // The bulk endpoint is part of the proxy, and the two deploy separately.
+    // If the app ships first it would otherwise scan nothing at all and go
+    // quiet for reasons no user could guess — so it falls back to the pair on
+    // screen, which is what it watched before any of this. Degraded, not
+    // broken, and it heals itself the moment the proxy catches up.
+    if (bulk.size === 0) {
+      const only = await fetchCandles(a.chartSymbol, a.timeframe);
+      if (only === null || only.length === 0) return 'none';
+      setState((st) => ({ ...st, candles: only, currentPrice: only[only.length - 1]!.close }));
+      return applyEvent(a.chartSymbol, prog, only, stateFor(a.chartSymbol));
     }
 
-    // Settled first, opened second: a losing trade and the martingale it earns
-    // arrive on the same candle, and showing the new trade before the old one
-    // has a result would put two open trades on screen at once.
-    if (event.settled !== null) {
-      const open = stateRef.current.activeSignal;
-      if (open !== null && open.status === 'ACTIVE') {
-        settleTo(open, event.settled.result, event.settled.entryPrice, event.settled.exitPrice);
+    const onChart = bulk.get(a.chartSymbol);
+    if (onChart !== undefined && onChart.length > 0) {
+      setState((st) => ({ ...st, candles: onChart, currentPrice: onChart[onChart.length - 1]!.close }));
+    }
+
+    // The pair on screen goes first, so that when two pairs would both fire on
+    // the same candle the user's own chart wins and nothing jumps.
+    const ordered = [a.chartSymbol, ...symbols.filter((sym) => sym !== a.chartSymbol)];
+
+    for (const symbol of ordered) {
+      const candles = bulk.get(symbol);
+      if (candles === undefined || candles.length === 0) continue;
+
+      const result = applyEvent(symbol, prog, candles, stateFor(symbol));
+      if (result !== 'none') return result;
+    }
+    return 'none';
+  }, [applyEvent, stateFor]);
+
+  /**
+   * Between candles: how close is any watched pair to its level?
+   *
+   * This is the half of the alerting that cannot wait for a close. Every
+   * armed setup has a price it is waiting for, and the proxy publishes every
+   * pair's live price in one payload — so "nearly there" and "it just
+   * happened" can both be said while the candle is still forming.
+   *
+   * It never trades. A level reached mid-candle is a fact that cannot be taken
+   * back — a candle's range only ever grows — so saying so early is honest;
+   * ACTING on it early would be a different strategy from the one specified,
+   * and the trade still opens on the candle after the one that closes.
+   */
+  useEffect(() => {
+    if (!args.watching || program === null) return;
+    let cancelled = false;
+
+    async function poll(): Promise<void> {
+      const status = await fetchOtcStatus(argsRef.current.chartSymbol);
+      if (cancelled || status === null) return;
+
+      for (const [symbol, st] of programStatesRef.current) {
+        const armed = st.armed;
+        if (armed === null || st.cycle !== null) continue;
+
+        const price = status.prices[symbol];
+        if (typeof price !== 'number' || price <= 0) continue;
+
+        // The leg's size, recovered from the level: the level sits 23.6% of
+        // the way back from the end, so the distance to it IS 23.6% of the leg.
+        const range = Math.abs(armed.level - armed.endPrice) / 0.236;
+        const distance = Math.abs(price - armed.level);
+
+        // Reached: the retracement approaches from the side the leg ran, so
+        // an up-swing's level is met from above and a down-swing's from below.
+        const reached = armed.direction === 'CALL' ? price <= armed.level : price >= armed.level;
+        const stage = reached ? 'touched' : distance <= range * NEAR_FRACTION ? 'near' : null;
+        if (stage === null) continue;
+
+        const mark = `${armed.key}|${stage}`;
+        if (alertedRef.current.get(symbol) === mark) continue;
+        // Never step back down from `touched` to `near` on a wobble.
+        if (stage === 'near' && alertedRef.current.get(symbol)?.endsWith('|touched')) continue;
+        alertedRef.current.set(symbol, mark);
+
+        const name = displayNameFor(symbol);
+        const arrow = armed.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط';
+        if (stage === 'touched') {
+          notify(
+            `الشروط اتحققت — ${name}`,
+            `${arrow} · السعر لمس ${formatLevel(armed.level)} · الصفقة هتفتح مع الشمعة الجاية`,
+          );
+        } else {
+          notify(`الإشارة قربت — ${name}`, `${arrow} · فاضل ${formatLevel(distance)} على ${formatLevel(armed.level)}`);
+        }
       }
     }
 
-    if (event.signal !== null) {
-      const signal: TradingSignal = {
-        pair: a.pair,
-        direction: event.signal.direction,
-        durationMinutes: prog.durationMinutes,
-        // Provisional: the entry candle has only just opened, so its official
-        // open is not in the buffer yet. The program overwrites both prices
-        // with the candle's own when it settles, so the finished card shows the
-        // numbers the result was actually computed from.
-        entryPrice: livePriceRef.current?.() || stateRef.current.currentPrice,
-        currentPrice: livePriceRef.current?.() || stateRef.current.currentPrice,
-        // A touch either happened or it did not — there is no score behind it
-        // and therefore no honest per-trade confidence. The program publishes
-        // a constant so the card keeps its shape; varying it would be
-        // inventing a measurement.
-        confidence: prog.confidence,
-        entryTime: event.signal.entryTime,
-        expiryTime: event.signal.entryTime + prog.durationMinutes * 60_000,
-        status: 'ACTIVE',
-        exitPrice: null,
-        candlesSnapshot: null,
-        marketCondition: '',
-        recommendation: '',
-        origin: event.signal.stage === 'martingale' ? 'monitoring' : 'instant',
-        stage: event.signal.stage,
-      };
-
-      announceSignal(signal);
-      recordOpen(signal);
-      setState((st) => ({
-        ...st,
-        activeSignal: signal,
-        secondsRemaining: Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000)),
-        waitNotice: '',
-      }));
-    }
-
-    if (event.cycleEnd !== null) return 'cycle_end';
-    return event.signal !== null ? 'signal' : 'none';
-  }, [recordOpen, settleTo]);
+    void poll();
+    const id = setInterval(() => void poll(), PRICE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [args.watching, program]);
 
   // ── Candle feed ───────────────────────────────────────────────────────────
   useEffect(() => {
