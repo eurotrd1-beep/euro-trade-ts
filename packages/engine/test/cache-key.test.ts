@@ -3,23 +3,23 @@
  * in a parameter the indicator READS.
  *
  * The cache key was `indicator_period_fast_slow_smooth_stddev` — copied from
- * the Dart engine, `value` and `tolerance` absent from both. That is fine for
- * the ~180 indicators where `value` is only the comparison threshold applied
- * after the fact, and wrong for the ones that read it as an INPUT:
+ * the Dart engine, `value` and `tolerance` absent from both. That is harmless
+ * where `value` is only the threshold compared after the fact, and wrong where
+ * the indicator reads it as an INPUT. Two such rules in one strategy shared a
+ * cache entry, and whichever ran first silently answered for both.
  *
- *   supertrend                   `rule.value` is the ATR multiplier
- *   fibonacci                    `rule.value` is the retracement level
- *   monte_carlo_risk_simulation  `rule.value` is the risk threshold
+ * This used to be demonstrated with `supertrend` at two ATR multipliers. That
+ * indicator no longer exists, and the bug it guarded very much still can: of
+ * the eight indicators left, `fib_bounce` reads `value` as the retracement
+ * level it watches, and four of them read `tolerance` as the width of the band
+ * that counts as "at" a level. So the case is rebuilt on those.
  *
- * For those, two rules in one strategy — say supertrend at 1.5 and at 3.0 —
- * shared a cache entry, and whichever ran first silently answered for both.
+ * It only shows when the two parameters actually disagree on the data at hand.
+ * The window below is real recorded candles where they do: at the 38.2% level
+ * the last candle is a bearish rejection, at 78.6% nothing is happening.
  *
- * It survived unnoticed because it only shows when the two parameters actually
- * disagree on the data at hand. The window below is real recorded candles where
- * they do: multiplier 2.0 reads bearish, 3.0 reads bullish.
- *
- * Both engines had the bug, so this is not a divergence from Dart — it is a
- * fix that Dart still needs. See PENDING_DART_PORT in parity.test.ts.
+ * Both engines had the bug, so this is not a divergence from Dart — it is a fix
+ * Dart still needs.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -28,8 +28,7 @@ import { cacheKey, computeIndicator } from '../src/registry.js';
 import { makeRule, type Candle } from '../src/types.js';
 import '../src/indicators/index.js';
 
-// The fixture stores `time` as an ISO string; the engine wants epoch seconds.
-// Same conversion parity.test.ts does.
+// The fixture stores `time` as an ISO string; the engine wants epoch millis.
 const candles: Candle[] = golden.candles.map((c) => ({
   open: c.open,
   high: c.high,
@@ -39,46 +38,58 @@ const candles: Candle[] = golden.candles.map((c) => ({
   time: Date.parse(c.time),
 }));
 
-/** Real candles where the supertrend multiplier changes the verdict. */
-const WINDOW = candles.slice(0, 70);
+/** Real candles where the watched Fibonacci level changes the verdict. */
+const WINDOW = candles.slice(0, 146);
 const PRICE = WINDOW[WINDOW.length - 1]!.close;
 const CLOCK = { utcHour: 10, weekday: 4 };
 
-const superTrendRule = (multiplier: number) =>
-  makeRule({ indicator: 'supertrend', condition: 'eq', signal: 'CALL', score: 1, value: multiplier });
+const bounceAt = (level: number) =>
+  makeRule({
+    indicator: 'fib_bounce', condition: 'eq', signal: 'CALL', score: 1,
+    value: level, tolerance: 10,
+  });
+
+const levelWithin = (tolerance: number) =>
+  makeRule({ indicator: 'fib_level', condition: 'eq', signal: 'CALL', score: 1, tolerance });
 
 describe('indicator cache key', () => {
   it('separates rules that differ only in `value`', () => {
-    expect(cacheKey(superTrendRule(2)), 'value must take part in the key').not.toBe(
-      cacheKey(superTrendRule(3)),
+    expect(cacheKey(bounceAt(0.382)), 'value must take part in the key').not.toBe(
+      cacheKey(bounceAt(0.786)),
     );
   });
 
-  it('the chosen window really does distinguish the two multipliers', () => {
-    // Guards the test itself: if the fixture ever changes and both multipliers
-    // agree here, the test below would pass for the wrong reason.
-    const a = computeIndicator(WINDOW, superTrendRule(2), PRICE, CLOCK, new Map());
-    const b = computeIndicator(WINDOW, superTrendRule(3), PRICE, CLOCK, new Map());
-    expect(a).toBe('bearish');
-    expect(b).toBe('bullish');
+  it('separates rules that differ only in `tolerance`', () => {
+    expect(cacheKey(levelWithin(1)), 'tolerance must take part in the key').not.toBe(
+      cacheKey(levelWithin(12)),
+    );
   });
 
-  it('does not let one supertrend answer for another through a shared cache', () => {
-    // One cache, as `evaluateStrategyPro` uses for a whole strategy.
+  it('the chosen window really does distinguish the two levels', () => {
+    // Guards the test itself: if the fixture ever changes and both levels agree
+    // here, the test below would pass for the wrong reason.
+    const a = computeIndicator(WINDOW, bounceAt(0.382), PRICE, CLOCK, new Map());
+    const b = computeIndicator(WINDOW, bounceAt(0.786), PRICE, CLOCK, new Map());
+    expect(a).toBe('bearish');
+    expect(b).toBe('none');
+  });
+
+  it('does not let one fib_bounce answer for another through a shared cache', () => {
+    // One cache, as `evaluateRules` uses for a whole strategy.
     const shared = new Map<string, unknown>();
-    const first = computeIndicator(WINDOW, superTrendRule(2), PRICE, CLOCK, shared);
-    const second = computeIndicator(WINDOW, superTrendRule(3), PRICE, CLOCK, shared);
+    const first = computeIndicator(WINDOW, bounceAt(0.382), PRICE, CLOCK, shared);
+    const second = computeIndicator(WINDOW, bounceAt(0.786), PRICE, CLOCK, shared);
 
     expect(first).toBe('bearish');
-    expect(second, 'the 3.0 rule read the 2.0 rule’s cached answer').toBe('bullish');
+    expect(second, 'the 0.786 rule read the 0.382 rule’s cached answer').toBe('none');
   });
 
   it('is unaffected by the order the rules are evaluated in', () => {
     const shared = new Map<string, unknown>();
-    const three = computeIndicator(WINDOW, superTrendRule(3), PRICE, CLOCK, shared);
-    const two = computeIndicator(WINDOW, superTrendRule(2), PRICE, CLOCK, shared);
+    const wide = computeIndicator(WINDOW, levelWithin(12), PRICE, CLOCK, shared);
+    const tight = computeIndicator(WINDOW, levelWithin(1), PRICE, CLOCK, shared);
 
-    expect(three).toBe('bullish');
-    expect(two).toBe('bearish');
+    expect(wide).toBe('at_500');
+    expect(tight, 'the tight band read the wide band’s cached answer').toBe('none');
   });
 });

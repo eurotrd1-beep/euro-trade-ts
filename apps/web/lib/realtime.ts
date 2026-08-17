@@ -49,10 +49,6 @@ const WATCHED_CONFIG_IDS = [
   'display_source',
   'maintenance',
   'social',
-  'strategy_standard',
-  'strategy_vip',
-  'monitoring_standard',
-  'monitoring_vip',
 ] as const;
 
 const configListeners = new Map<string, Set<ConfigListener>>();

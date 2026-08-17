@@ -1,22 +1,38 @@
 'use client';
 
 /**
- * Smart monitoring — ported from `startMonitoring` / `stopMonitoring`
+ * The watch — ported from `startMonitoring` / `stopMonitoring`
  * (signal_engine.dart:713).
  *
- * A loop that waits for each candle to CLOSE, evaluates the monitoring
- * strategy on the freshly opened one, and fires only when the conditions
- * actually hold. Unlike the manual button it never forces a signal — a failed
- * check just waits for the next candle.
+ * A loop that waits for each candle to CLOSE, evaluates the strategy on the
+ * freshly opened one, and fires only when the conditions actually hold. It
+ * never forces a signal — a failed check just waits for the next candle.
+ *
+ * It is no longer something the user starts. There is one button now, and this
+ * is the second half of it: the press analyses the current candle, and when
+ * that candle does not match, this keeps the same strategy running against
+ * every candle after it until one does.
+ *
+ * Which is why it now STOPS on a fire rather than looping back to waiting. It
+ * was a standing watch you switched on and off; it is now the tail of a single
+ * request, and that request is answered the moment a signal exists. Pressing
+ * the button again starts a new one.
  *
  * The Dart version is a `while (_monitoring)` loop with `await Future.delayed`.
  * That shape does not survive React re-renders, so it is expressed here as a
- * phase machine driven by one interval. The sequence, the timings and the
- * conditions are identical:
+ * phase machine driven by one interval. The sequence and the timings are
+ * unchanged:
  *
  *   waiting → (candle closes) → +200ms settle → evaluate
- *     ├─ conditions met  → fire → trade → wait for the user to clear it → waiting
- *     └─ not met         → flag "conditions not met" → waiting
+ *     ├─ cycle finished  → stop, the result is on screen
+ *     ├─ signal fired    → keep waiting: the trade still has to settle, and a
+ *     │                    loss still owes its martingale
+ *     └─ nothing yet     → flag "conditions not met" → waiting
+ *
+ * Firing is deliberately NOT what stops it. A strategy program can open a
+ * trade, settle it and open a second one across three candles, and all three
+ * need this loop alive; the program says when it is done by answering
+ * `cycle_end`.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -32,7 +48,15 @@ const TICK_MS = 250;
  */
 const SETTLE_MS = 200;
 
-export type MonitoringPhase = 'idle' | 'waiting' | 'trade';
+/**
+ * There is no 'trade' phase any more.
+ *
+ * It existed because the watch outlived the signals it produced: it fired,
+ * paused while the user looked at the trade, then went back to waiting. A
+ * watch now ends on its first fire, so the phase it used to pause in is a
+ * state it can no longer be in.
+ */
+export type MonitoringPhase = 'idle' | 'waiting';
 
 export interface MonitoringState {
   active: boolean;
@@ -42,7 +66,6 @@ export interface MonitoringState {
   /** True when the last evaluated candle did not meet the conditions. */
   lastCheckFailed: boolean;
   checksDone: number;
-  signalsFired: number;
   elapsedSeconds: number;
 }
 
@@ -52,7 +75,6 @@ const IDLE: MonitoringState = {
   countdown: 0,
   lastCheckFailed: false,
   checksDone: 0,
-  signalsFired: 0,
   elapsedSeconds: 0,
 };
 
@@ -62,18 +84,21 @@ export interface UseMonitoringArgs {
   /** Blocks the loop, as `_marketClosed` does in Dart. */
   marketClosed: boolean;
   /**
-   * Evaluates the monitoring strategy on the current candle.
-   * Returns true when a signal was fired.
+   * Evaluates the strategy on the candle that just closed.
+   *
+   * Async because it refetches the candles first: the buffer is polled every
+   * fifteen seconds and the candle that just closed is usually not in it yet.
+   * Returns `cycle_end` when the strategy is finished, which ends the watch.
    */
-  evaluate: () => boolean;
-  /** True while a fired trade is still open or awaiting acknowledgement. */
-  signalPending: boolean;
+  evaluate: () => Promise<'none' | 'signal' | 'cycle_end'>;
 }
 
 export function useMonitoring(args: UseMonitoringArgs) {
   const [state, setState] = useState<MonitoringState>(IDLE);
 
   const activeRef = useRef(false);
+  /** One evaluation at a time — it awaits a fetch and the loop ticks 4×/s. */
+  const runningRef = useRef(false);
   const startedAtRef = useRef(0);
   const nextBoundaryRef = useRef(0);
   const evaluateAtRef = useRef(0);
@@ -109,7 +134,7 @@ export function useMonitoring(args: UseMonitoringArgs) {
     const id = setInterval(() => {
       if (!activeRef.current) return;
 
-      const { marketClosed, evaluate, signalPending } = argsRef.current;
+      const { marketClosed, evaluate } = argsRef.current;
 
       // A closed market ends the session, as `if (_marketClosed) break;` does.
       if (marketClosed) {
@@ -121,20 +146,9 @@ export function useMonitoring(args: UseMonitoringArgs) {
       const now = Date.now();
       const elapsedSeconds = Math.floor((now - startedAtRef.current) / 1000);
 
-      // Phase: a trade is open, or its result has not been acknowledged yet.
-      // Dart waits here so a new signal never fires over an open review dialog.
-      if (signalPending) {
-        setState((s) => ({ ...s, phase: 'trade', countdown: 0, elapsedSeconds }));
-        return;
-      }
-
-      // The trade just cleared — resume without needing a button press.
-      if (state.phase === 'trade') {
-        scheduleNextBoundary();
-        setState((s) => ({ ...s, phase: 'waiting', lastCheckFailed: false, elapsedSeconds }));
-        return;
-      }
-
+      // No guard here for a trade already being open: `fireMonitoringSignal`
+      // refuses while one is ACTIVE, and a watch that fires stops, so the two
+      // cannot overlap.
       const nowSec = Math.floor(now / 1000);
       const remaining = nextBoundaryRef.current - nowSec;
 
@@ -150,24 +164,39 @@ export function useMonitoring(args: UseMonitoringArgs) {
         return;
       }
       if (now < evaluateAtRef.current) return;
+      if (runningRef.current) return;
 
-      const fired = evaluate();
-      scheduleNextBoundary();
+      runningRef.current = true;
+      void evaluate()
+        .then((result) => {
+          scheduleNextBoundary();
 
-      setState((s) => ({
-        ...s,
-        checksDone: s.checksDone + 1,
-        signalsFired: s.signalsFired + (fired ? 1 : 0),
-        // Dart clears the flag on a fire and sets it when conditions fail.
-        lastCheckFailed: !fired,
-        phase: fired ? 'trade' : 'waiting',
-        countdown: 0,
-        elapsedSeconds,
-      }));
+          // The strategy is done — it produced its signal and settled it, or
+          // gave up on the cycle. Leaving the loop running past that would
+          // open a trade the user never asked for.
+          if (result === 'cycle_end') {
+            activeRef.current = false;
+            setState(IDLE);
+            return;
+          }
+
+          setState((s) => ({
+            ...s,
+            checksDone: s.checksDone + 1,
+            // A candle that fired is not a candle that failed.
+            lastCheckFailed: result === 'none',
+            phase: 'waiting',
+            countdown: 0,
+            elapsedSeconds,
+          }));
+        })
+        .finally(() => {
+          runningRef.current = false;
+        });
     }, TICK_MS);
 
     return () => clearInterval(id);
-  }, [state.active, state.phase, scheduleNextBoundary]);
+  }, [state.active, scheduleNextBoundary]);
 
   return { ...state, start, stop };
 }

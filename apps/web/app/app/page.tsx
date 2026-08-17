@@ -4,8 +4,18 @@
  * Main trading screen — ported from lib/screens/main_screen.dart.
  *
  * Layout follows the original: the account card, the asset selector, the
- * chart, then ONE panel holding both the instant-signal and smart-monitoring
- * buttons stacked, then the live win feed and the signal history.
+ * chart, then the signal panel, then the live win feed and the signal history.
+ *
+ * The panel has ONE button where the original had two. "Instant signal" and
+ * "smart monitoring" were the same strategy behind two presses, and the choice
+ * between them was really a question about the market that the user cannot
+ * answer before pressing: instant gave up if the next candle did not match,
+ * monitoring waited but made you decide to wait before knowing you had to.
+ *
+ * `onRequest` below is where the two halves are joined, because this is the
+ * only place that can see both: the engine analyses the current candle, and if
+ * it comes back `no_match` the watch takes over with the same strategy on the
+ * same duration until a signal fires.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,6 +28,7 @@ import {
   KEY_USER_BROKER,
   type PairRow,
 } from '@euro/shared';
+import { programForPlan } from '@euro/engine';
 import { loadSession } from '@/lib/session';
 import { useAppConfig, usePairs, useLiveUser } from '@/lib/useAppConfig';
 import { useOtcStatus } from '@/lib/useOtcStatus';
@@ -45,8 +56,9 @@ export default function MainScreen() {
 
   const [accountId, setAccountId] = useState<string | null>(null);
   const [broker, setBroker] = useState('');
-  const [timeframe, setTimeframe] = useState<string>('1m');
+  const [chosenTimeframe, setChosenTimeframe] = useState<string>('1m');
   const [selectedMinutes, setSelectedMinutes] = useState(1);
+
   const [activePair, setActivePair] = useState<string>('EUR/USD OTC');
 
   useEffect(() => {
@@ -75,6 +87,19 @@ export default function MainScreen() {
     if (!user.vipExpiry) return true;
     return user.vipExpiry > new Date();
   }, [user.role, user.vipExpiry]);
+
+  /**
+   * The strategy program, and the two things it decides for the user.
+   *
+   * A strategy written around one-minute candles has no meaningful answer on
+   * 15m, and its trades are one candle long by construction. Offering either
+   * choice would produce signals nobody could explain — so while a program is
+   * running, the timeframe and the trade length are ITS values and the pickers
+   * stop being pickers.
+   */
+  const planProgram = useMemo(() => programForPlan(isVip ? 'paid' : 'free'), [isVip]);
+  const program = planProgram;
+  const timeframe = program.timeframe;
 
   const pairs: PairRow[] = useMemo(() => {
     if (livePairs && livePairs.length > 0) return livePairs.filter((p) => p.enabled);
@@ -113,10 +138,9 @@ export default function MainScreen() {
   const isPo = (activePairData?.source ?? 'po') === 'po';
   const effectiveMode = effectivePriceSystem === 'simulator' ? 'sim' : isPo ? 'otc' : 'sim';
 
-  const strategyJson = isVip ? config.strategyVip : config.strategyStandard;
-
-  // The instant button takes over from monitoring, as requestNextSignal does.
-  // A ref breaks the circular dependency between the two hooks.
+  // Pressing the button while a watch is running restarts the analysis, so the
+  // old watch is stopped first. A ref breaks the circular dependency between
+  // the two hooks.
   const stopMonitoringRef = useRef<(() => void) | null>(null);
   const takeOverMonitoring = useCallback(() => stopMonitoringRef.current?.(), []);
 
@@ -126,35 +150,47 @@ export default function MainScreen() {
     priceSystem: effectivePriceSystem,
     role: isVip ? 'vip' : 'standard',
     guaranteedWin: user.guaranteedWin,
-    strategyJson,
-    monitoringStandardJson: config.monitoringStandard,
-    monitoringVipJson: config.monitoringVip,
+    // The plan decides the strategy, and that is the whole of it. Which
+    // program each plan runs lives in `programs/index.ts`, so the day the paid
+    // plan gets its own, this line does not change.
+    programId: planProgram.id,
     pair: activePair,
+    accountId,
     onTakeOverMonitoring: takeOverMonitoring,
   });
 
   const marketClosed = !market.open || engine.marketClosed;
 
-  /**
-   * Both buttons run this first. Browsers only unlock audio and only grant
-   * notification permission from inside a user gesture, so pressing the button
-   * is the one moment it can be asked for.
-   */
-  const armAlerts = useCallback(() => {
-    unlockAudio();
-    void requestNotificationPermission();
-  }, []);
-
   const monitoring = useMonitoring({
     timeframeSeconds: timeframeSeconds(timeframe),
     marketClosed,
-    // Monitoring already waited for the candle close, so it fires directly
-    // instead of re-running the analysis sequence.
+    // The watch already waited for the candle close, so it hands the candle
+    // straight to the strategy instead of replaying the twelve analysis stages.
     evaluate: () => engine.fireMonitoringSignal(selectedMinutes),
-    signalPending: engine.activeSignal !== null,
   });
 
   stopMonitoringRef.current = monitoring.stop;
+
+  /**
+   * The button, both halves of it.
+   *
+   * The watch starts on a signal as well as on a miss, which looks odd until
+   * you follow what a signal now means: the strategy has opened a trade, and
+   * that trade still has to be settled on the next candle and may owe a
+   * martingale after it. The watch is what carries the cycle to its end, and
+   * it stops itself there.
+   *
+   * `unavailable` is the only outcome that starts nothing — a closed market, a
+   * trade already open, an analysis already running. Watching in any of those
+   * would leave a counter ticking for something that cannot happen.
+   */
+  const analyseAndSignal = useCallback(async () => {
+    unlockAudio();
+    void requestNotificationPermission();
+
+    const outcome = await engine.requestSignal(selectedMinutes);
+    if (outcome !== 'unavailable') monitoring.start();
+  }, [engine, monitoring, selectedMinutes]);
 
   const socialPairs = useMemo(() => visiblePairs.map((p) => p.symbol), [visiblePairs]);
   const socialLogs = useSocialFeed({ pairs: socialPairs, marketClosed });
@@ -204,17 +240,23 @@ export default function MainScreen() {
                 role="group"
                 aria-label={tr('الإطار الزمني', 'Timeframe')}
               >
-                {TIMEFRAMES.map((tf) => (
-                  <button
-                    key={tf}
-                    type="button"
-                    onClick={() => setTimeframe(tf)}
-                    className={`${styles.tfBtn} ${timeframe === tf ? styles.tfActive : ''}`}
-                    aria-pressed={timeframe === tf}
-                  >
-                    {tf}
-                  </button>
-                ))}
+                {program !== null ? (
+                  <span className={`${styles.tfBtn} ${styles.tfActive}`}>
+                    {program.timeframe}
+                  </span>
+                ) : (
+                  TIMEFRAMES.map((tf) => (
+                    <button
+                      key={tf}
+                      type="button"
+                      onClick={() => setChosenTimeframe(tf)}
+                      className={`${styles.tfBtn} ${timeframe === tf ? styles.tfActive : ''}`}
+                      aria-pressed={timeframe === tf}
+                    >
+                      {tf}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -248,19 +290,14 @@ export default function MainScreen() {
             marketClosed={marketClosed}
             pair={activePair}
             timeframe={timeframe}
-            selectedMinutes={selectedMinutes}
+            selectedMinutes={program?.durationMinutes ?? selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
-            onRequest={() => {
-              armAlerts();
-              void engine.requestSignal(selectedMinutes);
-            }}
+            fixedDuration={program !== null}
+            strategyName={program?.name ?? null}
+            onRequest={() => void analyseAndSignal()}
             onClear={engine.clearSignal}
             hasCandles={engine.candles.length > 0}
             monitoring={monitoring}
-            onStartMonitoring={() => {
-              armAlerts();
-              monitoring.start();
-            }}
             onStopMonitoring={monitoring.stop}
           />
 

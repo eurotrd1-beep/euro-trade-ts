@@ -138,6 +138,15 @@
 
 .durationRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
 
+/* Replaces the duration buttons when the strategy fixes the trade length.
+   Deliberately reads as a statement rather than a disabled control: there is
+   nothing to enable, and a greyed-out row invites the user to try. */
+.durationNote {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
 .durationBtn {
   padding: 9px 0; border-radius: var(--radius-sm);
   font-size: 12px; font-weight: 700; color: var(--text-secondary);
@@ -150,18 +159,16 @@
   background: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
 }
 
-/* Button + its "?" side by side; the two rows stack. */
+/* The button and its "?", side by side. There is only one row now. */
 .buttonRow { display: flex; align-items: stretch; gap: 8px; margin-top: 10px; }
 
-.requestBtn, .monitorBtn {
+.requestBtn {
   flex: 1; padding: 14px; border-radius: var(--radius-sm);
   font-size: 13px; font-weight: 800; color: var(--space-bg);
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
 }
 
-.requestBtn { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); }
-.monitorBtn { background: linear-gradient(90deg, var(--warning-orange), #ff8a00); }
-
-.requestBtn:disabled, .monitorBtn:disabled {
+.requestBtn:disabled {
   opacity: 0.45; cursor: not-allowed;
   background: var(--border-glow); color: var(--text-secondary);
 }
@@ -173,12 +180,6 @@
   border: 1px solid color-mix(in srgb, var(--accent-cyan) 34%, transparent);
   background: color-mix(in srgb, var(--accent-cyan) 8%, transparent);
   flex-shrink: 0;
-}
-
-.helpOrange {
-  color: var(--warning-orange);
-  border-color: color-mix(in srgb, var(--warning-orange) 34%, transparent);
-  background: color-mix(in srgb, var(--warning-orange) 8%, transparent);
 }
 
 /* ── Trade ─────────────────────────────────────────────────────────────────── */
@@ -226,7 +227,7 @@
   border: 1px solid color-mix(in srgb, var(--accent-cyan) 34%, transparent);
 }
 
-.requestBtn:focus-visible, .monitorBtn:focus-visible, .helpBtn:focus-visible,
+.requestBtn:focus-visible, .helpBtn:focus-visible,
 .durationBtn:focus-visible, .clearBtn:focus-visible, .stopBtn:focus-visible {
   outline: 2px solid var(--accent-cyan); outline-offset: 2px;
 }
@@ -258,4 +259,18 @@
 .candleHint {
   margin: 6px 0 0;
   font-size: 10.5px; color: var(--text-secondary);
+}
+
+/* The martingale banner. Amber, not red: it is a warning about stake size, not
+   a loss — the losing trade it answers has already been shown as one. */
+.martingale {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--warning-orange);
+  border: 1px solid color-mix(in srgb, var(--warning-orange) 40%, transparent);
+  background: color-mix(in srgb, var(--warning-orange) 10%, transparent);
 }

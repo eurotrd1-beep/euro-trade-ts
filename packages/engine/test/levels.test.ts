@@ -29,35 +29,79 @@ function bar(open: number, close: number, highPad = 0.00002, lowPad = 0.00002): 
 }
 
 /**
- * A clean upward leg from `low` to `high`, then a pullback to `endAt`.
+ * One bar whose wick reaches exactly `price` while its body stops short of it.
  *
- * Each extreme is built to be STRICTLY beyond its four neighbours, which is
- * what the 5-candle fractal requires. The climb therefore stops short of the
- * high and lets one bar make the top on its own — the first version of this
- * helper let the last step close exactly at the high, so the peak bar tied with
- * its neighbour and no fractal was ever confirmed.
+ * The extreme has to be a wick and not a close, because the bar after a turn
+ * opens where the turn bar closed: let the peak bar CLOSE at the high and the
+ * next bar's own high ties with it, no fractal is confirmed, and the fixture
+ * silently describes a market with no swing in it.
+ */
+function turn(price: number, kind: 'high' | 'low', reach: number): Candle {
+  return kind === 'high'
+    ? bar(price - reach * 2, price - reach, reach, 0.00002)
+    : bar(price + reach * 2, price + reach, 0.00002, reach);
+}
+
+/** `n` bars walking from `from` to `to`, the last one closing exactly on `to`. */
+function walk(from: number, to: number, n: number): Candle[] {
+  const out: Candle[] = [];
+  for (let i = 1; i <= n; i++) {
+    out.push(bar(from + ((to - from) * (i - 1)) / n, from + ((to - from) * i) / n));
+  }
+  return out;
+}
+
+/**
+ * A series that turns at each price in `turns`, alternating peak and trough.
+ *
+ * Three bars per leg, which is what the two degrees need: two clear neighbours
+ * each side confirms the 5-candle fractal, and six turns give three peaks and
+ * three troughs — the minimum for one of each to be INTERMEDIATE, i.e. to beat
+ * the turn of its own kind before and after it. A fixture with a single peak
+ * and a single trough is a leg to the eye and nothing at all to `detectSwing`.
+ */
+function zigzag(turns: readonly number[], reach: number, endAt: number): Candle[] {
+  const out: Candle[] = [];
+  let at = turns[0]! > turns[1]! ? turns[0]! - reach * 6 : turns[0]! + reach * 6;
+
+  for (let i = 0; i < turns.length; i++) {
+    const price = turns[i]!;
+    const next = turns[i + 1];
+    const kind: 'high' | 'low' =
+      next === undefined ? (price > turns[i - 1]! ? 'high' : 'low') : price > next ? 'high' : 'low';
+    const approach = kind === 'high' ? price - reach * 2 : price + reach * 2;
+
+    out.push(...walk(at, approach, 3));
+    out.push(turn(price, kind, reach));
+    at = kind === 'high' ? price - reach : price + reach;
+  }
+
+  out.push(...walk(at, endAt, 3));
+  return out;
+}
+
+/**
+ * An upward swing from `low` to `high`, ending at `endAt`.
+ *
+ * The two ends are the INTERMEDIATE low and high: each has a shallower turn of
+ * its own kind on either side, which is what promotes it from a minor fractal
+ * to the swing the Fibonacci levels are drawn from. The small turns around them
+ * are not decoration — remove them and there is no swing to detect.
  */
 function upLeg(low: number, high: number, endAt: number): Candle[] {
-  const out: Candle[] = [];
   const range = high - low;
-
-  // Four bars well above the low, so the low bar has two clear neighbours.
-  for (let i = 0; i < 4; i++) out.push(bar(low + range * 0.06, low + range * 0.06));
-  // The low: strictly under everything around it.
-  out.push(bar(low + range * 0.02, low + range * 0.01, 0.00002, range * 0.01));
-  for (let i = 0; i < 4; i++) out.push(bar(low + range * 0.06, low + range * 0.07));
-
-  // Climb, stopping short so the peak bar is the only one that reaches it.
-  for (let i = 1; i <= 6; i++) {
-    const from = low + range * (0.07 + 0.13 * (i - 1));
-    out.push(bar(from, low + range * (0.07 + 0.13 * i)));
-  }
-  // The high: strictly over everything around it.
-  out.push(bar(high - range * 0.02, high - range * 0.01, range * 0.01, 0.00002));
-  for (let i = 0; i < 4; i++) out.push(bar(high - range * 0.06, high - range * 0.07));
-
-  out.push(bar(high - range * 0.07, endAt));
-  return out;
+  return zigzag(
+    [
+      low + range * 0.15, // a shallower low before it
+      low + range * 0.25, // a lower high before it
+      low, //                the intermediate low
+      high, //               the intermediate high
+      high - range * 0.5, // a higher low after it
+      high - range * 0.2, // a lower high after it
+    ],
+    range * 0.01,
+    endAt,
+  );
 }
 
 describe('detectSwing', () => {
@@ -73,21 +117,54 @@ describe('detectSwing', () => {
   });
 
   it('reads a downward leg as downward', () => {
-    // Same construction mirrored: the high forms before the low.
-    const candles: Candle[] = [];
-    const range = 0.02;
-    for (let i = 0; i < 4; i++) candles.push(bar(1.1 - range * 0.06, 1.1 - range * 0.06));
-    candles.push(bar(1.1 - range * 0.02, 1.1 - range * 0.01, range * 0.01, 0.00002));
-    for (let i = 0; i < 4; i++) candles.push(bar(1.1 - range * 0.06, 1.1 - range * 0.07));
-    for (let i = 1; i <= 6; i++) {
-      candles.push(bar(1.1 - range * (0.07 + 0.13 * (i - 1)), 1.1 - range * (0.07 + 0.13 * i)));
-    }
-    candles.push(bar(1.08 + range * 0.02, 1.08 + range * 0.01, 0.00002, range * 0.01));
-    for (let i = 0; i < 4; i++) candles.push(bar(1.08 + range * 0.06, 1.08 + range * 0.07));
+    // The same six turns mirrored: the intermediate high forms before the
+    // intermediate low.
+    const candles = zigzag([1.095, 1.093, 1.1, 1.08, 1.09, 1.085], 0.0002, 1.086);
 
     const swing = detectSwing(candles, 50);
     expect(swing).not.toBeNull();
+    expect(swing!.high).toBeCloseTo(1.1, 4);
+    expect(swing!.low).toBeCloseTo(1.08, 4);
     expect(swing!.up, 'the high came first, so the leg ran down').toBe(false);
+  });
+
+  it('anchors on the current swing, not on the biggest one in the window', () => {
+    // 1.1200 is the highest price anywhere in this series, and the old rule
+    // anchored on it for as long as it stayed inside the window — putting
+    // every level on a leg that had already finished. The swing running now
+    // tops at 1.1000 and bottoms at 1.0850, and those are its ends.
+    const candles = zigzag(
+      [1.088, 1.12, 1.085, 1.09, 1.086, 1.1, 1.093, 1.095],
+      0.0002,
+      1.093,
+    );
+    const swing = detectSwing(candles, 200);
+
+    expect(swing).not.toBeNull();
+    expect(swing!.high, 'the most recent intermediate high').toBeCloseTo(1.1, 4);
+    expect(swing!.low, 'the most recent intermediate low').toBeCloseTo(1.085, 4);
+  });
+
+  it('says nothing rather than anchoring on an unconfirmed turn', () => {
+    // One peak and one trough look like a leg, but neither has a turn of its
+    // own kind on both sides, so nothing has confirmed either as the end of
+    // one. -1 / 'none' is the honest answer, and the family is built to give it.
+    const candles = zigzag([1.085, 1.095], 0.0002, 1.092);
+    expect(detectSwing(candles, 50)).toBeNull();
+  });
+
+  it('goes quiet while the newest peak is still unconfirmed', () => {
+    // Peaks 1.0960 → 1.1000 → 1.1050, each above the last. 1.1000 is not
+    // intermediate — the market went straight through it — and 1.1050 has no
+    // peak after it yet, so nothing has confirmed it as the end of anything.
+    //
+    // This is where the 13.3% of quiet candles comes from, and it is the price
+    // of the anchor being stable: taking the newest peak anyway would move the
+    // levels every time the leg extended, which is the flicker the fractal
+    // test exists to remove, one degree up. The family answers 'none' / -1
+    // here, and every rule reading it is written to expect that.
+    const candles = zigzag([1.088, 1.096, 1.083, 1.1, 1.09, 1.105], 0.0002, 1.104);
+    expect(detectSwing(candles, 50)).toBeNull();
   });
 
   it('returns null when nothing is confirmed', () => {

@@ -334,7 +334,7 @@ export default function SignalStatsView() {
 
       {/* ── Slots ── */}
       <div className={styles.card}>
-        <h2 className={styles.cardTitle}>الأنواع الأربعة</h2>
+        <h2 className={styles.cardTitle}>الخطتين × لحظة الإشارة</h2>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>

@@ -85,11 +85,20 @@ export interface SignalRow {
   forced: boolean;
 }
 
+/**
+ * Four buckets, two strategies.
+ *
+ * The strategies merged into one per plan when the two buttons became one, but
+ * `origin` still records WHEN the signal fired: on the first candle after the
+ * press, or on one the watch reached afterwards. That split is worth keeping —
+ * it is the difference between a setup that was already there and one the
+ * strategy waited for, and their win rates have no reason to match.
+ */
 export const SLOTS = [
-  { id: 'instant_free', label: 'فورية — عادي' },
-  { id: 'instant_paid', label: 'فورية — مدفوع' },
-  { id: 'monitoring_free', label: 'مراقبة — عادي' },
-  { id: 'monitoring_paid', label: 'مراقبة — مدفوع' },
+  { id: 'instant_free', label: 'عادي — أول شمعة' },
+  { id: 'instant_paid', label: 'مدفوع — أول شمعة' },
+  { id: 'monitoring_free', label: 'عادي — بعد انتظار' },
+  { id: 'monitoring_paid', label: 'مدفوع — بعد انتظار' },
 ];
 
 export type RangeId = 'today' | 'yesterday' | 'this_month' | 'last_month' | 'this_year' | 'custom';

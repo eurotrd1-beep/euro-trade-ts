@@ -16,7 +16,6 @@
  *     collecting what it actually returned
  *   • the PARAMS that matter come from perturbing each one and seeing whether
  *     the output moves
- *   • the CATEGORY comes from the same function the pyramid scores with
  *   • the CONDITIONS come from the condition switch itself
  *
  * Run: npx tsx scripts/build-strategy-reference.mts
@@ -26,7 +25,6 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import {
   aliasGroupOf,
   aliasGroups,
-  categoryForIndicator,
   computeIndicator,
   makeRule,
   registeredNames,
@@ -35,6 +33,7 @@ import {
 } from '../packages/engine/src/index.js';
 import { indicatorFor } from '../packages/engine/src/registry.js';
 import { volumeNote } from '../packages/engine/src/meta.js';
+import { TWO_PLANS_PROMPT, STATUS_BLOCK } from './reference-blocks.mjs';
 
 const registryFn = indicatorFor;
 
@@ -42,18 +41,16 @@ const OUT = 'docs/strategy-reference.json';
 
 /**
  * Pairs that are not proven aliases but returned the same value at every point
- * of a 15,884-point sample. Produced by scripts/audit-aliases.mts; read from its
- * output rather than copied, so the two never disagree. Absent file = empty
- * list, because a missing side-report must not block the reference.
+ * of a large sample.
+ *
+ * Empty now, and its source is gone: `scripts/audit-aliases.mts` swept 237
+ * indicators looking for names that answer identically without sharing an
+ * implementation. Eight indicators do not need a sweep — the eight are read in
+ * one sitting, and none of them shadow each other. The constant stays because
+ * the emitter below still consults it, and re-deriving the list is a script
+ * away if the registry ever grows again.
  */
-const OBSERVED_IDENTICAL: string[][] = (() => {
-  try {
-    return (JSON.parse(readFileSync('docs/aliases.json', 'utf8')) as { observed?: string[][] })
-      .observed ?? [];
-  } catch {
-    return [];
-  }
-})();
+const OBSERVED_IDENTICAL: string[][] = [];
 
 // ── Sample data ────────────────────────────────────────────────────────────
 // The golden fixture holds real recorded candles. Many indicators only reveal
@@ -299,7 +296,6 @@ function safe<T>(fn: () => T): T | string {
 // ── Build ──────────────────────────────────────────────────────────────────
 
 const names = registeredNames();
-const byCategory = new Map<string, string[]>();
 const rules: unknown[] = [];
 
 let numeric = 0;
@@ -307,10 +303,6 @@ let stringy = 0;
 
 for (const name of names) {
   const p = probe(name);
-  const category = categoryForIndicator(
-    makeRule({ indicator: name, condition: 'gt', signal: 'CALL', score: 1 }),
-  );
-  byCategory.set(category, [...(byCategory.get(category) ?? []), name]);
 
   const isString = p.type === 'string' || p.type === 'mixed';
   if (isString) stringy++;
@@ -370,7 +362,6 @@ for (const name of names) {
   }
   if (p.params.length > 0) note.push(`reads: ${p.params.join(', ')}`);
   else note.push('takes no parameters');
-  note.push(`category: ${category}`);
 
   const rule: Record<string, unknown> = {
     indicator: name,
@@ -399,18 +390,15 @@ for (const name of names) {
   rules.push(rule);
 }
 
-// Group the emitted rules by category, with a section marker before each.
-const grouped: unknown[] = [];
-for (const [category, list] of [...byCategory].sort()) {
-  grouped.push({
-    _section: `━━━━━━━━━━ ${category.toUpperCase()} (${list.length}) ━━━━━━━━━━`,
-  });
-  for (const n of list) grouped.push(rules[names.indexOf(n)]);
-}
+// One flat list. The rules used to be grouped under category headers, which
+// was worth the noise at 237 indicators and is not at eight — and the
+// categories themselves were the pyramid's, which no longer exists.
+const grouped: unknown[] = rules;
 
 const doc = {
   _doc: 'MASTER REFERENCE — generated FROM the engine, not written by hand.',
   _generated_by: 'scripts/build-strategy-reference.mts',
+  _هل_فيه_مشكلة: STATUS_BLOCK,
   _engine_indicators: names.length,
 
   _sample: {
@@ -442,14 +430,17 @@ const doc = {
     task:
       'Produce ONE JSON object: a strategy this engine can execute. No prose, no markdown fence, no explanation outside the JSON.',
     output_shape:
-      '{ "name", "version", "confidence_base", "confidence_max", "min_score", "pyramid": { "min_primary_score", "confirmation_ratio", "require_all_filters", "wait_message" }, "rules": [...] }',
+      '{ "name", "version", "confidence_base", "confidence_max", "min_score", "rules": [...] }',
     absolute_rules: [
       'Use ONLY indicator names that appear in `rules` below, spelled exactly. Never invent one, never use a name from another platform. sma, wma, macd, bollinger_upper, parabolic_sar, adx_plus, stochastic_k DO NOT EXIST here.',
       'Use ONLY the conditions in _conditions. rising, falling, cross_above and cross_below do not exist and never fire.',
       'Match the type: a NUM indicator takes gt/lt/gte/lte/between/gt_average/lt_average/is_true/is_false; a TEXT indicator takes eq/neq/bullish/bearish. Mixing them produces a rule that never fires and no error.',
       'Never put two names from the same alias group in one strategy — see _aliases. It doubles the score for one reading.',
       'Every rule must carry "enabled": true. This file goes straight to production.',
-      'Set min_primary_score to something reachable: roughly half to two-thirds of the total primary score, remembering the consensus multiplier.',
+      'Set min_score below the total score of the rules on ONE side. It is measured against |CALL − PUT|, so a gate above what one direction can sum to is unreachable and the strategy is silent forever.',
+      'Write every rule as signal=CALL or signal=PUT. `dominant` and `confirm` feed whichever side is already ahead, and at 0–0 that is CALL — a strategy built from them cannot produce PUT.',
+      'Give both directions real coverage. Rules only on one side means a strategy that can only ever say one thing.',
+      'Pick conditions that are true between 5% and 95% of candles. Outside that band the rule is either never true or always true, and in both cases it decides nothing.',
       'Add a short "_note" in Arabic on each rule saying WHY it is there.',
     ],
     honesty_rules: [
@@ -462,7 +453,7 @@ const doc = {
       'Check NUM/TEXT against the condition.',
       'Check that no two names come from one alias group.',
       'Check that pattern values are ones the indicator can actually return, from its observed values.',
-      'Check that min_primary_score is reachable.',
+      'Check that min_score is reachable from one side\'s total.',
     ],
   },
 
@@ -486,7 +477,7 @@ const doc = {
     _misleading:
       'Some groups are worse than redundant: their names describe different things and share one detector, so the name does not select what it claims. Those carry a MISLEADING NAME warning on their entry.',
     _consensus:
-      'The consensus multiplier counts distinct CATEGORIES among the agreeing primary rules. Every name in a group lands in the same category, so aliases never inflate it BY THEMSELVES — but an explicit `type` on the rule overrides the category, and two aliases given two different `type` values would be counted as two independent schools of analysis. Do not do that.',
+'Two names from one alias group add their scores twice for a single reading. Nothing weights or dedupes them any more — the layer that used to notice was the pyramid.',
     groups: aliasGroups().map((g) => ({
       use: g.canonical,
       identical_to: g.aliases,
@@ -526,8 +517,8 @@ const doc = {
     signal: 'CALL | PUT | dominant | confirm. `dominant` and `confirm` follow whichever side is ahead.',
     score: 'points added when the rule is true',
     enabled: 'false skips the rule entirely. Defaults to true if omitted.',
-    role: 'primary | confirm | filter | omitted — see _pyramid',
-    type: 'overrides the consensus category. Omit to let the engine classify it.',
+    role: 'IGNORED. The pyramid that read it was removed; every enabled rule is summed the same way.',
+    type: 'IGNORED, for the same reason — there are no consensus categories any more.',
     period: 'lookback, default 14',
     fast: 'default 9',
     slow: 'default 21',
@@ -539,17 +530,6 @@ const doc = {
     pattern: 'the text compared against. `session` and `wave` are accepted as aliases.',
   },
 
-  _pyramid: {
-    primary: 'Stage 1 — sets the direction. The winning side must reach min_primary_score.',
-    confirm: 'Stage 2 — at least confirmation_ratio of the confirm rules must agree with the direction.',
-    filter: 'Stage 3 — every filter must pass, or there is no signal.',
-    no_role: 'Adds weight to the final score without being able to block.',
-    consensus_multiplier:
-      'The primary score is multiplied by the number of DISTINCT categories agreeing: 1 category = 1.0x, 2 = 1.15x, 3 = 1.3x, 4+ = 1.5x. Spreading primary rules across categories is worth more than piling them into one.',
-    minimum_gap: 'The two directions must differ by at least 4.0 after multipliers, or the setup is rejected as unclear.',
-  },
-
-  _categories: Object.fromEntries([...byCategory].sort().map(([c, l]) => [c, l.length])),
 
   /**
    * Everything learned the hard way, in the file rather than in someone's head.
@@ -591,7 +571,7 @@ const doc = {
       finding:
         '46 of the names in this file are labels on another name\'s implementation. See _aliases.',
       what_to_do:
-        'Never use two names from one alias group in a strategy. It adds score and adds no evidence, and it does NOT increase the consensus multiplier because they share a category.',
+        'Never use two names from one alias group in a strategy. It adds score and adds no evidence.',
     },
 
     the_feed_carries_no_volume: {
@@ -617,9 +597,9 @@ const doc = {
 
     rules_fire_less_often_than_they_look: {
       finding:
-        'Measured on real data: a two-primary strategy requiring both rules true produced a signal on 0.45%-3.9% of candles depending on how wide the conditions were. Narrow conditions like an exact Fibonacci level (fib_level = at_236) were true on 0.3% of candles; a zone (fib_zone = shallow) on 22%.',
+        'Measured on real data: a strategy requiring two rules to be true together produced a signal on 0.45%-3.9% of candles depending on how wide the conditions were. Narrow conditions like an exact Fibonacci level (fib_level = at_236) were true on 0.3% of candles; a zone (fib_zone = shallow) on 22%.',
       what_to_do:
-        'Prefer a zone or a range over an exact level unless the idea genuinely requires the exact level. Set min_primary_score to something the rules can actually reach.',
+        'Prefer a zone or a range over an exact level unless the idea genuinely requires the exact level. Set min_score to something one direction can actually reach.',
     },
 
     contradictory_confirmations_are_common: {
@@ -643,14 +623,14 @@ const doc = {
   confidence_max: 98.9,
   min_score: 0,
 
-  pyramid: {
-    min_primary_score: 6,
-    confirmation_ratio: 0.6,
-    require_all_filters: true,
-    wait_message: 'الهرم غير مكتمل — انتظر الشمعة القادمة',
-  },
-
   rules: grouped,
+
+  /**
+   * Last on purpose. Everything above describes the engine; this describes what
+   * to build with it, and it is the part a model should still have in view when
+   * it starts writing.
+   */
+  _الخطتين: TWO_PLANS_PROMPT,
 };
 
 writeFileSync(OUT, `${JSON.stringify(doc, null, 2)}\n`);
@@ -662,5 +642,4 @@ function round(n: number): number {
 console.log(`indicators : ${names.length}`);
 console.log(`numeric    : ${numeric}`);
 console.log(`text       : ${stringy}`);
-console.log('categories :', [...byCategory].sort().map(([c, l]) => `${c}=${l.length}`).join('  '));
 console.log(`written    : ${OUT}`);

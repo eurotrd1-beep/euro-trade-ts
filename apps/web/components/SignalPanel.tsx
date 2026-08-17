@@ -3,17 +3,19 @@
 /**
  * Signal panel — ported from `_buildSignalPanel` (main_screen.dart:4645).
  *
- * Structure follows the original exactly, including which state wins:
+ * Which state wins, in order:
  *
  *   isAnalyzing              → the analysis panel (stage text + spinner)
- *   isMonitoring && !signal  → the monitoring panel (rendered by the parent)
- *   signal == null           → the idle panel: header, description, wait
- *                              banner, duration selector, then BOTH buttons
- *                              stacked in the same card, each with its own "?"
+ *   isMonitoring && !signal  → the watching panel
+ *   signal == null           → the idle panel: header, description, duration
+ *                              selector, then the one button
  *   otherwise                → the active/finished trade
  *
- * Both buttons live here together because that is where they live in the
- * original — one card, one below the other.
+ * The original had two buttons here, instant and monitoring. They are one now,
+ * and the four states above are no longer four screens the user navigates
+ * between — they are the stages of a single press, in the order it goes
+ * through them: analysing, then watching if the first candle said no, then the
+ * trade. Nothing here is chosen any more except the duration.
  */
 
 import { formatPrice, tr } from '@euro/shared';
@@ -49,8 +51,11 @@ export interface SignalPanelProps {
   onRequest: () => void;
   onClear: () => void;
   hasCandles: boolean;
+  /** True when the strategy fixes the trade length and the picker is inert. */
+  fixedDuration: boolean;
+  /** Shown so the user knows which strategy is about to run. */
+  strategyName: string | null;
   monitoring: MonitoringState;
-  onStartMonitoring: () => void;
   onStopMonitoring: () => void;
 }
 
@@ -98,26 +103,41 @@ function AnalysisView({ analysisStage, candleSecondsLeft }: SignalPanelProps) {
 
 /* ── Monitoring ────────────────────────────────────────────────────────────── */
 
-function MonitoringView({ monitoring, onStopMonitoring }: SignalPanelProps) {
+function MonitoringView({ monitoring, waitNotice, onStopMonitoring }: SignalPanelProps) {
   return (
     <section className={`${styles.panel} ${styles.monitoringPanel}`}>
       <div className={styles.monHead}>
         <span className={styles.radar} aria-hidden="true">
           ◎
         </span>
-        <h2 className={styles.monTitle}>{tr('جاري المراقبة...', 'Monitoring...')}</h2>
+        <h2 className={styles.monTitle}>
+          {tr('الاستراتيجية شغالة على كل شمعة...', 'The strategy is running on every candle…')}
+        </h2>
       </div>
 
-      <p className={monitoring.lastCheckFailed ? styles.notMet : styles.watching}>
-        {monitoring.lastCheckFailed
+      {/*
+        This panel is not a mode the user switched into — it is the press
+        carrying on. So it opens by answering the question the user is
+        actually holding: the first candle did not match, and here is what
+        about it did not match.
+      */}
+      <p className={styles.notMet}>
+        {waitNotice === 'min_score'
           ? tr(
-              'لم تتوافق شروط الدخول، جاري انتظار الشمعة التالية...',
-              "Entry conditions weren't met, waiting for the next candle...",
+              'الشمعة الأولى ما وصلتش الحد الأدنى للتوافق — التحليل مستمر على كل شمعة جديدة لحد ما تطلع إشارة.',
+              'The first candle fell short of the minimum confluence — the analysis carries on each new candle until a signal fires.',
             )
           : tr(
-              'يراقب النظام السوق وينتظر أفضل لحظة دخول على بداية الشمعة القادمة.',
-              'The system is watching the market and waiting for the best entry at the start of the next candle.',
+              'شروط الاستراتيجية ما تحققتش على الشمعة الأولى — التحليل مستمر على كل شمعة جديدة لحد ما تطلع إشارة.',
+              'The strategy conditions were not met on the first candle — the analysis carries on each new candle until a signal fires.',
             )}
+      </p>
+
+      <p className={styles.watching}>
+        {tr(
+          'مش محتاج تضغط تاني، ولا تفضل قاعد قدام الشاشة — أول ما الشروط تتحقق الإشارة هتفتح لوحدها وهيوصلك تنبيه.',
+          'No need to press again or sit and watch — the moment the conditions hold, the trade opens on its own and you get an alert.',
+        )}
       </p>
 
       {/*
@@ -137,19 +157,19 @@ function MonitoringView({ monitoring, onStopMonitoring }: SignalPanelProps) {
           tone="cyan"
         />
         <MonStat
-          label={tr('الصفقات الصادرة', 'Signals fired')}
-          value={String(monitoring.signalsFired)}
-          tone="green"
-        />
-        <MonStat
-          label={tr('مدة المراقبة', 'Monitoring time')}
+          label={tr('مدة الانتظار', 'Time waiting')}
           value={formatElapsed(monitoring.elapsedSeconds)}
-          tone="cyan"
+          tone="green"
         />
       </div>
 
+      {/*
+        The watch ends by itself on the first signal, so this is a cancel, not
+        the other half of a toggle — it is here for the user who changed their
+        mind about the pair or the duration.
+      */}
       <button type="button" onClick={onStopMonitoring} className={styles.stopBtn}>
-        {tr('إيقاف المراقبة', 'Stop monitoring')}
+        {tr('إلغاء', 'Cancel')}
       </button>
     </section>
   );
@@ -186,7 +206,8 @@ function IdleView({
   onSelectMinutes,
   onRequest,
   hasCandles,
-  onStartMonitoring,
+  fixedDuration,
+  strategyName,
 }: SignalPanelProps) {
   const name = pair.replace(' (OTC)', '');
   const disabled = !hasCandles || marketClosed;
@@ -209,8 +230,8 @@ function IdleView({
 
       <p className={styles.description}>
         {tr(
-          `اضغط أدناه لبدء تحليل شامل للزوج ${name} بفريم ${timeframe} واستخراج الصفقة ذات الاحتمالية الأكبر.`,
-          `Tap below to start a full analysis of ${name} on the ${timeframe} timeframe and extract the highest-probability trade.`,
+          `اضغط أدناه عشان الاستراتيجية تشتغل على الزوج ${name} بفريم ${timeframe}، وتفضل شغالة على كل شمعة لحد ما تطلع الصفقة ذات الاحتمالية الأكبر.`,
+          `Tap below to run the strategy on ${name} at ${timeframe}, and keep it running candle by candle until the highest-probability trade comes out.`,
         )}
       </p>
 
@@ -220,50 +241,50 @@ function IdleView({
         </div>
       )}
 
+      {/*
+        Only reachable after the user cancelled a watch: a press that ends in
+        "not this candle" goes straight on watching instead of coming back
+        here. Kept so the panel still explains itself in that one case.
+      */}
       {waitNotice && (
         <div className={styles.waitBanner} role="status">
           {waitNotice === 'strategy'
             ? tr(
-                'لا توجد فرصة دخول الآن — لم تتحقق شروط الاستراتيجية',
-                'No entry opportunity now — the strategy conditions were not met',
+                'آخر محاولة وقفت قبل ما تطلع إشارة — شروط الاستراتيجية ما تحققتش',
+                'The last attempt stopped before a signal — the strategy conditions were not met',
               )
             : tr(
-                'لا توجد فرصة دخول الآن — لم يتحقق الحد الأدنى للتوافق (min_score)',
-                'No entry opportunity now — the minimum confluence (min_score) was not reached',
+                'آخر محاولة وقفت قبل ما تطلع إشارة — الحد الأدنى للتوافق (min_score) ما تحققش',
+                'The last attempt stopped before a signal — the minimum confluence (min_score) was not reached',
               )}
         </div>
       )}
 
-      <DurationSelector selected={selectedMinutes} onSelect={onSelectMinutes} />
+      {fixedDuration ? (
+        <div className={styles.durations}>
+          <div className={styles.durationHead}>
+            <span className={styles.label}>{tr('مدة الصفقة:', 'Trade duration:')}</span>
+            <span className={styles.durationValue}>{durationLabel(selectedMinutes)}</span>
+          </div>
+          <p className={styles.durationNote}>
+            {tr(
+              `الاستراتيجية «${strategyName ?? ''}» بتحدد المدة والفريم بنفسها — الصفقة شمعة واحدة على فريم ${timeframe}.`,
+              `The "${strategyName ?? ''}" strategy sets its own duration and timeframe — one candle on ${timeframe}.`,
+            )}
+          </p>
+        </div>
+      ) : (
+        <DurationSelector selected={selectedMinutes} onSelect={onSelectMinutes} />
+      )}
 
-      {/* Both buttons, stacked, each with its own help — as in the original. */}
       <div className={styles.buttonRow}>
         <button type="button" onClick={onRequest} disabled={disabled} className={styles.requestBtn}>
-          {tr('استخراج الإشارة الفورية ⚡', 'Extract instant signal ⚡')}
+          {tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
         </button>
         <HelpButton
-          tone="cyan"
           text={tr(
-            'يبدأ تحليلاً كاملاً على الشمعة الحالية، وينتظر إغلاقها ليفتح الصفقة مع الشمعة القادمة.',
-            'Runs a full analysis on the current candle and waits for it to close so the trade opens with the next one.',
-          )}
-        />
-      </div>
-
-      <div className={styles.buttonRow}>
-        <button
-          type="button"
-          onClick={onStartMonitoring}
-          disabled={disabled}
-          className={styles.monitorBtn}
-        >
-          {tr('المراقبة الذكية 🎯', 'Smart monitoring 🎯')}
-        </button>
-        <HelpButton
-          tone="orange"
-          text={tr(
-            'يفحص كل شمعة عند إغلاقها ولا يصدر إشارة إلا لما تتحقق شروط الاستراتيجية فعلاً.',
-            'Checks every candle as it closes and only fires when the strategy conditions genuinely hold.',
+            'بيشغّل استراتيجية خطتك على الشمعة الحالية، ويستنى إغلاقها عشان الصفقة تفتح مع الشمعة اللي بعدها. لو الشروط ما تحققتش، بيفضل يعيد التحليل على كل شمعة جديدة لحد ما تطلع إشارة — من غير ما تضغط تاني.',
+            "Runs your plan's strategy on the current candle and waits for it to close so the trade opens with the next one. If the conditions do not hold, it keeps re-running on every new candle until a signal fires — without you pressing again.",
           )}
         />
       </div>
@@ -301,11 +322,11 @@ function DurationSelector({
   );
 }
 
-function HelpButton({ tone, text }: { tone: 'cyan' | 'orange'; text: string }) {
+function HelpButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className={`${styles.helpBtn} ${tone === 'orange' ? styles.helpOrange : ''}`}
+      className={styles.helpBtn}
       title={text}
       onClick={() => alert(text)}
     >
@@ -321,10 +342,21 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
   if (!signal) return null;
   const active = signal.status === 'ACTIVE';
   const isCall = signal.direction === 'CALL';
+  const isMartingale = signal.stage === 'martingale';
 
   if (active) {
     return (
       <section className={styles.panel}>
+        {/* Stated before the card, not inside it: this trade exists because the
+            last one lost, and that is the thing to read first. */}
+        {isMartingale && (
+          <div className={styles.martingale} role="status">
+            {tr(
+              '🔁 مضاعفة — الصفقة دي تعويض عن اللي قبلها، وبمضاعفة واحدة بس. مفيش تالتة مهما حصل.',
+              '🔁 Martingale — this trade recovers the last one, doubled once. There is no second double.',
+            )}
+          </div>
+        )}
         <div className={`${styles.signalCard} ${isCall ? styles.call : styles.put}`}>
           <div className={styles.directionRow}>
             <span className={styles.direction}>
@@ -349,9 +381,13 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
   const cls = result === 'WIN' ? styles.win : result === 'LOSS' ? styles.loss : styles.tie;
   const resultLabel =
     result === 'WIN'
-      ? tr('صفقة رابحة ✅', 'Winning trade ✅')
+      ? isMartingale
+        ? tr('المضاعفة عوّضت الخسارة ✅', 'The double recovered the loss ✅')
+        : tr('صفقة رابحة ✅', 'Winning trade ✅')
       : result === 'LOSS'
-        ? tr('صفقة خاسرة ❌', 'Losing trade ❌')
+        ? isMartingale
+          ? tr('خسارة نهائية — الدورة انتهت ❌', 'Final loss — the cycle is over ❌')
+          : tr('صفقة خاسرة ❌', 'Losing trade ❌')
         : tr('تعادل — تم رد الرهان', 'Tie — stake refunded');
 
   return (

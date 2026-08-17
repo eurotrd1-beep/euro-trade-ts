@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مواصفة لمسة 0.236</title>
+<!--
+  التقرير الكامل لاستراتيجية fib_236_touch.
+  مولّد من الكود المنفَّذ في packages/engine/src/programs/fib236.ts وربطه بالتطبيق.
+  ملف واحد مكتفٍ بنفسه — مفيش أي طلب خارجي، بيشتغل بدون إنترنت.
+-->
+<style>html,body{margin:0;padding:0}</style>
+</head>
+<body>
+<style>
+  :root {
+    --ground: #F6F5F9;
+    --surface: #FFFFFF;
+    --surface-2: #EFEDF6;
+    --ink: #17132A;
+    --ink-muted: #5A5672;
+    --line: #E1DEEC;
+    --accent: #06746E;
+    --accent-soft: #0E9A92;
+    --accent-wash: #E3F3F1;
+    --up: #0C7C45;
+    --down: #BE1A4A;
+    --warn: #855400;
+    --warn-wash: #FBF1DC;
+    --code-bg: #F2F0F8;
+    --shadow: 0 1px 2px rgba(23, 19, 42, .06), 0 8px 24px rgba(23, 19, 42, .05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0A0714;
+      --surface: #141024;
+      --surface-2: #1B1534;
+      --ink: #E9E7F2;
+      --ink-muted: #918DA8;
+      --line: #2A2350;
+      --accent: #3BE3D8;
+      --accent-soft: #7AF0E8;
+      --accent-wash: #0E2B2C;
+      --up: #3FE08D;
+      --down: #FF5C87;
+      --warn: #FFB833;
+      --warn-wash: #29200F;
+      --code-bg: #100C1E;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0A0714;
+    --surface: #141024;
+    --surface-2: #1B1534;
+    --ink: #E9E7F2;
+    --ink-muted: #918DA8;
+    --line: #2A2350;
+    --accent: #3BE3D8;
+    --accent-soft: #7AF0E8;
+    --accent-wash: #0E2B2C;
+    --up: #3FE08D;
+    --down: #FF5C87;
+    --warn: #FFB833;
+    --warn-wash: #29200F;
+    --code-bg: #100C1E;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .3);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); margin: 0;
+  }
+
+  h1 { margin: 0; font-size: clamp(1.9rem, 5vw, 2.9rem); line-height: 1.15; font-weight: 800; letter-spacing: -.015em; text-wrap: balance; }
+  .lede { margin: 0; max-width: 46rem; font-size: 1.06rem; color: var(--ink-muted); }
+  .masthead { display: flex; flex-direction: column; gap: 1rem; }
+
+  .facts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .25rem; }
+  .fact {
+    display: inline-flex; align-items: baseline; gap: .45rem;
+    padding: .34rem .7rem; border: 1px solid var(--line); border-radius: 2px;
+    background: var(--surface); font-size: .8rem;
+  }
+  .fact b { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
+
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  .sec-head { display: flex; align-items: baseline; gap: .85rem; border-bottom: 2px solid var(--ink); padding-bottom: .5rem; }
+  .sec-no { font-family: ui-monospace, Consolas, monospace; font-size: .9rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  h2 { margin: 0; font-size: clamp(1.15rem, 2.6vw, 1.45rem); font-weight: 750; letter-spacing: -.01em; text-wrap: balance; }
+  h3 { margin: .9rem 0 0; font-size: 1rem; font-weight: 700; color: var(--accent); }
+
+  p { margin: 0; max-width: 48rem; }
+  ul, ol { margin: 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: .45rem; max-width: 48rem; }
+  li::marker { color: var(--accent); }
+  strong { font-weight: 750; }
+
+  code:not(pre code) {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 2px;
+    padding: .06em .38em; font-size: .87em; white-space: nowrap;
+  }
+
+  .note {
+    background: var(--surface); border: 1px solid var(--line);
+    border-inline-start: 3px solid var(--accent); border-radius: 2px;
+    padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .5rem;
+  }
+  .note.warn { border-inline-start-color: var(--warn); background: var(--warn-wash); }
+  .note-label { font-family: ui-monospace, Consolas, monospace; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-muted); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 2px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+  th, td { text-align: start; padding: .62rem .85rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { background: var(--surface-2); font-size: .73rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); font-weight: 700; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.id, td.t { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .tag { display: inline-block; padding: .1rem .45rem; border-radius: 2px; font-family: ui-monospace, Consolas, monospace; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+  .tag.up { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+  .tag.down { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
+  .tag.neutral { background: var(--surface-2); color: var(--ink-muted); }
+  .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+
+  pre {
+    margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 3px;
+    padding: 1rem 1.15rem; overflow-x: auto; font-size: .84rem; line-height: 1.65;
+    direction: ltr; text-align: left; tab-size: 2;
+  }
+  pre .cm { color: var(--ink-muted); font-style: italic; }
+  pre .kw { color: var(--accent); font-weight: 700; }
+  pre.mermaid { direction: ltr; background: var(--surface); display: flex; justify-content: center; }
+
+  /* Ordered decision steps — the numbers carry the ORDER, which is the point. */
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: .6rem; list-style: none; padding: 0; max-width: 48rem; }
+  .steps li {
+    counter-increment: step; position: relative; padding-inline-start: 2.6rem;
+    padding-block: .55rem; border-bottom: 1px dotted var(--line);
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before {
+    content: counter(step); position: absolute; inset-inline-start: 0; top: .5rem;
+    width: 1.85rem; height: 1.85rem; display: grid; place-items: center;
+    font-family: ui-monospace, Consolas, monospace; font-size: .78rem; font-weight: 700;
+    color: var(--accent); border: 1px solid var(--line); border-radius: 2px; background: var(--surface);
+  }
+
+  .example { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .ex-card { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: .5rem; box-shadow: var(--shadow); }
+  .ex-card h4 { margin: 0; font-size: .95rem; font-weight: 750; }
+  .ex-row { display: flex; justify-content: space-between; gap: 1rem; font-size: .85rem; border-bottom: 1px dotted var(--line); padding-bottom: .28rem; }
+  .ex-row:last-of-type { border-bottom: none; }
+  .ex-row span:last-child { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ex-row .label { color: var(--ink-muted); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 1.25rem; color: var(--ink-muted); font-size: .85rem; }
+  a { color: var(--accent); text-underline-offset: .2em; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
+<div class="doc" dir="rtl">
+
+  <header class="masthead">
+    <p class="eyebrow">التقرير الكامل · مطابق للكود المنفَّذ</p>
+    <h1>مواصفة لمسة 0.236</h1>
+    <p class="lede">
+      كل ما تعمله الاستراتيجية، بالترتيب اللي بتعمله بيه وبالتوقيت بالملي ثانية: إمتى بتقرر، إمتى
+      بتطلّع صفقة، نوعها إيه، وإيه اللي بيحصل بعدها — وكل الحالات اللي بتسكت فيها.
+    </p>
+    <div class="facts">
+      <span class="fact">الفريم <b>1m</b></span>
+      <span class="fact">الصفقة <b>شمعة واحدة</b></span>
+      <span class="fact">التاريخ <b>100 شمعة</b></span>
+      <span class="fact">المستوى <b>0.236</b></span>
+      <span class="fact">المضاعفة <b>مرة واحدة</b></span>
+      <span class="fact">الفلاتر <b>لا شيء</b></span>
+      <span class="fact">المعرّف <b>fib_236_touch</b></span>
+    </div>
+    <div class="note warn">
+      <span class="note-label">تحديث مهم على النسخة السابقة</span>
+      <p>
+        الفرض <strong>A8</strong> اتغيّر: كان «السوينج بيتعاد بناؤه كل شمعة»، وبقى
+        <strong>«السوينج بيتثبّت لما يتبنّى»</strong>. السبب في §5، ومعاه القياس اللي كشف الفرق.
+      </p>
+    </div>
+  </header>
+
+  <!-- ── 1 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">1</span>
+      <h2>الفكرة في فقرة</h2>
+    </div>
+    <p>
+      الاستراتيجية بتدوّر على آخر <strong>حركة مكتملة</strong> في الشموع المتاحة، بترسم عليها مستوى
+      تصحيح <strong>23.6%</strong>، وبتستنى السعر يرجع يلمس المستوى ده. أول ما يلمسه —
+      <strong>مش في نفس الشمعة</strong> — بتفتح صفقة على <strong>الشمعة اللي بعدها</strong>، في اتجاه
+      الحركة الأصلية: حركة صاعدة ← <span class="tag up">CALL</span>، حركة هابطة ←
+      <span class="tag down">PUT</span>. الصفقة شمعة واحدة. لو خسرت، بتتكرر
+      <strong>مرة واحدة</strong> بنفس الاتجاه فورًا، وبعدها تقف مهما حصل.
+    </p>
+    <div class="note">
+      <span class="note-label">الجملة اللي بتختصر كل حاجة</span>
+      <p>
+        مستوى 0.236 هو <strong>الزناد</strong>، واتجاه الحركة الأصلية هو <strong>القرار</strong>.
+        اللمسة مبتقولش «اشتري» ولا «بيع» — بتقول «دلوقتي»، والاتجاه اتحدد قبلها لما الحركة اتكوّنت.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 2 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">2</span>
+      <h2>الشمعة اللي بتتقري، والوقت اللي بتتقري فيه</h2>
+    </div>
+    <p>
+      كل القرارات بتتاخد في لحظة واحدة بس: <strong>إغلاق شمعة</strong>. مفيش أي قرار جوّه شمعة
+      شغالة، ومفيش أي قراءة لسعر لحظي.
+    </p>
+
+    <h3>إيه اللي بيتحسب «شمعة مقفولة»</h3>
+    <pre dir="ltr">closed(i)  ⟺  candles[i].time + 60000 &lt;= now
+
+<span class="cm">// آخر شمعة في البافر عمرها غالبًا ثواني وهي لسه بتتكوّن —</span>
+<span class="cm">// الـ high والـ low بتوعها لسه بيتحركوا. المحرك بيتجاهلها تمامًا.</span></pre>
+    <p>
+      يعني لو المحرك اتسأل الساعة <code>12:34:00.200</code>، الشمعة اللي هيقراها هي اللي بدأت
+      <code>12:33:00</code> وقفلت <code>12:34:00</code>. الشمعة اللي بدأت <code>12:34:00</code>
+      <strong>غير موجودة</strong> بالنسبة له.
+    </p>
+
+    <h3>الشمعة الواحدة بتتقري مرة واحدة</h3>
+    <p>
+      حلقة التطبيق بتنبض <strong>4 مرات في الثانية</strong>. المحرك بيسجّل وقت آخر شمعة عالجها،
+      وأي نداء تاني على نفس الشمعة بيرجع «مفيش حاجة» فورًا — عشان الشمعة الواحدة ماتطلّعش صفقتين.
+    </p>
+
+    <h3>التاريخ اللي بيشوفه</h3>
+    <ul>
+      <li>الفيد بيدّي <strong>100 شمعة</strong> بالظبط لكل زوج. مفيش أكتر.</li>
+      <li>
+        منها بياخد <strong>آخر امتداد متصل بلا فجوات</strong>: أي فرق زمني بين شمعتين مش 60 ثانية
+        بالظبط بيقطع التاريخ، والبحث بيشتغل على اللي بعد القطع بس.
+      </li>
+      <li>لازم <strong>12 شمعة متصلة على الأقل</strong>، وإلا مفيش قرار أصلًا.</li>
+    </ul>
+  </section>
+
+  <!-- ── 3 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">3</span>
+      <h2>القمة والقاع — إزاي بيتحددوا</h2>
+    </div>
+
+    <h3>أ. تعريف النقطة</h3>
+    <p>الشمعة رقم <code>i</code> قمة لما تكون أعلى من شمعتين قبلها وشمعتين بعدها:</p>
+    <pre dir="ltr">high[i] &gt; high[i-1] <span class="kw">&amp;&amp;</span> high[i] &gt; high[i-2] <span class="kw">&amp;&amp;</span>
+high[i] &gt; high[i+1] <span class="kw">&amp;&amp;</span> high[i] &gt; high[i+2]
+
+<span class="cm">// القاع نفس الشيء مقلوب على low. المقارنة أكبر من / أصغر من تمامًا —</span>
+<span class="cm">// التساوي مش قمة.</span></pre>
+    <p>
+      الشمعة اللي بتنطبق عليها الحالتين (بتبلع جيرانها من فوق ومن تحت) <strong>بتتشال</strong> — ما
+      ينفعش تكون طرفَي حركة في نفس الوقت.
+    </p>
+
+    <h3>ب. التأكيد — ودي أهم نقطة في منع الـ Repainting</h3>
+    <p>
+      المقارنة نفسها محتاجة شمعتين <em>بعد</em> النقطة، فالنقطة <strong>مش بتتأكد إلا بعد شمعتين
+      منها</strong>. عند إغلاق الشمعة <code>N</code>، أقصى نقطة مسموح بقراءتها هي عند
+      <code>N-2</code>.
+    </p>
+    <div class="note">
+      <span class="note-label">النتيجة العملية</span>
+      <p>
+        قمة اتكوّنت الساعة <code>12:30</code> مش بيبقى ليها وجود عند المحرك قبل إغلاق شمعة
+        <code>12:32</code>. ولما تتأكد، <strong>مش بتتغيّر ولا بتختفي أبدًا</strong> — وده معنى
+        «مفيش repainting» بالظبط، مش شعار.
+      </p>
+    </div>
+
+    <h3>ج. اختيار الحركة</h3>
+    <p>
+      المحرك بيرتّب النقط المؤكَّدة بالوقت، وبيمشي عليها <strong>من الأحدث للأقدم</strong>، بياخد كل
+      <strong>زوج متجاور متبادل</strong> (قاع بعده قمة، أو قمة بعدها قاع) ويجرّبه. أول زوج يعدّي كل
+      الفحوصات هو الحركة.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الترتيب الزمني</th><th>الحركة</th><th>التصحيح بيروح فين</th><th>الإشارة</th></tr></thead>
+        <tbody>
+          <tr><td>قاع ثم قمة</td><td>صاعدة</td><td>نازل من القمة</td><td><span class="tag up">CALL / UP</span></td></tr>
+          <tr><td>قمة ثم قاع</td><td>هابطة</td><td>طالع من القاع</td><td><span class="tag down">PUT / DOWN</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>د. المستوى</h3>
+    <pre dir="ltr">level = end + 0.236 × (origin − end)
+
+<span class="cm">// صاعدة : origin = القاع , end = القمة  →  level = القمة − 0.236 × المدى</span>
+<span class="cm">// هابطة : origin = القمة , end = القاع  →  level = القاع + 0.236 × المدى</span></pre>
+    <p>
+      معادلة واحدة للحالتين: <strong>23.6% راجعة من نهاية الحركة ناحية بدايتها</strong>. رقم دقيق،
+      من غير أي تقريب ومن غير أي هامش.
+    </p>
+  </section>
+
+  <!-- ── 4 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">4</span>
+      <h2>متى تُرفض الحركة</h2>
+    </div>
+    <p>الزوج بيتشال والبحث بيكمل للزوج اللي قبله لو حصل أي واحدة من دول:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>الشرط</th><th>ليه</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="id">1</td>
+            <td>النقطتين من نفس النوع (قمة وقمة)</td>
+            <td>مش حركة واحدة — دول طرفين من حركتين</td>
+          </tr>
+          <tr>
+            <td class="id">2</td>
+            <td>المدى = صفر</td>
+            <td>المستوى بيساوي الطرفين، والحساب بلا معنى</td>
+          </tr>
+          <tr>
+            <td class="id">3</td>
+            <td><strong>شمعة القمة نفسها لمست المستوى</strong></td>
+            <td>الشرط اللي طلبته: الإشارة لازم تيجي من ارتداد <em>لاحق</em>، مش من ذيل الشمعة اللي عملت القمة</td>
+          </tr>
+          <tr>
+            <td class="id">4</td>
+            <td><strong>شمعة القاع نفسها لمست المستوى</strong></td>
+            <td>نفس السبب، على الطرف التاني</td>
+          </tr>
+          <tr>
+            <td class="id">5</td>
+            <td>السعر عدّى طرف الحركة بعد تكوينها</td>
+            <td>القمة اتكسرت ← الحركة امتدت، والمستوى محسوب على حاجة انتهت</td>
+          </tr>
+          <tr>
+            <td class="id">6</td>
+            <td>الحركة دي طلّعت إشارة قبل كده</td>
+            <td>لمسة واحدة لكل حركة، مهما تكرر اللمس</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <span class="note-label">توقّع عملي</span>
+      <p>
+        الشرطين 3 و4 بيشتغلوا <strong>كتير</strong>، وده مقصود. المستوى قريب من طرف الحركة (23.6%
+        بس)، فشمعة قمة طويلة بيبقى ذيلها السفلي واصل له بسهولة — وهي بالظبط الحالة اللي قلت إنك
+        مش عايزها.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 5 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">5</span>
+      <h2>التبنّي والتثبيت — التغيير المهم</h2>
+    </div>
+    <p>
+      لما يلاقي حركة صالحة، المحرك <strong>بيتبنّاها ويقف</strong>. مش بيطلّع إشارة في نفس الشمعة
+      دي — لأن اللمسة ساعتها هتكون حصلت قبل ما الـsetup يبقى موجود أصلًا.
+    </p>
+    <p>
+      وبعد التبني، <strong>القمة والقاع والمستوى بيتقفلوا</strong>. مفيش إعادة حساب كل شمعة، وحركة
+      أحدث بتظهر بعدين <strong>بتستنى دورها</strong>.
+    </p>
+
+    <h3>ليه اتغيّر ده</h3>
+    <p>
+      النسخة الأولى كانت بتعيد الحساب كل شمعة. اتقاس الفرق على <strong>1,200 شمعة حقيقية من 9
+      سلاسل</strong>:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>القياس</th><th>النتيجة</th></tr></thead>
+        <tbody>
+          <tr><td>حركات اتبنّت</td><td class="t">12</td></tr>
+          <tr><td><strong>اتغيّرت والمستخدم مستني اللمسة</strong></td><td class="t">8</td></tr>
+          <tr><td><strong>المستوى اتحرك قد إيه (وسيط)</strong></td><td class="t">65.6 نقطة</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      يعني في 40% من الحالات المستوى كان بيقفز لسعر تاني خالص وإحنا مستنيينه. ومواصفتك نفسها
+      بتقول: «<strong>بعد تحديد</strong> القمة والقاع، <strong>راقب</strong> حركة السعر» — تحديد
+      وبعدين مراقبة، مش تحديد جديد كل دقيقة.
+    </p>
+
+    <h3>الحركة المتبنّاة بتموت في تلات حالات بس</h3>
+    <ol class="steps">
+      <li>
+        <strong>السعر عدّى طرف الحركة.</strong> في الصاعدة: أي شمعة بعد القمة قفلت أو وصلت أعلى من
+        القمة. في الهابطة: أوطى من القاع. الحركة خلاص امتدت.
+      </li>
+      <li>
+        <strong>الحركة خرجت من النافذة.</strong> نهاية الحركة بقت أقدم من أقدم شمعة متاحة.
+      </li>
+      <li><strong>اشتغلت.</strong> طلّعت إشارتها، وخلاص.</li>
+    </ol>
+    <p>
+      <strong>مش موجود في القايمة دي:</strong> ظهور حركة أحدث أو أجمل. دي مش سبب لإلغاء اللي مستنيينه.
+    </p>
+  </section>
+
+  <!-- ── 6 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">6</span>
+      <h2>اللمسة، والإشارة</h2>
+    </div>
+    <pre dir="ltr">touch  ⟺  candle.low &lt;= level &lt;= candle.high</pre>
+    <ul>
+      <li>بالـ <strong>High/Low</strong> — مش بالإغلاق.</li>
+      <li>بالمساواة: لمس الحد بالظبط <strong>لمسة</strong>.</li>
+      <li><strong>بدون أي هامش تسامح</strong> — أي هامش كان هيبقى فلتر مضاف.</li>
+      <li>لازم تكون على شمعة <strong>بعد</strong> شمعة نهاية الحركة.</li>
+      <li>لازم تكون على <strong>الشمعة اللي قفلت للتو</strong> — لمسة قديمة اكتُشفت متأخرة مبتشتغلش.</li>
+      <li>
+        <strong>قفزة (gap) فوق المستوى من غير ما شمعة تحتويه = مش لمسة.</strong> وساعتها الحركة
+        بتموت غالبًا بشرط «السعر عدّى الطرف».
+      </li>
+    </ul>
+    <p>
+      أول ما تتحقق اللمسة: الحركة بتتشال من الانتظار، بتتسجّل كـ«اشتغلت»، وبتتفتح دورة صفقة
+      <strong>على الشمعة اللي بدأت للتو</strong>.
+    </p>
+  </section>
+
+  <!-- ── 7 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">7</span>
+      <h2>الصفقة، ونتيجتها</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الحدث</th><th>الشمعة</th><th>السعر</th></tr></thead>
+        <tbody>
+          <tr><td>اللمسة</td><td class="t">N</td><td>المستوى داخل نطاق الشمعة</td></tr>
+          <tr><td>الدخول</td><td class="t">N+1</td><td><code>open</code> بتاع الشمعة</td></tr>
+          <tr><td>الخروج</td><td class="t">N+1</td><td><code>close</code> بتاع نفس الشمعة</td></tr>
+          <tr><td>النتيجة تظهر</td><td class="t">عند إغلاق N+1</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre dir="ltr">tie_epsilon = |entry| × 0.000005     <span class="cm">// ≈ 0.05 نقطة على 1.09</span>
+
+|exit − entry| &lt;= tie_epsilon   →  TIE
+CALL:  exit &gt; entry ? WIN : LOSS
+PUT :  exit &lt; entry ? WIN : LOSS</pre>
+    <p>
+      التسوية بتتم بنفس الدالة اللي التطبيق بيسوّي بيها الكارت اللي قدام المستخدم — عشان
+      ما يحصلش إن الكارت يقول «رابحة» والمحرك يقول «خاسرة» ويطلّع مضاعفة.
+    </p>
+  </section>
+
+  <!-- ── 8 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">8</span>
+      <h2>المضاعفة</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الصفقة</th><th>النتيجة</th><th>اللي بيحصل</th><th>حالة الدورة</th></tr></thead>
+        <tbody>
+          <tr><td>الأساسية</td><td><span class="tag up">WIN</span></td><td>الدورة تقفل فورًا</td><td class="mono">WIN</td></tr>
+          <tr><td>الأساسية</td><td><span class="tag neutral">TIE</span></td><td>الدورة تقفل — الرهان اترد</td><td class="mono">TIE</td></tr>
+          <tr><td>الأساسية</td><td><span class="tag down">LOSS</span></td><td>تنبيه مضاعفة + دخول فوري على الشمعة اللي بعدها بنفس الاتجاه</td><td class="mono">مفتوحة</td></tr>
+          <tr><td>المضاعفة</td><td><span class="tag up">WIN</span></td><td>الدورة تقفل — ربح صافي بضعف الرهان</td><td class="mono">RECOVERED</td></tr>
+          <tr><td>المضاعفة</td><td><span class="tag neutral">TIE</span></td><td>الدورة تقفل</td><td class="mono">RECOVERED_TIE</td></tr>
+          <tr><td>المضاعفة</td><td><span class="tag down">LOSS</span></td><td>الدورة تقفل نهائيًا</td><td class="mono">FINAL_LOSS</td></tr>
+          <tr><td>—</td><td><span class="tag warn">ABORTED</span></td><td>شمعة الدخول ما وصلتش أصلًا — مفيش صفقة اتفتحت ومفيش مضاعفة مستحقة</td><td class="mono">ABORTED</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>
+        <strong>المضاعفة غير مشروطة تمامًا.</strong> مش بتعيد فحص فيبوناتشي ولا لمسة ولا أي حاجة —
+        خسارة ← دخول فوري على الشمعة اللي بعدها.
+      </li>
+      <li><strong>نفس الاتجاه</strong> بالظبط، مش عكسه.</li>
+      <li>
+        <strong>مرة واحدة، تركيبيًا.</strong> فرع المضاعفة الخاسرة بيقفل الدورة ومفيش فرع تالت في
+        الكود — يعني المضاعفة التانية <em>مستحيلة</em> مش «ممنوعة بشرط».
+      </li>
+      <li>
+        <strong>طول الدورة، البحث متوقف.</strong> أي لمسة بتحصل والصفقة مفتوحة بتتجاهَل تمامًا.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── 9 ─────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">9</span>
+      <h2>ترتيب القرار — بالحرف</h2>
+    </div>
+    <p>ده الترتيب الحرفي اللي بيتنفّذ عند إغلاق كل شمعة. أول شرط يتحقق بيوقف اللي بعده:</p>
+    <ol class="steps">
+      <li>مفيش شمعة مقفولة؟ <strong>اخرج.</strong></li>
+      <li>الشمعة دي اتقرت قبل كده؟ <strong>اخرج.</strong> (الحلقة بتنبض 4 مرات/ثانية)</li>
+      <li>
+        في دورة مفتوحة؟
+        <ul style="margin-top:.4rem">
+          <li>الشمعة قبل شمعة الدخول ← <strong>اخرج</strong> (الصفقة لسه ما فتحتش)</li>
+          <li>الشمعة بعد شمعة الدخول ← <strong>ABORTED</strong> واقفل الدورة</li>
+          <li>الشمعة هي شمعة الدخول ← <strong>سوِّ الصفقة</strong> (§7 و§8) واخرج</li>
+        </ul>
+      </li>
+      <li>التاريخ المتصل أقل من 12 شمعة؟ <strong>اخرج.</strong></li>
+      <li>في حركة متبنّاة وماتت (§5)؟ <strong>شيلها</strong> وكمّل.</li>
+      <li>مفيش حركة متبنّاة؟ <strong>دوّر على واحدة</strong> — لقيتها؟ اتبنّاها و<strong>اخرج</strong>. مالقتش؟ <strong>اخرج</strong>.</li>
+      <li>الشمعة دي مش بعد نهاية الحركة؟ <strong>اخرج.</strong></li>
+      <li>المستوى مش جوه نطاق الشمعة؟ <strong>اخرج.</strong></li>
+      <li><strong>إشارة.</strong> سجّل الحركة كمستهلَكة، افتح الدورة، وافتح الصفقة على الشمعة اللي بدأت.</li>
+    </ol>
+    <div class="note">
+      <span class="note-label">لاحظ</span>
+      <p>
+        الخطوة 6 بتنتهي بـ«اخرج» حتى لو لقى حركة. يعني <strong>أقرب إشارة ممكنة هي الشمعة اللي بعد
+        شمعة التبنّي</strong>، مش نفسها.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 10 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">10</span>
+      <h2>التوقيت بالملي ثانية</h2>
+    </div>
+    <p>
+      سيناريو كامل: المستخدم ضغط الزرار الساعة <code>12:33:41.0</code>، والحدود الزمنية للشموع
+      دقيقة كاملة.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الوقت</th><th>اللي بيحصل</th><th>المصدر</th></tr></thead>
+        <tbody>
+          <tr><td class="t">12:33:41.0</td><td>ضغطة الزرار: فتح الصوت وطلب إذن التنبيهات (لازم يكونوا جوه إيماءة المستخدم)</td><td>الصفحة</td></tr>
+          <tr><td class="t">12:33:41.0</td><td>رفض فوري لو في تحليل شغال، أو صفقة مفتوحة، أو مفيش شموع</td><td>الزرار</td></tr>
+          <tr><td class="t">12:33:41.0</td><td>إيقاف أي مراقبة شغالة (الضغطة بتاخد المكان)</td><td>الزرار</td></tr>
+          <tr><td class="t">+0 → +4.8s</td><td><strong>12 مرحلة تحليل</strong>، كل واحدة 400 ملي ثانية</td><td>عرض فقط</td></tr>
+          <tr><td class="t">كل 1s</td><td>عداد «متبقي على إغلاق الشمعة» بينزل</td><td>عرض فقط</td></tr>
+          <tr><td class="t">+4.8s → الحد</td><td>انتظار إغلاق الشمعة — فحص كل <strong>100 ملي ثانية</strong></td><td>الزرار</td></tr>
+          <tr><td class="t">12:34:00.0</td><td>الحد الزمني. فحص السوق: فوركس في عطلة نهاية أسبوع؟ سعر متجمّد على زوج غير OTC؟ ← <strong>وقف</strong></td><td>الزرار</td></tr>
+          <tr><td class="t">+200ms</td><td>انتظار مقصود عشان الفيد ينشر الشمعة المقفولة</td><td class="mono">PROGRAM_SETTLE_MS</td></tr>
+          <tr><td class="t">≈ 12:34:00.2</td><td><strong>جلب الشموع من الشبكة</strong> (مش من البافر — البافر ممكن يكون عمره 15 ثانية)</td><td>الشبكة</td></tr>
+          <tr><td class="t">≈ 12:34:00.4</td><td>المحرك بيقرا شمعة <code>12:33</code> ← §9</td><td>البرنامج</td></tr>
+          <tr><td class="t">≈ 12:34:00.5</td><td><strong>الإشارة تظهر</strong> · الصفقة على شمعة <code>12:34</code> · تنتهي <code>12:35:00</code></td><td>الكارت + صوت + تنبيه</td></tr>
+          <tr><td class="t">12:34:00.5 → 12:35:00</td><td>عداد تنازلي على الكارت، بيتحدّث كل 250 ملي ثانية</td><td>عرض فقط</td></tr>
+          <tr><td class="t">12:35:00.0</td><td>العداد يوصل صفر — <strong>ومبيسوّيش</strong>. التسوية شغل البرنامج.</td><td>الكارت</td></tr>
+          <tr><td class="t">12:35:00.2</td><td>المراقبة بتلاحظ الحد (بتنبض كل 250ms) وبتستنى 200ms</td><td class="mono">TICK_MS / SETTLE_MS</td></tr>
+          <tr><td class="t">≈ 12:35:00.5</td><td>جلب + قراءة شمعة <code>12:34</code> ← <strong>النتيجة</strong>: ربح/تعادل ← الدورة تقفل والمراقبة تقف. خسارة ← <strong>مضاعفة فورًا</strong> على شمعة <code>12:35</code></td><td>البرنامج</td></tr>
+          <tr><td class="t">≈ 12:36:00.5</td><td>تسوية المضاعفة ← <code>RECOVERED</code> أو <code>FINAL_LOSS</code> ← الدورة تقفل والمراقبة تقف</td><td>البرنامج</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-label">فرق حقيقي لازم تعرفه</span>
+      <p>
+        المحرك بيحسب النتيجة على <strong>افتتاح الشمعة</strong> (<code>12:34:00.000</code> بالظبط)،
+        لكن الإشارة بتظهر للمستخدم بعدها بحوالي <strong>200 لـ 700 ملي ثانية</strong> (انتظار النشر
+        + زمن الشبكة). يعني الدخول الحقيقي متأخر جزء من الثانية عن السعر اللي الباك تست بيحسب بيه.
+        على صفقة دقيقة ده غالبًا مهمل — بس مش دايمًا، والباك تست <em>بيفترض</em> الدخول على
+        الافتتاح بالظبط.
+      </p>
+    </div>
+
+    <p>
+      ولو مفيش إشارة: المراقبة بتفضل تكرّر نفس الدورة كل دقيقة — نبض كل 250ms، عند كل حد زمني
+      استنى 200ms، اجلب الشموع، اقرا، مفيش حاجة، استنى الشمعة اللي بعدها. <strong>طلب شبكة واحد
+      كل دقيقة.</strong>
+    </p>
+  </section>
+
+  <!-- ── 11 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">11</span>
+      <h2>آلة الحالة</h2>
+    </div>
+    <pre dir="ltr">
+                    ┌─────────────┐
+      لا توجد موجة  │             │
+        ┌──────────▶│  SEARCHING  │◀────────────────────────────┐
+        │           │             │                             │
+        └───────────┤             │                             │
+                    └──────┬──────┘                             │
+                           │ موجة صالحة اتبنّت                    │
+                           │ (مبتشتغلش في نفس الشمعة)              │
+                           ▼                                    │
+       مفيش لمسة    ┌─────────────┐   الموجة ماتت                │
+        ┌──────────▶│    ARMED    ├──────────────────────────────┤
+        │           │             │   (اتكسرت / خرجت من النافذة)   │
+        └───────────┤             │                             │
+                    └──────┬──────┘                             │
+                           │ لمسة على الشمعة المقفولة              │
+                           ▼                                    │
+                    ┌─────────────┐                             │
+                    │  IN_TRADE   │  الدخول = افتتاح الشمعة        │
+                    │             │  الخروج = إغلاقها             │
+                    └──┬───────┬──┘                             │
+                       │       │                                │
+              ربح/تعادل │       │ خسارة                          │
+                       │       ▼                                │
+                       │  ┌──────────────┐                      │
+                       │  │IN_MARTINGALE │ نفس الاتجاه            │
+                       │  │              │ الشمعة اللي بعدها       │
+                       │  └──────┬───────┘                      │
+                       │         │ أي نتيجة — مخرج واحد          │
+                       └─────────┴──────────────────────────────┘
+
+مخرج IN_MARTINGALE واحد لكل النتائج — ومن هنا استحالة المضاعفة التانية.
+</pre>
+    <p>
+      <code>IN_MARTINGALE</code> ليها مخرج واحد لكل النتائج — ومن هنا استحالة المضاعفة التانية.
+    </p>
+  </section>
+
+  <!-- ── 12 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">12</span>
+      <h2>كل حالة «مفيش صفقة»</h2>
+    </div>
+    <p>القايمة كاملة — كل سبب ممكن يخلي شمعة تعدّي من غير إشارة:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>المستوى</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td>الزرار</td><td>تحليل شغّال بالفعل</td></tr>
+          <tr><td>الزرار</td><td>صفقة مفتوحة دلوقتي</td></tr>
+          <tr><td>الزرار</td><td>مفيش شموع في البافر</td></tr>
+          <tr><td>الزرار</td><td>زوج فوركس في عطلة نهاية الأسبوع</td></tr>
+          <tr><td>الزرار</td><td>سعر متجمّد طول التحليل على زوج غير OTC</td></tr>
+          <tr><td>المراقبة</td><td>السوق قفل ← المراقبة بتقف تمامًا</td></tr>
+          <tr><td>المحرك</td><td>مفيش ولا شمعة مقفولة</td></tr>
+          <tr><td>المحرك</td><td>الشمعة دي اتعالجت قبل كده</td></tr>
+          <tr><td>المحرك</td><td>تاريخ متصل أقل من 12 شمعة</td></tr>
+          <tr><td>المحرك</td><td>أقل من نقطتين مؤكَّدتين</td></tr>
+          <tr><td>المحرك</td><td>كل الأزواج المتاحة اتشالت (§4)</td></tr>
+          <tr><td>المحرك</td><td>لسه بيتبنّى الحركة النهاردة — الإشارة أقرب حاجة الشمعة اللي بعدها</td></tr>
+          <tr><td>المحرك</td><td>الشمعة مش بعد نهاية الحركة</td></tr>
+          <tr><td>المحرك</td><td>المستوى مش جوه نطاق الشمعة</td></tr>
+          <tr><td>المحرك</td><td>دورة مفتوحة — البحث متوقف تمامًا</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 13 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">13</span>
+      <h2>اللي المستخدم بيشوفه</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الحالة</th><th>الشاشة</th></tr></thead>
+        <tbody>
+          <tr><td>قبل الضغط</td><td>زرار واحد «حلّل وولّد إشارة ⚡». الفريم مقفول على <code>1m</code> والمدة مكتوبة «دقيقة واحدة» — مش اختيارات</td></tr>
+          <tr><td>أثناء التحليل</td><td>12 مرحلة بتتغيّر كل 400ms + عداد «الإشارة هتيجي بعد إغلاق الشمعة»</td></tr>
+          <tr><td>مفيش إشارة</td><td>لوحة المراقبة: «الاستراتيجية شغالة على كل شمعة» + عداد الشمعة الجاية + عدد الشموع المتحللة + مدة الانتظار + زرار إلغاء</td></tr>
+          <tr><td>إشارة</td><td>كارت الصفقة: الاتجاه، عداد تنازلي، سعر الدخول، الثقة، المدة + صوت + تنبيه نظام</td></tr>
+          <tr><td><strong>مضاعفة</strong></td><td>شريط برتقالي فوق الكارت: «🔁 مضاعفة — الصفقة دي تعويض عن اللي قبلها، وبمضاعفة واحدة بس. مفيش تالتة مهما حصل» + تنبيه نظام منفصل عنوانه «مضاعفة»</td></tr>
+          <tr><td>النتيجة</td><td>رابحة / خاسرة / تعادل — وللمضاعفة نص مختلف: «المضاعفة عوّضت الخسارة» أو «خسارة نهائية — الدورة انتهت»</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      الثقة المعروضة على الكارت <strong>ثابتة 92.5%</strong>. اللمسة حصلت أو ماحصلتش — مفيش سكور
+      وراها، فمفيش «ثقة» صادقة تتحسب لكل صفقة. الرقم موجود عشان شكل الكارت، ومكتوب في الكود إنه ثابت.
+    </p>
+  </section>
+
+  <!-- ── 14 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">14</span>
+      <h2>كل رقم ثابت في النظام</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الرقم</th><th>القيمة</th><th>معناه</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">FIB</td><td class="t">0.236</td><td>المستوى الوحيد</td></tr>
+          <tr><td class="mono">timeframe</td><td class="t">1m</td><td>مقفول — مش اختيار المستخدم</td></tr>
+          <tr><td class="mono">durationMinutes</td><td class="t">1</td><td>شمعة واحدة</td></tr>
+          <tr><td class="mono">الشموع</td><td class="t">100</td><td>سقف الفيد نفسه</td></tr>
+          <tr><td class="mono">أقل تاريخ</td><td class="t">12 شمعة</td><td>متصلة بلا فجوات</td></tr>
+          <tr><td class="mono">تأكيد النقطة</td><td class="t">شمعتان</td><td>وده اللي بيمنع الـrepainting</td></tr>
+          <tr><td class="mono">FIRED_MEMORY</td><td class="t">32</td><td>عدد الحركات المستهلَكة اللي بيفتكرها</td></tr>
+          <tr><td class="mono">tie_epsilon</td><td class="t">0.0005%</td><td>من سعر الدخول (≈ 0.05 نقطة)</td></tr>
+          <tr><td class="mono">STAGE_DELAY_MS</td><td class="t">400</td><td>× 12 مرحلة = 4.8 ثانية</td></tr>
+          <tr><td class="mono">WAIT_TICK_MS</td><td class="t">100</td><td>نبض انتظار إغلاق الشمعة</td></tr>
+          <tr><td class="mono">PROGRAM_SETTLE_MS</td><td class="t">200</td><td>انتظار نشر الشمعة المقفولة</td></tr>
+          <tr><td class="mono">TICK_MS</td><td class="t">250</td><td>نبض المراقبة</td></tr>
+          <tr><td class="mono">confidence</td><td class="t">92.5</td><td>ثابت عرض</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 15 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">15</span>
+      <h2>مثال بالأرقام</h2>
+    </div>
+    <div class="example">
+      <div class="ex-card">
+        <h4>حركة صاعدة ⟵ <span class="tag up">CALL</span></h4>
+        <div class="ex-row"><span class="label">القاع (البداية)</span><span>1.08000</span></div>
+        <div class="ex-row"><span class="label">القمة (النهاية)</span><span>1.10000</span></div>
+        <div class="ex-row"><span class="label">المدى</span><span>0.02000</span></div>
+        <div class="ex-row"><span class="label">المستوى 0.236</span><span>1.09528</span></div>
+        <div class="ex-row"><span class="label">شمعة اللمس</span><span>1.09400 – 1.09600</span></div>
+        <div class="ex-row"><span class="label">الشرط</span><span>1.094 ≤ 1.09528 ≤ 1.096 ✔</span></div>
+        <p style="font-size:.85rem;color:var(--ink-muted);margin-top:.35rem">
+          نزل من القمة ولمس 23.6% ⟵ <strong>CALL</strong> على الشمعة اللي بعدها.
+        </p>
+      </div>
+      <div class="ex-card">
+        <h4>حركة هابطة ⟵ <span class="tag down">PUT</span></h4>
+        <div class="ex-row"><span class="label">القمة (البداية)</span><span>1.10000</span></div>
+        <div class="ex-row"><span class="label">القاع (النهاية)</span><span>1.08000</span></div>
+        <div class="ex-row"><span class="label">المدى</span><span>0.02000</span></div>
+        <div class="ex-row"><span class="label">المستوى 0.236</span><span>1.08472</span></div>
+        <div class="ex-row"><span class="label">شمعة اللمس</span><span>1.08400 – 1.08500</span></div>
+        <div class="ex-row"><span class="label">الشرط</span><span>1.084 ≤ 1.08472 ≤ 1.085 ✔</span></div>
+        <p style="font-size:.85rem;color:var(--ink-muted);margin-top:.35rem">
+          طلع من القاع ولمس 23.6% ⟵ <strong>PUT</strong> على الشمعة اللي بعدها.
+        </p>
+      </div>
+    </div>
+    <div class="note">
+      <span class="note-label">فحص الاستبعاد على نفس المثال</span>
+      <p>
+        لو شمعة القمة كان <code>low</code> بتاعها 1.09400، تبقى محتوية 1.09528 ← الحركة كلها
+        تُستبعد وندوّر على اللي قبلها.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 16 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">16</span>
+      <h2>القياس على السوق الحقيقي</h2>
+    </div>
+    <p>الباك تست بيشغّل <strong>نفس الكود</strong> اللي بيشتغل عند المستخدم. آخر تشغيل، 8 أزواج:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>القياس</th><th>النتيجة</th></tr></thead>
+        <tbody>
+          <tr><td>شموع اتقيّمت</td><td class="t">680</td></tr>
+          <tr><td>تغطية</td><td class="t">3/24 ساعة · يوم واحد</td></tr>
+          <tr><td>صفقات</td><td class="t">11 (منها 2 مضاعفة)</td></tr>
+          <tr><td>ربح / خسارة / تعادل</td><td class="t">7 / 4 / 0</td></tr>
+          <tr><td>دورات</td><td class="t">7 ربح · 0 عوّضت · 2 خسارة نهائية</td></tr>
+          <tr><td>تكرار الإشارة</td><td class="t">1.62% من الشموع · كل ~26 شمعة</td></tr>
+          <tr><td>مجال الثقة 95%</td><td class="t">35.4% — 84.8%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn">
+      <span class="note-label">اقرا ده قبل أي استنتاج</span>
+      <p>
+        <strong>11 صفقة مش عيّنة.</strong> مجال الثقة من 35% لـ85% معناه إن الرقم ده مش بيقول أي
+        حاجة. والباك تست نفسه بيرفض يدي حكم تحت 30 صفقة محسومة، وده صح.
+      </p>
+      <p>
+        وفي رقم يستاهل متابعة: <strong>المضاعفة عوّضت صفر من مرتين</strong> هنا، وصفر من أربعة على
+        عيّنة أوسع. لما المضاعفة تفشل، تكلفة الدورة بتبقى <strong>تلات أضعاف</strong> رهان واحد.
+      </p>
+    </div>
+    <p>
+      <strong>سقف مانع:</strong> الفيد بيحتفظ بـ100 شمعة لكل زوج، يعني على فريم دقيقة أقصى تاريخ =
+      ساعة وأربعين دقيقة لكل زوج. حتى بكل الأزواج، دي عشرات الصفقات مش مئات — ومش هيتحل غير لما
+      التاريخ يتراكم مع الوقت.
+    </p>
+  </section>
+
+  <!-- ── 17 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">17</span>
+      <h2>اللي مش موجود، عن قصد</h2>
+    </div>
+    <ul>
+      <li>مفيش RSI ولا متوسطات ولا أي مؤشر تاني — لا كشرط ولا كفلتر.</li>
+      <li>مفيش حد أدنى للنقاط ولا أي سكور.</li>
+      <li>مفيش أوقات تداول ولا جلسات ولا أيام مستبعدة.</li>
+      <li>مفيش هامش تسامح حوالين المستوى.</li>
+      <li>مفيش شرط على حجم الحركة (أقل مدى، أكبر مدى) — أي مدى أكبر من صفر مقبول.</li>
+      <li>مفيش حد أقصى لعدد الصفقات في اليوم.</li>
+      <li>مفيش تصفية للاتجاه العام ولا للترند.</li>
+    </ul>
+    <p>
+      أي واحدة من دول لو اتضافت هتغيّر أي شموع بتتداول — فأي إضافة لازم تكون قرار صريح منك، مش
+      اجتهاد.
+    </p>
+  </section>
+
+  <!-- ── 18 ────────────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">18</span>
+      <h2>الفروض التسعة — الحالة النهائية</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>القرار</th><th>الحالة</th></tr></thead>
+        <tbody>
+          <tr><td class="id">A1</td><td>القمة/القاع = فراكتال 5 شموع</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A2</td><td>الحركة = زوج متجاور متبادل، الأحدث أولًا</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A3</td><td>اللمسة على الشمعة اللي قفلت للتو بس</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A4</td><td>لمسة واحدة لكل حركة</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A5</td><td>التعادل مش خسارة ← مفيش مضاعفة</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A6</td><td>الدخول = الافتتاح، الخروج = الإغلاق</td><td><span class="tag neutral">فرض مني</span></td></tr>
+          <tr><td class="id">A7</td><td>مدى أكبر من صفر</td><td><span class="tag neutral">ضرورة تقنية</span></td></tr>
+          <tr><td class="id">A8</td><td><strong>الحركة بتتثبّت لما تتبنّى</strong></td><td><span class="tag up">اتصلّح</span></td></tr>
+          <tr><td class="id">A9</td><td>الحركة تموت لو السعر عدّى طرفها</td><td><span class="tag neutral">فرض مني</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>A1 و A2 هما اللي محتاجين مراجعتك.</strong> لو قصدك كان «التطبيق يشوف الـ100 شمعة
+      ويختار أعلى قمة وأوطى قاع فيهم» — دي استراتيجية مختلفة: زوج واحد ثابت، من غير بحث ولا
+      استبعاد ولا تأكيد بشمعتين. التغيير محصور في دالة واحدة، وباقي التقرير ده كله بيفضل صحيح زي
+      ما هو.
+    </p>
+  </section>
+
+  <footer>
+    <p>
+      التقرير ده مكتوب من الكود المنفَّذ، مش من نية. كل رقم فيه موجود في
+      <code>packages/engine/src/programs/fib236.ts</code> أو في ربطه بالتطبيق، و29 اختبار بيقفلوا
+      على السلوك ده اختبار لكل قاعدة.
+    </p>
+  </footer>
+
+</div>
+
+</body>
+</html>

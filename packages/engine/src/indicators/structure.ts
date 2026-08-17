@@ -5,6 +5,26 @@
  * signal_engine.dart. Line references point at the Dart source.
  */
 
+/**
+ * NOT INDICATORS ANY MORE.
+ *
+ * Everything in this file used to register a name a strategy could put in a
+ * rule. Those registrations are gone with the rest of the 231: the registry now
+ * answers to the Fibonacci family and nothing else, and a rule naming anything
+ * here scores 0.0 exactly as it would for a name that never existed.
+ *
+ * The functions themselves stay because two callers that are not strategies
+ * still read them:
+ *
+ *   • the twelve analysis stages the button prints (apps/web/lib/analysis.ts),
+ *     which show live values so the user can see their pair being read
+ *   • the V2 parametric scorer (scoring.ts), the fallback for when no strategy
+ *     is uploaded at all
+ *
+ * Deleting them would have taken the analysis screen and the fallback with
+ * them, which is not what "remove the indicators" meant.
+ */
+
 import { register, type EngineClock } from '../registry.js';
 import type { Candle } from '../types.js';
 import * as m from './math.js';
@@ -336,46 +356,3 @@ export function judasSwing(
   if (mxH > rec[0]!.close + atrVal * 1.5 && currentPrice < midC) return 'bearish';
   return 'none';
 }
-
-// ── Registrations ───────────────────────────────────────────────────────────
-
-register('market_structure', ({ candles, currentPrice }) => marketStructure(candles, currentPrice));
-register('break_of_structure', ({ candles, currentPrice }) => {
-  const ms = marketStructure(candles, currentPrice);
-  return ms === 'break_of_structure_bullish' ? 'bullish'
-    : ms === 'break_of_structure_bearish' ? 'bearish' : 'none';
-});
-register('change_of_character', ({ candles, currentPrice }) => {
-  const ms = marketStructure(candles, currentPrice);
-  return ms === 'change_of_character_bullish' ? 'bullish'
-    : ms === 'change_of_character_bearish' ? 'bearish' : 'none';
-});
-
-register('order_block', ({ candles, currentPrice }) => orderBlock(candles, currentPrice));
-register('fair_value_gap', ({ candles, currentPrice }) => fairValueGap(candles, currentPrice));
-register('liquidity_sweep', ({ candles, currentPrice }) => liquiditySweep(candles, currentPrice));
-register('wyckoff_spring', ({ candles, currentPrice }) => wyckoffSpring(candles, currentPrice));
-register('wyckoff_upthrust', ({ candles, currentPrice }) => wyckoffUpthrust(candles, currentPrice));
-register('session_open', ({ candles, currentPrice }) => sessionOpen(candles, currentPrice));
-register('opening_range', ({ candles, currentPrice }) => openingRange(candles, currentPrice));
-
-register('divergence', ({ candles }) => {
-  const d = rsiDivergence(candles);
-  return d === 'bullish' ? 1.0 : d === 'bearish' ? -1.0 : 0.0;
-});
-
-
-
-// Both cases read the same ratio in Dart.
-
-// Clock-driven. Note the two differing defaults for the session name.
-register('kill_zone', ({ clock }) => killZone(clock));
-register('day_of_week', ({ clock }) => dayOfWeek(clock));
-register('session_overlap', ({ clock }) => sessionOverlap(clock));
-register('session', ({ rule, clock }) => timeSession(rule.pattern ?? 'london', clock));
-register('time_analysis', ({ rule, clock }) =>
-  timeSession(rule.pattern ?? 'london_newyork_overlap', clock),
-);
-register('judas_swing', ({ candles, currentPrice, clock }) =>
-  judasSwing(candles, currentPrice, clock),
-);

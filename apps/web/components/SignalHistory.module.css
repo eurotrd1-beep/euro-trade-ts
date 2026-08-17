@@ -100,6 +100,11 @@
 .row_loss { border-color: color-mix(in srgb, var(--put-red) 32%, transparent); }
 .row_tie  { border-color: color-mix(in srgb, var(--warning-orange) 32%, transparent); }
 
+/* A trade with no result yet — still running, or opened in a session that
+   closed before it expired. Deliberately colourless: it is not an outcome, and
+   painting it green or red would be inventing one. */
+.row_open { border-color: color-mix(in srgb, var(--text-secondary) 32%, transparent); }
+
 .pill {
   flex-shrink: 0;
   padding: 4px 8px; border-radius: 6px;
@@ -110,6 +115,7 @@
 .pill_win  { color: var(--call-green);      background: color-mix(in srgb, var(--call-green) 8%, transparent);      border-color: color-mix(in srgb, var(--call-green) 32%, transparent); }
 .pill_loss { color: var(--put-red);         background: color-mix(in srgb, var(--put-red) 8%, transparent);         border-color: color-mix(in srgb, var(--put-red) 32%, transparent); }
 .pill_tie  { color: var(--warning-orange);  background: color-mix(in srgb, var(--warning-orange) 8%, transparent);  border-color: color-mix(in srgb, var(--warning-orange) 32%, transparent); }
+.pill_open { color: var(--text-secondary);  background: color-mix(in srgb, var(--text-secondary) 8%, transparent);  border-color: color-mix(in srgb, var(--text-secondary) 32%, transparent); }
 
 .details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
