@@ -144,6 +144,45 @@ export default function MainScreen() {
   const stopMonitoringRef = useRef<(() => void) | null>(null);
   const takeOverMonitoring = useCallback(() => stopMonitoringRef.current?.(), []);
 
+  /**
+   * The pairs the watch sweeps: everything on offer, minus what the feed says
+   * is closed. A closed market cannot produce a candle, so scanning it is a
+   * wasted slot in the sweep.
+   */
+  const watchSymbols = useMemo(
+    () =>
+      visiblePairs
+        .map((p) => p.chart_symbol)
+        .filter((sym) => sym && market.closedPairs[sym] !== true),
+    [visiblePairs, market.closedPairs],
+  );
+
+  /**
+   * The chart follows the signal.
+   *
+   * Switching by chart symbol rather than by display name, because that is
+   * what the engine reports and what the feed is keyed by — matching on the
+   * pretty name would fail on the first pair whose two names differ.
+   */
+  const switchToPair = useCallback(
+    (chartSymbol: string) => {
+      const match = visiblePairs.find((p) => p.chart_symbol === chartSymbol);
+      if (match !== undefined) setActivePair(match.symbol);
+    },
+    [visiblePairs],
+  );
+
+  /**
+   * The watch's `active`, mirrored into state.
+   *
+   * A ref would be simpler and would not work: `useMonitoring` is created
+   * AFTER the engine — it needs the engine's tick — so at the moment the
+   * engine is built the ref still holds last render's value, and a flag that
+   * arrives a render late never starts the effect that watches for it. State
+   * costs one extra render and is actually correct.
+   */
+  const [watching, setWatching] = useState(false);
+
   const engine = useSignalEngine({
     chartSymbol,
     timeframe,
@@ -154,6 +193,11 @@ export default function MainScreen() {
     // program each plan runs lives in `programs/index.ts`, so the day the paid
     // plan gets its own, this line does not change.
     programId: planProgram.id,
+    // Every pair the user can see, not just the one on screen. A setup on a
+    // pair nobody is looking at is worth exactly as much as one on this chart.
+    watchSymbols,
+    watching,
+    onPairSwitch: switchToPair,
     pair: activePair,
     accountId,
     onTakeOverMonitoring: takeOverMonitoring,
@@ -170,6 +214,10 @@ export default function MainScreen() {
   });
 
   stopMonitoringRef.current = monitoring.stop;
+
+  useEffect(() => {
+    setWatching(monitoring.active);
+  }, [monitoring.active]);
 
   /**
    * The button, both halves of it.

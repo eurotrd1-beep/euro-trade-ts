@@ -76,7 +76,65 @@ export async function fetchCandles(symbol: string, interval: string): Promise<Ca
   }
 }
 
+/**
+ * Candles for many symbols in one request.
+ *
+ * The watch scans every enabled pair on each candle close. One request per
+ * pair would be 89 connections opening in the same 200ms window, every minute,
+ * from every open app — so the proxy grew an endpoint that answers all of them
+ * from the map it already holds in memory.
+ *
+ * Symbols the proxy has no history for are simply absent from the result. The
+ * caller treats a missing symbol as "nothing to say about this pair yet",
+ * which is also what it does for a pair whose history is too short.
+ */
+export async function fetchCandlesBulk(
+  symbols: readonly string[],
+  interval: string,
+): Promise<Map<string, Candle[]>> {
+  const out = new Map<string, Candle[]>();
+  if (symbols.length === 0) return out;
+
+  const base = getProxyUrl().replace(/\/+$/, '');
+  const url =
+    `${base}/api/otc/candles-bulk?symbols=${encodeURIComponent(symbols.join(','))}` +
+    `&interval=${encodeURIComponent(interval)}`;
+
+  try {
+    // Longer than the single-symbol timeout: this is one request doing the
+    // work of ninety, and failing it early would lose all of them.
+    const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS * 2) });
+    if (res.status !== 200) return out;
+
+    const body = (await res.json()) as { candles?: Record<string, RawCandle[]> };
+    for (const [symbol, raw] of Object.entries(body.candles ?? {})) {
+      if (!Array.isArray(raw)) continue;
+      const candles: Candle[] = [];
+      for (const e of raw) {
+        if (
+          typeof e?.o !== 'number' || typeof e.h !== 'number' ||
+          typeof e.l !== 'number' || typeof e.c !== 'number' ||
+          typeof e.t !== 'number'
+        ) continue;
+        candles.push({ open: e.o, high: e.h, low: e.l, close: e.c, volume: SYNTHETIC_VOLUME, time: e.t * 1000 });
+      }
+      if (candles.length > 0) out.set(symbol, candles);
+    }
+  } catch {
+    /* one failed sweep — the watch tries again on the next candle */
+  }
+  return out;
+}
+
 export interface OtcStatus {
+  /**
+   * Every symbol's latest price, as the proxy has it.
+   *
+   * Already in the payload and previously discarded. The watch reads it to
+   * see how close a pair is to its level between candles, which is how an
+   * alert can arrive before the candle that produces the signal closes.
+   */
+  prices: Record<string, number>;
   /** Per-symbol closed flag, used to lock closed pairs in the asset picker. */
   closedPairs: Record<string, boolean>;
   /** False when the active symbol's last sample is stale — "reconnecting". */
@@ -170,7 +228,13 @@ export async function fetchOtcStatus(activeSymbol: string): Promise<OtcStatus | 
 
     // A sample stamped in the FUTURE is a clock disagreement, not a stall.
     // Math.abs would be wrong here: only lateness means the feed stopped.
+    const livePrices: Record<string, number> = {};
+    for (const [symbol, entry] of Object.entries(prices)) {
+      if (typeof entry?.p === 'number') livePrices[symbol] = entry.p;
+    }
+
     return {
+      prices: livePrices,
       closedPairs,
       healthy: entry !== undefined && age < STALE_AFTER_SECONDS,
       nextOpen: entry?.no ?? 0,

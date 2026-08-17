@@ -274,3 +274,14 @@
   border: 1px solid color-mix(in srgb, var(--warning-orange) 40%, transparent);
   background: color-mix(in srgb, var(--warning-orange) 10%, transparent);
 }
+
+/* The pair, above everything on the trade card. It leads because the watch
+   scans every market: the trade shown is often not the chart the user last
+   chose, and the app switched to it a moment ago. */
+.signalPair {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .01em;
+  color: var(--text-primary);
+}
