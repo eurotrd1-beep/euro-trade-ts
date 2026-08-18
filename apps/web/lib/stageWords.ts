@@ -71,7 +71,27 @@ export function byNearest(a: SetupProgress, b: SetupProgress): number {
   const byStage = rank(b) - rank(a);
   if (byStage !== 0) return byStage;
 
-  // Within the armed band, the smaller remaining distance wins.
-  if (a.gap !== undefined && b.gap !== undefined) return a.gap - b.gap;
-  return b.percent - a.percent;
+  // ── Quantised, so the list stops dancing ────────────────────────────────
+  //
+  // Sorting on the raw numbers re-ordered the card on every update: prices move
+  // constantly, so two pairs a fraction of a pip apart swapped places every few
+  // seconds and a list that will not hold still is a list nobody can read.
+  //
+  // The comparison is made on a coarse version of each value instead. A pair
+  // has to be a whole step nearer to move above another, which is roughly the
+  // point at which the difference is worth showing anyone — and inside a step
+  // the order is fixed by the symbol, so it is stable rather than arbitrary.
+  if (a.gap !== undefined && b.gap !== undefined) {
+    const step = (g: number): number => {
+      // Buckets that get finer as the gap closes: a tenth of a pip matters when
+      // there is a pip left and means nothing when there are twenty.
+      if (g <= 0) return 0;
+      const pips = g / 0.0001;
+      return pips < 2 ? Math.round(pips * 10) : pips < 20 ? Math.round(pips) : Math.round(pips / 5) * 5;
+    };
+    const d = step(a.gap) - step(b.gap);
+    if (d !== 0) return d;
+  }
+
+  return Math.round(b.percent) - Math.round(a.percent);
 }

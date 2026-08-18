@@ -594,14 +594,35 @@ const BAND = {
   pivots: 15,
   rejected: 30,
   armed: 50,
-  /** The top of the armed band. The last 5 belong to the touch itself. */
+  /** Where a touch lands. Above this the wait is for the candle, not the price. */
   armedTop: 95,
 } as const;
+
+/**
+ * The highest a reading can go without the trade being decided.
+ *
+ * Not 100: that is reserved for a cycle that is actually open, and the whole
+ * point of the scale is that its top is a promise. A candle one second from
+ * closing on the level is very nearly certain and still not certain — 99 says
+ * that, and 100 would not.
+ */
+const CONFIRM_TOP = 99;
 
 export function setupProgress(
   state: Pick<ProgramState, 'cycle' | 'armed'>,
   diagnostics: SetupDiagnostics | null,
   price: number,
+  /**
+   * How much of the current candle has already elapsed, 0 to 1.
+   *
+   * Only used once price is ON the level, and it is the answer to a real
+   * question. A touch is not a trade: the strategy judges the CLOSE, so price
+   * can reach the level early in a candle and drift away before it ends. Early
+   * in the candle that is very possible; with seconds left it is nearly
+   * settled. Without this the reading sat flat at the top of the band for a
+   * whole minute, saying the same thing about a coin-flip and a near-certainty.
+   */
+  candleElapsed = 0,
 ): SetupProgress {
   // A trade is open, or one is about to open on the next candle. Either way the
   // strategy has everything it was looking for.
@@ -609,12 +630,22 @@ export function setupProgress(
 
   if (state.armed !== null) {
     const closeness = setupCompletion(state.armed, price);
+    const gap = Math.abs(price - state.armed.level);
+
+    // On the level. What is left is not distance any more — it is time, and
+    // how much of it has gone. The band above `armedTop` belongs to that wait,
+    // and it stops short of 100 because 100 is the confirmation itself.
+    const percent =
+      closeness >= 1
+        ? BAND.armedTop + Math.min(1, Math.max(0, candleElapsed)) * (CONFIRM_TOP - BAND.armedTop)
+        : BAND.armed + closeness * (BAND.armedTop - BAND.armed);
+
     return {
       stage: 'armed',
-      percent: BAND.armed + closeness * (BAND.armedTop - BAND.armed),
+      percent,
       level: state.armed.level,
       direction: state.armed.direction,
-      gap: Math.abs(price - state.armed.level),
+      gap,
     };
   }
 
