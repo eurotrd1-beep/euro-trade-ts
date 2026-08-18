@@ -1105,17 +1105,27 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const ordered = [a.chartSymbol, ...symbols.filter((sym) => sym !== a.chartSymbol)];
 
     let read = 0;
+    // ── Every pair, every sweep. No stopping at the first one ──────────────
+    //
+    // This used to return the moment a pair produced anything, leaving every
+    // pair after it in the order un-ticked for that candle. That was right when
+    // only one trade could exist: once one had opened, the rest were not
+    // allowed to anyway.
+    //
+    // They are now. So stopping there meant a pair that touched its level on
+    // the same candle as another simply never had that candle read — the card
+    // said the trade was coming, the candle passed, and nothing happened,
+    // because the strategy was never shown the candle that would have fired it.
+    let outcome: TickResult = 'none';
     for (const symbol of ordered) {
       const candles = bulk.get(symbol);
       if (candles === undefined || candles.length === 0) continue;
 
       read++;
       const result = applyEvent(symbol, prog, candles, stateFor(symbol));
-      if (result !== 'none') {
-        // Counted before the early return: the pairs after this one are
-        // deliberately left untouched, but the ones already read were read.
-        setState((st) => ({ ...st, candlesAnalysed: st.candlesAnalysed + read }));
-        return result;
+      // A signal outranks a cycle ending: it is the thing the caller acts on.
+      if (result === 'signal' || (result === 'cycle_end' && outcome === 'none')) {
+        outcome = result;
       }
     }
     if (read > 0) setState((st) => ({ ...st, candlesAnalysed: st.candlesAnalysed + read }));
@@ -1123,7 +1133,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     // Which pair to follow is a question about all of them at once, so it is
     // asked after the loop rather than inside it.
     rankWatched(bulk);
-    return 'none';
+    return outcome;
   }, [applyEvent, stateFor, rankWatched]);
 
   /**
