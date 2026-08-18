@@ -60,6 +60,7 @@ import {
   saveHistory,
 } from './signalHistoryStore';
 import { notify } from './signalNotify';
+import { acquireWatchLease, type WatchLease } from './watchLease';
 import {
   playCallSound,
   playLossSound,
@@ -166,6 +167,17 @@ export interface EngineState {
   candleSecondsLeft: number;
   /** Weekend forex, or a price that never moved during analysis. */
   marketClosed: boolean;
+  /**
+   * False when another tab of this account is the one running the strategy.
+   *
+   * Only one may: the program's state lives in `localStorage` and each tab
+   * keeps its own copy in memory, so two of them ticking the same pair on the
+   * same candle open two trades for one setup and then overwrite each other's
+   * cycle — which, between a loss and its martingale, is a recovery trade that
+   * never happens and nothing reporting it. The UI stays fully readable in the
+   * tabs that are not watching; they simply do not drive the engine.
+   */
+  watchOwner: boolean;
   /**
    * The pair the chart is following, and how close it is to firing.
    *
@@ -319,6 +331,22 @@ function pairNameFor(chartSymbol: string): string {
   return /_otc$/i.test(chartSymbol) ? `${name} OTC` : name;
 }
 
+/**
+ * Whether a signal belongs to this feed symbol.
+ *
+ * On `symbol` when the signal has one, which is every signal created from now
+ * on. The fallback to the display name is only for trades recorded before the
+ * field existed, and it is a fallback rather than the rule because the name is
+ * not an identifier: the catalogue calls `XAUUSD_otc` "Gold OTC", so nine pairs
+ * — every metal and every crypto — would never match themselves.
+ */
+function sameTrade(signal: TradingSignal | null, chartSymbol: string): boolean {
+  if (signal === null) return false;
+  return signal.symbol !== undefined
+    ? signal.symbol === chartSymbol
+    : signal.pair === pairNameFor(chartSymbol);
+}
+
 /** Prices at the precision the pair is quoted to — three decimals for yen. */
 function formatLevel(price: number): string {
   return price.toFixed(price >= 50 ? 3 : 5);
@@ -365,6 +393,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     candleSecondsLeft: 0,
     marketClosed: false,
     leader: null,
+    watchOwner: true,
     followPaused: false,
   });
 
@@ -434,7 +463,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   useEffect(() => {
     if (state.activeSignal !== null || state.history.length === 0) return;
     const resumable = state.history.find(
-      (s) => s.status === 'ACTIVE' && s.pair === args.pair && s.expiryTime > Date.now(),
+      (s) => s.status === 'ACTIVE' && sameTrade(s, args.chartSymbol) && s.expiryTime > Date.now(),
     );
     if (resumable === undefined) return;
     setState((s) => ({
@@ -443,6 +472,26 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       secondsRemaining: Math.max(1, Math.ceil((resumable.expiryTime - Date.now()) / 1000)),
     }));
   }, [state.history, state.activeSignal, args.pair]);
+  // ── One tab runs the strategy ─────────────────────────────────────────────
+  //
+  // See `watchLease.ts` for what goes wrong without this. The ref is what the
+  // tick reads — state would be a render behind, and a render behind is a whole
+  // candle when the interval is seconds.
+  const ownerRef = useRef(true);
+  const leaseRef = useRef<WatchLease | null>(null);
+
+  useEffect(() => {
+    const lease = acquireWatchLease((owned) => {
+      ownerRef.current = owned;
+      setState((st) => (st.watchOwner === owned ? st : { ...st, watchOwner: owned }));
+    });
+    leaseRef.current = lease;
+    return () => {
+      lease.stop();
+      leaseRef.current = null;
+    };
+  }, []);
+
   /** Guards re-entry, as Dart's `_isAnalyzing` does. */
   const analysingRef = useRef(false);
 
@@ -707,7 +756,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // that is a couple of pips from where the trade actually opened.
       if (
         stateRef.current.activeSignal?.status === 'ACTIVE' &&
-        stateRef.current.activeSignal.pair === pairNameFor(symbol)
+        sameTrade(stateRef.current.activeSignal, symbol)
       ) {
         reconcileOpenTrade(candles);
       }
@@ -720,6 +769,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
         const signal: TradingSignal = {
           pair: pairNameFor(symbol),
+          symbol,
           direction: event.signal.direction,
           durationMinutes: prog.durationMinutes,
           entryPrice: candles[candles.length - 1]!.close,
@@ -845,6 +895,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const prog = programRef.current;
     const a = argsRef.current;
     if (prog === null) return 'none';
+
+    // Not this tab's job. Checked here rather than at the interval so the
+    // decision is made against the moment of the tick: a tab can gain or lose
+    // the lease between two of them, and acting on a stale answer is exactly
+    // the double-trade this prevents.
+    if (!ownerRef.current) return 'none';
 
     // ── A cycle owns the engine ──────────────────────────────────────────
     const busy = cycleSymbolRef.current;
@@ -1077,6 +1133,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
       return {
         pair: a.pair,
+        symbol: a.chartSymbol,
         direction: (Math.random() < 0.5 ? 'CALL' : 'PUT') as Direction,
         durationMinutes: selectedMinutes,
         entryPrice: entry,
@@ -1235,6 +1292,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
         signal = {
           pair: argsRef.current.pair,
+          symbol: argsRef.current.chartSymbol,
           direction: (isCall ? 'CALL' : 'PUT') as Direction,
           durationMinutes: selectedMinutes,
           entryPrice: entry,

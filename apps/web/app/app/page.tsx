@@ -299,6 +299,26 @@ export default function MainScreen() {
   // close, and the countdown on screen would be measuring nothing.
   const tradeOpen = engine.activeSignal?.status === 'ACTIVE' || monitoring.active;
 
+  /**
+   * Whether the open trade belongs to the pair currently on the chart.
+   *
+   * Compared on the SYMBOL, never the display name: the catalogue calls
+   * `XAUUSD_otc` "Gold OTC", so nine pairs — every metal and every crypto —
+   * do not match anything derivable from their own symbol, and a name-based
+   * check would report "different pair" for a chart showing exactly that pair.
+   *
+   * The chart used to be handed `activeSignal` unconditionally, so a trade
+   * running on gold drew its entry line and its countdown overlay across
+   * whatever pair the user had opened — a price from one market laid over the
+   * candles of another, at the exact level of detail somebody would act on.
+   */
+  const tradeOnThisChart =
+    engine.activeSignal !== null &&
+    engine.activeSignal.status === 'ACTIVE' &&
+    (engine.activeSignal.symbol !== undefined
+      ? engine.activeSignal.symbol === chartSymbol
+      : engine.activeSignal.pair === activePair);
+
   stopMonitoringRef.current = monitoring.stop;
   pauseFollowRef.current = engine.setFollowPaused;
 
@@ -374,6 +394,22 @@ export default function MainScreen() {
           )}
 
           {/*
+            Another tab of this account is driving the strategy. Said out loud
+            rather than left to look broken: this tab shows live prices and the
+            full history, it simply is not the one opening trades — and one tab
+            must be, because two of them ticking the same pair open two trades
+            for one setup and then overwrite each other's cycle.
+          */}
+          {!engine.watchOwner && (
+            <div className={styles.reconnecting} role="status">
+              {tr(
+                'المراقبة شغالة في تاب تاني من نفس الحساب. التاب ده بيعرض الأسعار والسجل عادي، بس مش هو اللي بيفتح الصفقات.',
+                'Watching is running in another tab of this account. This tab shows live prices and history, but is not the one opening trades.',
+              )}
+            </div>
+          )}
+
+          {/*
             Above the chart, not inside it: it explains why the chart is
             showing what it is showing, which has to be readable before the
             chart is, not after.
@@ -433,13 +469,9 @@ export default function MainScreen() {
                 interval={timeframe}
                 mode={effectiveMode}
                 guaranteedWin={user.guaranteedWin}
-                signalDirection={
-                  engine.activeSignal?.status === 'ACTIVE' ? engine.activeSignal.direction : null
-                }
-                signalEntryPrice={engine.activeSignal?.entryPrice ?? null}
-                signalSecondsRemaining={
-                  engine.activeSignal?.status === 'ACTIVE' ? engine.secondsRemaining : 0
-                }
+                signalDirection={tradeOnThisChart ? engine.activeSignal!.direction : null}
+                signalEntryPrice={tradeOnThisChart ? engine.activeSignal!.entryPrice : null}
+                signalSecondsRemaining={tradeOnThisChart ? engine.secondsRemaining : 0}
                 onReady={engine.setLivePriceGetter}
               />
             </div>

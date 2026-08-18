@@ -21,7 +21,25 @@ export type Direction = 'CALL' | 'PUT';
 export type SignalStatus = 'ACTIVE' | 'PENDING' | 'WIN' | 'LOSS' | 'TIE' | 'UNRESOLVED';
 
 export interface TradingSignal {
+  /**
+   * The pair as a person reads it — "Gold OTC", "EUR/USD OTC".
+   *
+   * For display only. It is NOT an identifier: the catalogue names nine pairs
+   * differently from anything derivable from their symbol (`XAUUSD_otc` is
+   * "Gold OTC", not "XAU/USD OTC"), so code that decides whether two things
+   * are the same pair by comparing this string is wrong for every metal and
+   * every crypto. Compare `symbol`.
+   */
   pair: string;
+  /**
+   * The feed symbol the trade was opened on — `EURUSD_otc`, `XAUUSD_otc`.
+   *
+   * Optional because trades recorded before this existed do not carry it, and
+   * a stored history is not rewritten to add one. Everything that creates a
+   * signal sets it; anything comparing pairs should prefer it and fall back to
+   * the name only for those older rows.
+   */
+  symbol?: string;
   direction: Direction;
   durationMinutes: number;
   entryPrice: number;
