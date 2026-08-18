@@ -701,7 +701,18 @@ export function setupProgress(
     // distance remaining. More time than the distance needs is still just
     // enough, so it caps at 1 — a pair sitting on the level does not read
     // higher for having a whole candle to do nothing in.
-    const closeness = setupCompletion(state.armed, price);
+    // ── Distance, both ways ────────────────────────────────────────────────
+    //
+    // NOT `setupCompletion`, which answers a different question: it treats
+    // price that has run past the level as fully arrived, because for its
+    // purpose reaching the level from the correct side is the whole event.
+    //
+    // Here that shortcut was reporting pairs six hundred pips beyond their
+    // level as 99% — the distance is on the other side, and it is still
+    // distance. Price has to come back across it before anything can happen, so
+    // it is measured plainly and the side does not matter.
+    const legSize = Math.abs(state.armed.level - state.armed.endPrice) / FIB;
+    const closeness = legSize > 0 ? Math.max(0, Math.min(1, 1 - gap / legSize)) : 0;
     const need = Math.max(1 - closeness, 1e-9);
     const reach = Math.min(1, Math.max(0, candleLeft) / need);
 
