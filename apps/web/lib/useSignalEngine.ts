@@ -149,6 +149,20 @@ export interface EngineState {
    */
   watchOwner: boolean;
   /**
+   * How many candles the strategy has actually read since the watch started.
+   *
+   * Every pair, every sweep. The watch used to count SWEEPS — one per pass,
+   * whatever it covered — so a user watching five pairs saw "1" after the
+   * strategy had read five candles, and "12" after sixty. The number was
+   * describing the loop rather than the work, and the work is what the user is
+   * waiting on.
+   *
+   * Pairs evaluated during an open trade count too. They are genuinely being
+   * read: that is the whole point of the shadow tick, and leaving them out
+   * would make the counter stall for a minute at a time for no visible reason.
+   */
+  candlesAnalysed: number;
+  /**
    * What happened on the other watched pairs while a trade was running.
    *
    * The pairs are still evaluated throughout — nothing stops computing, which
@@ -392,6 +406,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     marketClosed: false,
     completions: {},
     heldEvents: [],
+    candlesAnalysed: 0,
     watchOwner: true,
     followPaused: false,
   });
@@ -943,7 +958,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     setState((st) => {
       const byPair = new Map(st.heldEvents.map((e) => [e.symbol, e]));
       for (const e of fresh) byPair.set(e.symbol, e);
-      return { ...st, completions: percents, heldEvents: [...byPair.values()] };
+      return {
+        ...st,
+        completions: percents,
+        heldEvents: [...byPair.values()],
+        candlesAnalysed: st.candlesAnalysed + bulk.size,
+      };
     });
   }, [stateFor]);
 
@@ -1013,13 +1033,21 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     // the same candle the user's own chart wins and nothing jumps.
     const ordered = [a.chartSymbol, ...symbols.filter((sym) => sym !== a.chartSymbol)];
 
+    let read = 0;
     for (const symbol of ordered) {
       const candles = bulk.get(symbol);
       if (candles === undefined || candles.length === 0) continue;
 
+      read++;
       const result = applyEvent(symbol, prog, candles, stateFor(symbol));
-      if (result !== 'none') return result;
+      if (result !== 'none') {
+        // Counted before the early return: the pairs after this one are
+        // deliberately left untouched, but the ones already read were read.
+        setState((st) => ({ ...st, candlesAnalysed: st.candlesAnalysed + read }));
+        return result;
+      }
     }
+    if (read > 0) setState((st) => ({ ...st, candlesAnalysed: st.candlesAnalysed + read }));
 
     // Which pair to follow is a question about all of them at once, so it is
     // asked after the loop rather than inside it.
@@ -1265,6 +1293,8 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         waitNotice: '',
         activeSignal: null,
         secondsRemaining: 0,
+        // A press is a new session, and the count belongs to the session.
+        candlesAnalysed: 0,
       }));
 
       // Track live price across every stage to spot a frozen market.

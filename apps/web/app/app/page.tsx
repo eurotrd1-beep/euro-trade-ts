@@ -547,6 +547,7 @@ export default function MainScreen() {
             pair={activePair}
             timeframe={timeframe}
             watchedCount={watchedPairs.length}
+            candlesAnalysed={engine.candlesAnalysed}
             onOpenSettings={() => setSettingsOpen(true)}
             awayTradePair={awayTrade?.pair ?? null}
             selectedMinutes={program?.durationMinutes ?? selectedMinutes}

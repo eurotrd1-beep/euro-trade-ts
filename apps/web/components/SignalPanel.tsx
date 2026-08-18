@@ -60,6 +60,14 @@ export interface SignalPanelProps {
   /** Opens the settings sheet — pairs, and whether to be alerted about them. */
   onOpenSettings: () => void;
   /**
+   * Candles the strategy has read since the press — every pair, every sweep.
+   *
+   * From the engine rather than from the watch loop, which could only count its
+   * own passes: with five pairs chosen it said "1" where five candles had been
+   * read, describing the loop instead of the work.
+   */
+  candlesAnalysed: number;
+  /**
    * The pair a trade is running on, when it is not the pair on screen.
    *
    * The card for it is deliberately absent here — it lives with its own chart —
@@ -87,7 +95,13 @@ export function SignalPanel(props: SignalPanelProps) {
 
 /* ── Monitoring ────────────────────────────────────────────────────────────── */
 
-function MonitoringView({ monitoring, waitNotice, onStopMonitoring }: SignalPanelProps) {
+function MonitoringView({
+  monitoring,
+  waitNotice,
+  onStopMonitoring,
+  candlesAnalysed,
+  watchedCount,
+}: SignalPanelProps) {
   return (
     <section className={`${styles.panel} ${styles.monitoringPanel}`}>
       <div className={styles.monHead}>
@@ -136,8 +150,11 @@ function MonitoringView({ monitoring, waitNotice, onStopMonitoring }: SignalPane
           tone="amber"
         />
         <MonStat
-          label={tr('شموع تم تحليلها', 'Candles analysed')}
-          value={String(monitoring.checksDone)}
+          label={tr(
+            `شموع اتحللت · ${watchedCount} زوج`,
+            `Candles analysed · ${watchedCount} pairs`,
+          )}
+          value={String(candlesAnalysed)}
           tone="cyan"
         />
         <MonStat
