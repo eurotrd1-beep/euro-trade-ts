@@ -7,7 +7,7 @@
  * a status here means the same thing it meant in the Flutter admin.
  */
 
-import { supabase } from '@euro/shared';
+import { CATALOGUE_SYMBOLS, supabase } from '@euro/shared';
 
 // ── Fixed infra endpoints (Dart: _kWorker / _kOrigin / _kRef …) ────────────
 
@@ -79,7 +79,7 @@ export const CHECKS: RCheck[] = [
   {
     id: 'proxy_serves',
     section: 'proxy',
-    title: '⭐ الرابط في الكونفيج بيخدم 183 رمز فعلاً؟',
+    title: `⭐ الرابط في الكونفيج بيخدم ${CATALOGUE_SYMBOLS} رمز فعلاً؟`,
     help: {
       measure: 'يقرأ configs.proxy_server_url ثم يطلب /api/otc/status منه ويعدّ الرموز.',
       why: 'أخطر فخّ: ممكن الكونفيج يشاور على خدمة Render مكرّرة ميتة بتردّ /health أخضر بس بترجّع 0 رمز — فالتطبيق يقول "تعذر الاتصال بالسوق".',
@@ -198,7 +198,7 @@ export const CHECKS: RCheck[] = [
   {
     id: 'd_count',
     section: 'data',
-    title: 'عدد الرموز من 183',
+    title: `عدد الرموز من ${CATALOGUE_SYMBOLS}`,
     help: {
       measure: 'عدد المفاتيح في otc_prices.',
       why: 'رموز ناقصة = مشكلة اشتراك في السكرابر.',
@@ -712,10 +712,21 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
             danger: true,
           });
         }
-        if (n < 183) {
-          return res('warn', `${n} / 183 رمز`, { cause: 'بعض الرموز ناقصة من السكرابر' });
+        if (n < CATALOGUE_SYMBOLS) {
+          return res('warn', `${n} / ${CATALOGUE_SYMBOLS} رمز`, {
+            cause: 'بعض الرموز ناقصة من السكرابر',
+          });
         }
-        return res('ok', `183 / 183 رمز ✅ (${ctx.activeProxy})`);
+        // More than the catalogue is not "extra coverage" — it means the
+        // scraper subscribed to something the asset policy dropped, and those
+        // candles are being stored and paid for with nobody reading them.
+        if (n > CATALOGUE_SYMBOLS) {
+          return res('warn', `${n} / ${CATALOGUE_SYMBOLS} رمز — فيه زيادة`, {
+            cause: 'السكرابر مشترك في رموز خارج سياسة الأصول',
+            fix: 'راجع isAllowedAsset في po-scraper.js — لازم تطابق asset_allowed في الترحيل',
+          });
+        }
+        return res('ok', `${n} / ${CATALOGUE_SYMBOLS} رمز ✅ (${ctx.activeProxy})`);
       }
 
       case 'proxy_alive': {
@@ -870,8 +881,15 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
         const n = st?.count ?? -1;
         if (n < 0) return res('fail', 'مفيش رد', { cause: 'البروكسي واقف' });
         if (n === 0) return res('fail', '0 رمز', { cause: 'السكرابر مش مشترك في أي رمز' });
-        if (n < 183) return res('warn', `${n} / 183`, { cause: 'رموز ناقصة' });
-        return res('ok', '183 / 183 ✅');
+        if (n < CATALOGUE_SYMBOLS) {
+          return res('warn', `${n} / ${CATALOGUE_SYMBOLS}`, { cause: 'رموز ناقصة' });
+        }
+        if (n > CATALOGUE_SYMBOLS) {
+          return res('warn', `${n} / ${CATALOGUE_SYMBOLS} — فيه زيادة`, {
+            cause: 'رموز خارج سياسة الأصول',
+          });
+        }
+        return res('ok', `${n} / ${CATALOGUE_SYMBOLS} ✅`);
       }
 
       case 'd_anom': {

@@ -19,6 +19,22 @@ export function formatPrice(price: number): string {
   return price.toFixed(5);
 }
 
+/**
+ * How many symbols the catalogue holds after the asset policy.
+ *
+ * It was 183 until stocks and indices were dropped and commodities and crypto
+ * were cut to gold, silver, BTC, ETH and SOL — the scraper does not subscribe
+ * to the rest and nothing stores them. 89 is what `otc_pairs`, `pairs` and the
+ * live feed all report, and `20260817_asset_policy.sql` is what set it.
+ *
+ * It lives here because three places were carrying the old figure separately:
+ * two health checks that had been quietly warning ever since, and a headline
+ * on the login screen telling visitors a number that stopped being true. A
+ * count kept in one place can go stale; a count kept in three goes stale in
+ * pieces, and the pieces disagree.
+ */
+export const CATALOGUE_SYMBOLS = 89;
+
 // ── Local storage keys ──────────────────────────────────────────────────────
 
 export const KEY_DEVICE_ID = 'device_id';

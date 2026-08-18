@@ -2,28 +2,35 @@
  * The analysis sequence the signal button runs — ported from
  * `requestNextSignal` (signal_engine.dart:2301).
  *
- * Twelve stages, 400 ms apart, each showing what it actually measured. Then it
- * WAITS for the current candle to close so the trade opens with the next one —
- * that wait is the whole point of the button and was missing before.
+ * Stages 400 ms apart, then it WAITS for the current candle to close so the
+ * trade opens with the next one. That wait is the whole point of the button.
  *
- * The stage texts are not decoration: they print live indicator values, so a
- * user watching them can see the analysis is reading their pair.
+ * -- WHAT THESE LINES USED TO SAY -------------------------------------------
+ *
+ * Twelve stages narrating RSI, Stochastic, CCI, ATR, ADX, MFI, VWAP, CMF and
+ * volume delta, finishing on "the final confluence of 18 technical
+ * indicators". The docstring defended them: not decoration, live values, proof
+ * the analysis is reading your pair.
+ *
+ * That stopped being true when the rule strategies went. The engine runs one
+ * program now and it reads one thing — whether price returned to the 0.236
+ * retracement of the last confirmed swing. None of those nine numbers reaches
+ * the decision.
+ *
+ * Four of them were worse than irrelevant. MFI, CMF, VWAP and volume delta
+ * read `candle.volume`, and Pocket Option sends no volume: `candles.ts`
+ * substitutes a flat `SYNTHETIC_VOLUME = 1000`. Run CMF and volume delta over
+ * any four unrelated price series and they return 0.3750 and 37.500 every
+ * time, because a constant input has a constant output. The app was printing
+ * two fixed numbers to every user on every pair, formatted to three decimals,
+ * under a heading that said real analysis.
+ *
+ * So the lines now describe the strategy that actually runs, and every number
+ * in them is computed from the swing the trade is placed on. There are fewer
+ * of them, because there are fewer true things to say.
  */
 
-import {
-  adxFull,
-  atr as calcAtr,
-  cci as calcCci,
-  cmf as calcCmf,
-  mfi as calcMfi,
-  rsi as calcRsi,
-  stochastic,
-  supportResistance,
-  volumeDelta,
-  vwap as calcVwap,
-} from '@euro/engine';
-import { liquidityZones, rsiDivergence } from '@euro/engine';
-import { candlePatterns } from '@euro/engine';
+import { detectSwing, supportResistance } from '@euro/engine';
 import { formatPrice, tr } from '@euro/shared';
 import type { Candle } from '@euro/engine';
 
@@ -33,84 +40,103 @@ export const STAGE_DELAY_MS = 400;
 /** Dart polls the candle-close countdown every 100 ms. */
 export const WAIT_TICK_MS = 100;
 
+/** The one level the strategy watches. Must match `FIB` in `programs/fib236.ts`. */
+const FIB = 0.236;
+
 export interface StageInput {
   candles: readonly Candle[];
   currentPrice: number;
   pair: string;
 }
 
+/** A price gap in pips, at the pair's own scale. */
+function pips(distance: number, price: number): string {
+  const pip = price >= 10 ? 0.01 : 0.0001; // JPY-scale pairs quote two places
+  return (distance / pip).toFixed(1);
+}
+
 /**
- * Builds all twelve stage messages up front. The Dart version computes each
- * indicator immediately before showing its line; the values are identical
- * either way because the candle buffer does not change during the sequence.
+ * Builds the stage messages up front. The values do not change during the
+ * sequence — the candle buffer is fixed the moment the button is pressed — so
+ * computing them once shows the user the same numbers the wait began with.
  */
 export function buildStages({ candles, currentPrice, pair }: StageInput): string[] {
   const name = pair.replace(' (OTC)', '');
-
   const sr = supportResistance(candles, currentPrice);
-  const rsi = calcRsi(candles, 14);
-  const stoch = stochastic(candles, 14, 3, currentPrice);
-  const cci = calcCci(candles, 20);
-  const atr = calcAtr(candles, 14, currentPrice);
-  const adx = adxFull(candles, 14);
-  const vwap = calcVwap(candles, currentPrice);
-  const mfi = calcMfi(candles, 14);
-  const cmf = calcCmf(candles, 20);
-  const volDelta = volumeDelta(candles);
-  const liq = liquidityZones(candles, currentPrice);
-  const pattern = candlePatterns(candles);
-  const divergence = rsiDivergence(candles);
+  const swing = detectSwing(candles);
 
-  return [
+  const stages: string[] = [
     tr(
-      `📊 تحليل مستويات الدعم والمقاومة لـ ${name} | الدعم: ${formatPrice(sr.support)} | المقاومة: ${formatPrice(sr.resistance)}...`,
-      `📊 Analyzing support & resistance for ${name} | Support: ${formatPrice(sr.support)} | Resistance: ${formatPrice(sr.resistance)}...`,
+      `\u{1F4CA} قراءة شموع الدقيقة لـ ${name} | ${candles.length} شمعة مقفولة...`,
+      `\u{1F4CA} Reading 1-minute candles for ${name} | ${candles.length} closed candles...`,
     ),
     tr(
-      `📈 فحص مؤشرات التذبذب ومناطق التشبع | RSI: ${rsi.toFixed(1)} | Stochastic: ${stoch.k.toFixed(1)} | CCI: ${cci.toFixed(0)}...`,
-      `📈 Checking oscillators & overbought/oversold zones | RSI: ${rsi.toFixed(1)} | Stochastic: ${stoch.k.toFixed(1)} | CCI: ${cci.toFixed(0)}...`,
-    ),
-    tr(
-      `⚡ فحص قوة الاتجاه ومعدل التذبذب | ATR: ${atr.toFixed(5)} | ADX: ${adx.adx.toFixed(1)}...`,
-      `⚡ Checking trend strength & volatility | ATR: ${atr.toFixed(5)} | ADX: ${adx.adx.toFixed(1)}...`,
-    ),
-    tr(
-      `🏦 مراقبة تدفق سيولة الحوت والـ MFI | MFI: ${mfi.toFixed(1)} | VWAP: ${formatPrice(vwap)}...`,
-      `🏦 Watching whale liquidity flow & MFI | MFI: ${mfi.toFixed(1)} | VWAP: ${formatPrice(vwap)}...`,
-    ),
-    tr(
-      `💰 حساب ضغط الشراء مقابل البيع | CMF: ${cmf.toFixed(3)} | Vol Delta: ${volDelta.toFixed(1)}%...`,
-      `💰 Calculating buying vs selling pressure | CMF: ${cmf.toFixed(3)} | Vol Delta: ${volDelta.toFixed(1)}%...`,
-    ),
-    tr(
-      `🔍 تحديد مناطق الطلب والعرض والمستويات المؤسسية | LIQ Score: ${liq.score.toFixed(0)}%...`,
-      `🔍 Identifying demand & supply zones and institutional levels | LIQ Score: ${liq.score.toFixed(0)}%...`,
-    ),
-    tr(
-      `🕯️ تحليل البرايس أكشن ونموذج الشموع | Pattern: ${pattern.replace(/_/g, ' ')} | Divergence: ${divergence}...`,
-      `🕯️ Analyzing price action & candlestick patterns | Pattern: ${pattern.replace(/_/g, ' ')} | Divergence: ${divergence}...`,
-    ),
-    tr(
-      '⚙️ قياس قوة العملة مقابل مؤشر الدولار والعملات الأخرى (Correlation Index)...',
-      '⚙️ Measuring currency strength vs the dollar index and other currencies (Correlation Index)...',
-    ),
-    tr(
-      '🔄 فحص محاذاة الاتجاه عبر الفريمات المتعددة لضمان دقة الدخول...',
-      '🔄 Checking trend alignment across multiple timeframes to ensure entry accuracy...',
-    ),
-    tr(
-      '🛡️ تصفية الضوضاء السعرية وكشف كسر الدعم والمقاومة الكاذب...',
-      '🛡️ Filtering price noise and detecting false support/resistance breaks...',
-    ),
-    tr(
-      '🔒 تطبيق مرشحات الأمان وفحص نسبة العائد للمخاطرة...',
-      '🔒 Applying safety filters and checking the risk/reward ratio...',
-    ),
-    tr(
-      '🏁 احتساب Confluence النهائي لـ 18 مؤشر فني وحسم اتجاه السوق...',
-      '🏁 Computing the final confluence of 18 technical indicators and deciding market direction...',
+      '\u{1F50D} تحديد القمم والقيعان المؤكدة — كل قمة محتاجة شمعتين على كل جنب تأكّدها...',
+      '\u{1F50D} Locating confirmed pivots — each needs two candles either side to confirm it...',
     ),
   ];
+
+  if (swing === null) {
+    // Not a failure and not a blank: no confirmed swing means there is nothing
+    // to draw a retracement on, and the honest thing is to say so rather than
+    // fill the gap with a number.
+    stages.push(
+      tr(
+        '\u{1F4CF} مفيش سوينج مؤكد في آخر 100 شمعة — مفيش مستوى نرسمه دلوقتي...',
+        '\u{1F4CF} No confirmed swing in the last 100 candles — nothing to draw a level on yet...',
+      ),
+      tr(
+        `\u{1F6E1} الدعم ${formatPrice(sr.support)} | المقاومة ${formatPrice(sr.resistance)}...`,
+        `\u{1F6E1} Support ${formatPrice(sr.support)} | Resistance ${formatPrice(sr.resistance)}...`,
+      ),
+      tr(
+        '\u{23F3} الاستراتيجية هتفضل تقرا كل شمعة جديدة لحد ما يتكوّن سوينج...',
+        '\u{23F3} The strategy keeps reading each new candle until a swing forms...',
+      ),
+    );
+    return stages;
+  }
+
+  // Same arithmetic as `fib236.ts`: the level sits 23.6% of the way back from
+  // the end of the leg towards where it started.
+  const origin = swing.up ? swing.low : swing.high;
+  const end = swing.up ? swing.high : swing.low;
+  const level = end + FIB * (origin - end);
+  const direction = swing.up ? 'CALL' : 'PUT';
+  const away = Math.abs(currentPrice - level);
+
+  stages.push(
+    tr(
+      `\u{1F4C9} السوينج المؤكد: من ${formatPrice(origin)} لـ ${formatPrice(end)} | المدى ${pips(swing.range, currentPrice)} نقطة...`,
+      `\u{1F4C9} Confirmed swing: ${formatPrice(origin)} to ${formatPrice(end)} | range ${pips(swing.range, currentPrice)} pips...`,
+    ),
+    tr(
+      `\u{1F4CF} رسم فيبوناتشي على الساق دي | مستوى 0.236 عند ${formatPrice(level)}...`,
+      `\u{1F4CF} Drawing Fibonacci on that leg | the 0.236 level sits at ${formatPrice(level)}...`,
+    ),
+    tr(
+      `\u{1F4CD} السعر دلوقتي ${formatPrice(currentPrice)} — على بعد ${pips(away, currentPrice)} نقطة من المستوى...`,
+      `\u{1F4CD} Price is ${formatPrice(currentPrice)} — ${pips(away, currentPrice)} pips from the level...`,
+    ),
+    tr(
+      `\u{1F9ED} اتجاه الساق ${swing.up ? 'صاعد' : 'هابط'}، يعني الصفقة ${direction} لو حصل لمس...`,
+      `\u{1F9ED} The leg is ${swing.up ? 'upward' : 'downward'}, so a touch means ${direction}...`,
+    ),
+    tr(
+      `\u{1F6E1} الدعم ${formatPrice(sr.support)} | المقاومة ${formatPrice(sr.resistance)}...`,
+      `\u{1F6E1} Support ${formatPrice(sr.support)} | Resistance ${formatPrice(sr.resistance)}...`,
+    ),
+    tr(
+      '\u{1F512} استبعاد الشمعة اللي عملت القمة نفسها من اللمس، وإلغاء المستوى لو السعر كسره...',
+      '\u{1F512} Excluding the candle that made the peak from counting as a touch, and dropping the level if price breaks it...',
+    ),
+    tr(
+      '\u{1F3C1} فرصة تعويض واحدة محجوزة لو الصفقة الأولى خسرت — واحدة بس...',
+      '\u{1F3C1} One recovery trade held in reserve if the first loses — one only...',
+    ),
+  );
+
+  return stages;
 }
 
 /** The countdown line shown while waiting for the candle to close. */

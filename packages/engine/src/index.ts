@@ -125,3 +125,12 @@ export {
 
 export { liquidityZones, volumeProfileStats, rsiDivergence, marketStructure } from './indicators/structure.js';
 export { candlePatterns, swingPoints, avgBodySize } from './indicators/patterns.js';
+
+/**
+ * The swing the Fibonacci is drawn between, and the levels on it.
+ *
+ * Exported for the app's analysis sequence, which used to narrate a dozen
+ * indicators the strategy does not read. It reads this one, so this is what
+ * the sequence shows.
+ */
+export { detectSwing, FIB_LEVELS, type Swing } from './indicators/levels.js';

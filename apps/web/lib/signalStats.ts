@@ -160,6 +160,63 @@ export async function fetchStats(f: StatsFilter, groupBy: 'total' | 'day' | 'sym
   return (data as Bucket[] | null) ?? [];
 }
 
+/**
+ * The same range, split by which strategy produced the rows.
+ *
+ * `signals` holds two eras. 10,809 rows came from the rule strategies that
+ * were removed, each stamped with the `strategy_version_id` it was published
+ * under; the program the engine runs now stamps none, so its rows carry NULL.
+ * Summed together they answer a question nobody asked — at the time of writing
+ * the mixed figure was 50.6% over 10,871 trades, of which 62 belonged to the
+ * strategy that is actually running, and the default range on the screen is
+ * the current month, which spans both.
+ *
+ * Grouping by version separates them without touching a row: the bucket the
+ * RPC labels 'current' is the running strategy. The old rows are kept, and
+ * shown as their own line — they are a real record of what those strategies
+ * did, and deleting history to make a number look tidier is not a fix.
+ *
+ * Needs `20260818_stats_versionless.sql`. Before it, the whole pipeline
+ * dropped version-less rows: NOT NULL on the rollup column, an `IS NOT NULL`
+ * filter in the refresh, and an INNER JOIN here. `current` came back null and
+ * the screen showed zeroes for a strategy that had traded all day.
+ */
+export interface EraSplit {
+  /** The program the engine runs now. */
+  current: Bucket | null;
+  /** Everything the removed rule strategies produced in this range. */
+  legacy: Bucket | null;
+}
+
+export async function fetchEraSplit(f: StatsFilter): Promise<EraSplit> {
+  const rows = await fetchStats(f, 'version');
+  // `signal_stats` labels the version-less bucket 'current' rather than
+  // returning NULL — a null key in JSON is indistinguishable from "no answer".
+  const current = rows.find((r) => r.bucket === 'current') ?? null;
+  const legacy = rows.filter((r) => r !== current);
+  if (legacy.length === 0) return { current, legacy: null };
+
+  // One line for all of them: which removed version a row came from stopped
+  // being an actionable distinction the moment none of them could run again.
+  return {
+    current,
+    legacy: legacy.reduce<Bucket>(
+      (a, b) => ({
+        bucket: 'legacy',
+        signals: a.signals + b.signals,
+        wins: a.wins + b.wins,
+        losses: a.losses + b.losses,
+        ties: a.ties + b.ties,
+        unresolved: a.unresolved + b.unresolved,
+        pending: a.pending + b.pending,
+        forced: a.forced + b.forced,
+        win_rate: null,
+      }),
+      { bucket: 'legacy', signals: 0, wins: 0, losses: 0, ties: 0, unresolved: 0, pending: 0, forced: 0, win_rate: null },
+    ),
+  };
+}
+
 /** Every version ever published, with its lifetime numbers. Tens of rows. */
 export async function fetchVersions(): Promise<VersionStats[]> {
   const { data, error } = await supabase()

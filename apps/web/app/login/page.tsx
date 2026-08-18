@@ -15,7 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { supabase, tr, type BrokerRow } from '@euro/shared';
+import { CATALOGUE_SYMBOLS, supabase, tr, type BrokerRow } from '@euro/shared';
 import {
   verifyAccount,
   persistSession,
@@ -270,17 +270,27 @@ export default function LoginPage() {
               {tr('إشارات مبنية على تحليل حقيقي', 'Signals built on real analysis')}
             </h2>
             <p className={styles.tagline}>
+              {/*
+                It used to say 350+ indicators. The engine registers eight, and
+                the strategy the app runs reads exactly one thing: whether price
+                came back to the 0.236 retracement of the last confirmed swing.
+                A headline that says "real analysis" cannot sit above a number
+                that is off by a factor of forty, so this says what it does.
+              */}
               {tr(
-                'محرك يفحص أكثر من 350 مؤشراً فنياً على كل شمعة، ولا يصدر إشارة إلا عند تحقق الشروط.',
-                'An engine that evaluates 350+ technical indicators on every candle, and only fires when the conditions hold.',
+                'المحرك يرسم فيبوناتشي من آخر قمة وقاع مؤكدين، ويصدر الإشارة لما السعر يرجع يلمس مستوى 0.236 — ولو ملمسش، ميقولش حاجة.',
+                'The engine draws Fibonacci between the last confirmed high and low, and fires when price returns to touch the 0.236 level — and says nothing when it does not.',
               )}
             </p>
 
             <div className={styles.stats}>
               <Stat value={compactMembers(stats.members)} label={tr('مشترك معانا', 'Members')} />
               <Stat value={compactUsd(stats.profitUsd)} label={tr('إجمالي الأرباح', 'Total profits')} />
-              <Stat value="359" label={tr('مؤشر فني', 'Indicators')} />
-              <Stat value="183" label={tr('زوج تداول', 'Instruments')} />
+              <Stat value="0.236" label={tr('مستوى الارتداد', 'Retracement')} />
+              <Stat
+                value={String(CATALOGUE_SYMBOLS)}
+                label={tr('زوج تداول', 'Instruments')}
+              />
               <Stat value="24/7" label={tr('أسواق OTC', 'OTC markets')} />
             </div>
 

@@ -1,18 +1,35 @@
 'use client';
 
 /**
- * The Gemini period analysis: builds the prompt, parses the answer.
- *
- * It SUGGESTS. It never publishes — the returned JSON goes into the strategy
- * editor for a human to read, test and upload, and there is no code path from
- * here to `publish_strategy_version`. That separation is the point: a model
- * looking at a month of losses will always have an opinion, and an opinion that
- * can deploy itself is not a suggestion.
+ * The Gemini period analysis: builds the prompt.
  *
  * Below 30 decided trades it refuses to conclude anything. Not because the
  * model would decline, but because it would not — it would find a pattern in
  * eleven trades and describe it confidently, and that answer is worse than no
  * answer because it looks like one.
+ *
+ * -- WHAT IT USED TO ASK FOR, AND WHY THAT HAD TO GO ------------------------
+ *
+ * It ended by asking Gemini for "the full edited version in a ```json block",
+ * with rules about indicator names and alias groups, and the screen offered a
+ * button to copy that JSON with a note saying to open it in the strategies
+ * page, test it, and upload it.
+ *
+ * None of those things exist. The strategies page has no editor, no validator
+ * and no upload — strategies are programs compiled into the engine now, and
+ * changing one is a code change. So the button copied a rule file that no
+ * running code could read, to a screen with nowhere to paste it.
+ *
+ * It also asked which RULE correlated least with winning, from `rules_matched`
+ * on the sampled signals. The generator writes no rules and `score: 0`,
+ * because a touch either happened or it did not. That section could only ever
+ * come back empty or invented.
+ *
+ * What remains is the half that still has data under it: where the losses sit
+ * — which pair, which hour, which day — whether the recovery trade earns its
+ * place, and whether waiting for a setup beats taking the first one. Those are
+ * answerable from what the rows actually carry, and none of them needs a file
+ * nobody can publish.
  */
 
 import type { Bucket, SignalRow, VersionStats } from './signalStats';
@@ -28,7 +45,6 @@ export interface AnalysisInput {
   byDay: Bucket[];
   byHour: Array<{ hour: number; wins: number; losses: number }>;
   versions: VersionStats[];
-  versionJson: Array<{ name: string; version: number; slot: string; json: Record<string, unknown> }>;
   losers: SignalRow[];
   winners: SignalRow[];
 }
@@ -44,12 +60,6 @@ function candlesOf(row: SignalRow): string {
   return out.join(' | ');
 }
 
-function rulesOf(row: SignalRow): string {
-  return (row.rules_matched ?? [])
-    .map((r) => `${r.i}[${r.r}]=${r.v ?? '—'}${r.ok ? '✓' : '✗'}`)
-    .join(' ');
-}
-
 export function buildAnalysisPrompt(a: AnalysisInput): string {
   const decided = (a.total?.wins ?? 0) + (a.total?.losses ?? 0);
   const ci = wilson(a.total?.wins ?? 0, decided);
@@ -61,10 +71,9 @@ export function buildAnalysisPrompt(a: AnalysisInput): string {
         rows
           .map(
             (r) =>
-              `  ${r.symbol} ${r.direction} ${r.created_at.slice(0, 16)} ` +
+              `  ${r.symbol} ${r.direction} ${r.slot} ${r.created_at.slice(0, 16)} ` +
               `دخول ${r.entry_price} خروج ${r.outcome_price ?? '—'}\n` +
-              `    شموع: ${candlesOf(r)}\n` +
-              `    قواعد: ${rulesOf(r)}`,
+              `    شموع: ${candlesOf(r)}\n`,
           )
           .join('\n');
 
@@ -98,16 +107,23 @@ ${a.byDay.map((b) => `${b.bucket}: ${b.wins}ر/${b.losses}خ`).join(' · ') || '
 # التوزيع بالساعة (UTC)
 ${a.byHour.map((h) => `${h.hour}: ${h.wins}ر/${h.losses}خ`).join(' · ') || '—'}
 
-# النسخ المستخدمة في الفترة
-${a.versions.map((v) => `${v.name} (slot ${v.slot}, نسخة ${v.version_number}): ${v.signals} إشارة، ${v.wins}ر/${v.losses}خ`).join('\n') || '—'}
-
-# JSON النسخ
-${a.versionJson.map((v) => `## ${v.name} — ${v.slot} نسخة ${v.version}\n${JSON.stringify(v.json)}`).join('\n\n') || '—'}
+# التوزيع بالخانة
+كل صفقة مكتوبة في خانة: "instant" يعني اتفتحت على أول شمعة بعد الضغط،
+و"monitoring" يعني الاستراتيجية استنّت لحد ما لقت الإعداد. الفرق بينهم مش تفصيلة —
+هو الفرق بين إعداد كان موجود وإعداد اتستنّى.
+${a.versions.map((v) => `${v.slot}: ${v.signals} إشارة، ${v.wins}ر/${v.losses}خ`).join(' · ') || '—'}
 
 # عيّنة الإشارات
 ${sample(a.losers, 'خاسرة')}
 
 ${sample(a.winners, 'رابحة')}
+
+# الاستراتيجية اللي بتحلّلها
+واحدة، ومش قابلة للتعديل من هنا: المحرك بيرسم فيبوناتشي بين آخر قمة وقاع مؤكدين،
+وبيفتح صفقة دقيقة واحدة لما السعر يرجع يلمس مستوى 0.236 — CALL لو الساق صاعدة و PUT
+لو هابطة. لو الصفقة خسرت، فيه فرصة تعويض واحدة بس على نفس المستوى.
+مفيش قواعد ولا سكور ولا مؤشرات تانية. **متقترحش قواعد ولا ملفات JSON ولا مؤشرات** —
+مفيش حاجة تقرا الكلام ده، والاستراتيجية بتتغيّر بتعديل كود مش برفع ملف.
 
 # المطلوب
 ردّ بالعربي، منظّم بالعناوين دي بالظبط:
@@ -115,29 +131,16 @@ ${sample(a.winners, 'رابحة')}
 ## أنماط الخسارة
 هل الخسائر متركزة في زوج/ساعة/يوم معيّن؟ قول الرقم اللي بيثبت كده، ولو مفيش نمط واضح قول كده صراحة.
 
-## أضعف قاعدة
-من "قواعد" في العيّنات: أنهي قاعدة أقل ارتباط بالنجاح؟ يعني بتتحقق في الخاسرة زي الرابحة أو أكتر.
-لو العيّنة أصغر من إن تجاوب، قول كده.
+## التعويض
+من التوزيع بالخانة: صفقات التعويض بترجّع الخسارة فعلاً ولا بتضاعفها؟ قارن بالأرقام.
 
-## تعديل مقترح
-تعديل **واحد** محدد، وقول ليه بالرقم.
+## الانتظار
+"monitoring" أحسن من "instant" ولا أوحش؟ ولو الفرق أصغر من إن يتقاس على العيّنة دي، قول كده.
 
-## JSON
-النسخة المعدّلة كاملة في كتلة \`\`\`json. نفس أسماء المؤشرات بالظبط — أي اسم المحرك ميعرفوش بيرجّع 0.0 بصمت.
-ممنوع تحط اسمين من نفس مجموعة المرادفات (زي doji و harami) — دي حسبة واحدة بتتعدّ مرتين.
+## التوصية
+حاجة **واحدة** قابلة للتنفيذ: زوج يتشال، ساعة تتجنّب، أو "مفيش، العيّنة لسه صغيرة".
+قول ليه بالرقم.
 
 ## تحذير
 سطر واحد: إيه اللي ممكن يكون التحليل ده غلط فيه.`;
-}
-
-/** Gemini wraps JSON in a fence however firmly it is told not to. */
-export function extractStrategyJson(text: string): Record<string, unknown> | null {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  if (!fenced?.[1]) return null;
-  try {
-    const parsed = JSON.parse(fenced[1].trim()) as Record<string, unknown>;
-    return Array.isArray(parsed['rules']) ? parsed : null;
-  } catch {
-    return null;
-  }
 }

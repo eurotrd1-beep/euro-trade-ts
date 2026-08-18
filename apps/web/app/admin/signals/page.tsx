@@ -34,6 +34,7 @@ import {
   SLOTS,
   fetchSignals,
   fetchStats,
+  fetchEraSplit,
   fetchVersionJson,
   fetchVersions,
   rangeDates,
@@ -46,7 +47,7 @@ import {
   type StatsFilter,
   type VersionStats,
 } from '@/lib/signalStats';
-import { buildAnalysisPrompt, extractStrategyJson } from '@/lib/aiAnalysis';
+import { buildAnalysisPrompt } from '@/lib/aiAnalysis';
 import styles from '../admin.module.css';
 
 const K_ORIGIN = 'https://euro-trade-proxy-1.onrender.com';
@@ -68,6 +69,8 @@ export default function SignalStatsView() {
   const [symbol, setSymbol] = useState<string>('');
 
   const [total, setTotal] = useState<Bucket | null>(null);
+  // The removed strategies' rows, when the chosen range reaches back into them.
+  const [legacy, setLegacy] = useState<Bucket | null>(null);
   const [bySlot, setBySlot] = useState<Bucket[]>([]);
   const [bySymbol, setBySymbol] = useState<Bucket[]>([]);
   const [byDay, setByDay] = useState<Bucket[]>([]);
@@ -96,15 +99,18 @@ export default function SignalStatsView() {
     setLoading(true);
     setError(null);
     try {
-      const [t, s, sym, day, vers, rows] = await Promise.all([
-        fetchStats(filter, 'total'),
+      const [era, s, sym, day, vers, rows] = await Promise.all([
+        fetchEraSplit(filter),
         fetchStats(filter, 'slot'),
         fetchStats(filter, 'symbol'),
         fetchStats(filter, 'day'),
         fetchVersions(),
         fetchSignals(filter, 100),
       ]);
-      setTotal(t[0] ?? null);
+      // The headline is the running strategy's number. Mixing in rows from
+      // strategies that were deleted would answer a question nobody asked.
+      setTotal(era.current);
+      setLegacy(era.legacy);
       setBySlot(s);
       setBySymbol(sym.sort((a, b) => b.signals - a.signals));
       setByDay(day);
@@ -172,14 +178,10 @@ export default function SignalStatsView() {
       }
 
       const used = versions.filter((v) => v.signals > 0 && (!slot || v.slot === slot));
-      const jsons = await Promise.all(
-        used.slice(0, 4).map(async (v) => ({
-          name: v.name,
-          version: v.version_number,
-          slot: v.slot,
-          json: await fetchVersionJson(v.id),
-        })),
-      );
+      // The rule files the versions were published from used to be fetched
+      // and pasted into the prompt so Gemini could edit one. Nothing runs a
+      // rule file now, so fetching four of them was four round-trips spent on
+      // a question that no longer has an answer.
 
       const prompt = buildAnalysisPrompt({
         rangeLabel: RANGES.find((r) => r.id === range)?.label ?? '',
@@ -191,7 +193,6 @@ export default function SignalStatsView() {
         byDay,
         byHour: [...byHour.entries()].sort((a, b) => a[0] - b[0]).map(([hour, v]) => ({ hour, ...v })),
         versions: used,
-        versionJson: jsons,
         losers,
         winners,
       });
@@ -212,7 +213,6 @@ export default function SignalStatsView() {
     }
   }
 
-  const suggested = analysis ? extractStrategyJson(analysis) : null;
 
   return (
     <section>
@@ -303,6 +303,24 @@ export default function SignalStatsView() {
 
       {error && <p className={styles.error}>{error}</p>}
       {toast && <p className={styles.toast}>{toast}</p>}
+
+      {/*
+        The headline counts the running strategy only. `signals` also holds
+        every row the removed rule strategies wrote, and the default range is
+        the current month, which reaches back into them — summed together the
+        figure described neither strategy. They are shown here instead, as
+        their own line, kept rather than deleted.
+      */}
+      {legacy !== null && legacy.signals > 0 && (
+        <p className={styles.switchHint}>
+          الفترة دي فيها كمان <strong>{legacy.signals}</strong> إشارة من
+          الاستراتيجيات القديمة اللي اتشالت
+          ({legacy.wins}ر/{legacy.losses}خ ·{' '}
+          {rateText(legacy.wins, legacy.losses)}).
+          {' '}مش داخلة في الأرقام تحت — دي استراتيجية تانية مبقتش موجودة، وجمعها
+          مع الشغّالة بيدّي رقم مش بيوصف ولا واحدة فيهم.
+        </p>
+      )}
 
       {/* ── Headline ── */}
       <div className={styles.statRow}>
@@ -472,22 +490,16 @@ export default function SignalStatsView() {
         <div className={styles.geminiCard}>
           <div className={styles.geminiHead}>
             <h2 className={styles.cardTitle}>تحليل جيميناي</h2>
-            <span className={styles.badge}>اقتراح — مفيش نشر تلقائي</span>
+            {/*
+              The badge used to say "suggestion — no automatic publishing",
+              next to a button that copied a rule file. There is no publishing
+              at all any more, automatic or otherwise: the strategy is a
+              program in the engine and changes with the code. So the button is
+              gone and the badge says what the panel is.
+            */}
+            <span className={styles.badge}>قراءة للأرقام — مش تعديل للاستراتيجية</span>
           </div>
           <pre className={styles.geminiText}>{analysis}</pre>
-          {suggested && (
-            <button
-              type="button"
-              className={styles.primaryBtn}
-              onClick={() => {
-                void navigator.clipboard.writeText(JSON.stringify(suggested, null, 2));
-                setToast('اتنسخ JSON المقترح — افتحه في صفحة الاستراتيجيات واختبره قبل الرفع');
-                setTimeout(() => setToast(null), 4000);
-              }}
-            >
-              نسخ الـ JSON المقترح
-            </button>
-          )}
         </div>
       )}
 
