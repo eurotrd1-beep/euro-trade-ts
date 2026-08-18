@@ -547,6 +547,7 @@ export default function MainScreen() {
             pair={activePair}
             timeframe={timeframe}
             watchedCount={watchedPairs.length}
+            openCount={watchSymbols.length}
             candlesAnalysed={engine.candlesAnalysed}
             onOpenSettings={() => setSettingsOpen(true)}
             awayTradePair={awayTrade?.pair ?? null}
@@ -570,6 +571,7 @@ export default function MainScreen() {
             completions={engine.completions}
             activeSignal={engine.activeSignal}
             chartSymbol={chartSymbol}
+            closedPairs={market.closedPairs}
             onSelect={pickPairByHand}
           />
 

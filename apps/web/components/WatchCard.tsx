@@ -55,6 +55,15 @@ export interface WatchCardProps {
   activeSignal: TradingSignal | null;
   /** The chart on screen, so the row for it can be marked rather than moved. */
   chartSymbol: string;
+  /**
+   * Pairs whose market is shut. Listed, but set apart.
+   *
+   * Not silently dropped: a pair the user chose and cannot see reads as the app
+   * having lost it, and "closed for the weekend" is a state that ends on its
+   * own. They are pushed to the bottom, since a market that cannot move is not
+   * competing for attention with one that is.
+   */
+  closedPairs: Readonly<Record<string, boolean>>;
   onSelect: (chartSymbol: string) => void;
 }
 
@@ -64,6 +73,7 @@ export function WatchCard({
   completions,
   activeSignal,
   chartSymbol,
+  closedPairs,
   onSelect,
 }: WatchCardProps) {
   const nameOf = useMemo(() => {
@@ -90,9 +100,17 @@ export function WatchCard({
         }))
         // Re-sorted on every update, so the pair nearest to firing is always in
         // the five rows the card shows without scrolling.
-        .sort((a, b) => b.percent - a.percent || a.symbol.localeCompare(b.symbol))
+        .map((f) => ({ ...f, shut: closedPairs[f.symbol] === true }))
+        // Closed markets last, whatever their reading says: a pair that cannot
+        // move is not competing with one that can.
+        .sort(
+          (a, b) =>
+            Number(a.shut) - Number(b.shut) ||
+            b.percent - a.percent ||
+            a.symbol.localeCompare(b.symbol),
+        )
     );
-  }, [watched, completions, tradingSymbol]);
+  }, [watched, completions, tradingSymbol, closedPairs]);
 
   if (watched.length === 0) return null;
 
@@ -151,11 +169,13 @@ export function WatchCard({
                   type="button"
                   onClick={() => onSelect(f.symbol)}
                   className={`${styles.row} ${f.symbol === chartSymbol ? styles.onChart : ''} ${
-                    next ? styles.next : ''
+                    f.shut ? styles.shutRow : next ? styles.next : ''
                   }`}
                 >
                   <span className={styles.name}>{nameOf(f.symbol)}</span>
-                  {next ? (
+                  {f.shut ? (
+                    <span className={styles.shut}>{tr('السوق مقفول', 'Market closed')}</span>
+                  ) : next ? (
                     <span className={styles.nextBadge}>
                       {tr('الإشارة الشمعة الجاية', 'Signal next candle')}
                     </span>

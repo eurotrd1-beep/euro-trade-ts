@@ -1347,16 +1347,28 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         setState((s) => ({ ...s, analysing: false, ...patch }));
       };
 
-      // ── Market closed: weekend, forex only ────────────────────────────────
-      if (isForexPair(argsRef.current.pair) && isWeekend()) {
+      // ── Market closed ─────────────────────────────────────────────────────
+      //
+      // Decided from the pairs being WATCHED, not from the one on the chart.
+      // It used to refuse the whole run because the chart happened to be
+      // showing a weekday-only pair on a Sunday — with five OTC pairs chosen
+      // and trading around the clock, the app announced the market was shut and
+      // did nothing. The closed ones are already dropped from the sweep by
+      // `watchSymbols`, so the only question left is whether ANY of them are
+      // open, and one is enough.
+      const open = argsRef.current.watchSymbols.filter((sym) => !isForexPair(sym) || !isWeekend());
+      if (open.length === 0) {
         finish({ activeSignal: null, secondsRemaining: 0, marketClosed: true });
         return 'unavailable';
       }
 
-      // ── Frozen price on a non-OTC pair ────────────────────────────────────
-      // Skipped for OTC (24/7): a quiet second there is not a closed market.
-      const isOtc = !isForexPair(argsRef.current.pair);
-      if (!isOtc && livePriceRef.current !== null && samples.size <= 1 && samples.size > 0) {
+      // ── Frozen price ──────────────────────────────────────────────────────
+      //
+      // Only when every watched pair is one that can close. A quiet second on
+      // OTC is not a closed market — it trades 24/7 — so a single OTC pair in
+      // the list is enough for a still price to mean nothing.
+      const allClosable = open.every((sym) => isForexPair(sym));
+      if (allClosable && livePriceRef.current !== null && samples.size <= 1 && samples.size > 0) {
         finish({ activeSignal: null, secondsRemaining: 0, marketClosed: true });
         return 'unavailable';
       }

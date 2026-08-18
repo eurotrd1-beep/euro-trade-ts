@@ -57,6 +57,15 @@ export interface SignalPanelProps {
   strategyName: string | null;
   /** How many pairs the user has chosen. Zero disables the button. */
   watchedCount: number;
+  /**
+   * How many of those are open right now.
+   *
+   * Separate from `watchedCount` because the two disabled states have different
+   * answers: "you have not chosen any" is fixed in settings, and "everything
+   * you chose is shut for the weekend" is fixed by waiting or by adding an OTC
+   * pair. One message for both would send half the users to the wrong place.
+   */
+  openCount: number;
   /** Opens the settings sheet — pairs, and whether to be alerted about them. */
   onOpenSettings: () => void;
   /**
@@ -210,6 +219,7 @@ function IdleView({
   fixedDuration,
   strategyName,
   watchedCount,
+  openCount,
   onOpenSettings,
   awayTradePair,
 }: SignalPanelProps) {
@@ -224,7 +234,9 @@ function IdleView({
    * grey button and no explanation.
    */
   const nothingChosen = watchedCount === 0;
-  const disabled = nothingChosen || !hasCandles || marketClosed || awayTradePair !== null;
+  const allShut = !nothingChosen && openCount === 0;
+  const disabled =
+    nothingChosen || allShut || !hasCandles || marketClosed || awayTradePair !== null;
 
   return (
     <section className={styles.panel}>
@@ -303,8 +315,17 @@ function IdleView({
       {nothingChosen && (
         <p className={styles.needPairs} role="status">
           {tr(
-            '⚙️ اختار الأزواج اللي عايز تتابعها الأول من الإعدادات فوق.',
-            '⚙️ Choose the pairs you want to follow first, in the settings above.',
+            '⚙️ اختار الأزواج اللي عايز تتابعها الأول من الترس جنب الزرار.',
+            '⚙️ Choose the pairs you want to follow first, from the gear beside the button.',
+          )}
+        </p>
+      )}
+
+      {allShut && (
+        <p className={styles.needPairs} role="status">
+          {tr(
+            `كل الـ${watchedCount} زوج اللي مختارهم أسواقهم مقفولة دلوقتي. ضيف زوج OTC من ⚙️ — دي بتشتغل 24/7.`,
+            `All ${watchedCount} pairs you chose are closed right now. Add an OTC pair from ⚙️ — those trade 24/7.`,
           )}
         </p>
       )}
@@ -336,7 +357,9 @@ function IdleView({
             ? tr('فيه صفقة شغالة', 'A trade is running')
             : nothingChosen
               ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')
-              : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
+              : allShut
+                ? tr('أسواق أزواجك مقفولة', 'Your markets are closed')
+                : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
         </button>
         <HelpButton
           text={tr(
