@@ -593,7 +593,15 @@ export interface SetupProgress {
 const BAND = {
   pivots: 15,
   rejected: 30,
-  armed: 50,
+  /**
+   * An adopted setup starts here, and the jump from 50 is deliberate.
+   *
+   * Four conditions have to pass before a setup is adopted, and once it is, the
+   * strategy is committed to it: no more searching, one thing left to wait for.
+   * The gap below this band is not wasted scale — it is the distance between
+   * "something might form here" and "this is the one".
+   */
+  armed: 90,
   /**
    * The top of the approach — everything below a touch.
    *
@@ -610,6 +618,19 @@ export function setupProgress(
   state: Pick<ProgramState, 'cycle' | 'armed'>,
   diagnostics: SetupDiagnostics | null,
   price: number,
+  /**
+   * How much of the current candle is LEFT, 1 down to 0.
+   *
+   * Time works against a setup, not for it: price still has a distance to
+   * cover, and every second that passes is one less second to cover it in. A
+   * reading that climbed as the candle drained would be telling somebody a miss
+   * was becoming a hit.
+   *
+   * It only matters in proportion to what is left to travel. A pair a tenth of
+   * a pip away has time to spare with two seconds on the clock; one half a leg
+   * away does not, and the reading says so.
+   */
+  candleLeft = 1,
   /**
    * Whether THIS candle has already touched the level.
    *
@@ -649,10 +670,23 @@ export function setupProgress(
       };
     }
 
+    // ── How far, against how long is left to get there ────────────────────
+    //
+    // `closeness` alone says how much of the approach is done. On its own it
+    // would read the same at the start of a candle and a second before it
+    // closes, which are not the same prospect at all.
+    //
+    // `reach` is the correction: the time remaining measured against the
+    // distance remaining. More time than the distance needs is still just
+    // enough, so it caps at 1 — a pair sitting on the level does not read
+    // higher for having a whole candle to do nothing in.
     const closeness = setupCompletion(state.armed, price);
+    const need = Math.max(1 - closeness, 1e-9);
+    const reach = Math.min(1, Math.max(0, candleLeft) / need);
+
     return {
       stage: 'armed',
-      percent: BAND.armed + closeness * (BAND.armedTop - BAND.armed),
+      percent: BAND.armed + closeness * reach * (BAND.armedTop - BAND.armed),
       level: state.armed.level,
       direction: state.armed.direction,
       gap,

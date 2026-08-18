@@ -547,12 +547,6 @@ export default function MainScreen() {
                 signalDirection={tradeOnThisChart ? engine.activeSignal!.direction : null}
                 signalEntryPrice={tradeOnThisChart ? engine.activeSignal!.entryPrice : null}
                 signalSecondsRemaining={tradeOnThisChart ? engine.secondsRemaining : 0}
-                watchLevel={
-                  !tradeOnThisChart && engine.completions[chartSymbol]?.stage === 'armed'
-                    ? (engine.completions[chartSymbol]?.level ?? null)
-                    : null
-                }
-                watchDirection={engine.completions[chartSymbol]?.direction ?? null}
                 onReady={engine.setLivePriceGetter}
               />
             </div>

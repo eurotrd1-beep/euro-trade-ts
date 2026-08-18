@@ -31,7 +31,6 @@ interface CandleChartApi {
   getLastPrice: (id: string) => number;
   setEntryLine: (id: string, price: number | null, direction: string | null) => void;
   setGlobalEntryLine: (price: number | null, direction: string | null) => void;
-  setWatchLevel: (id: string, price: number | null, direction: string | null) => void;
   setTradeState: (
     id: string,
     active: boolean,
@@ -81,15 +80,6 @@ export interface PriceChartProps {
   mode: string;
   signalDirection: 'CALL' | 'PUT' | null;
   signalEntryPrice: number | null;
-  /**
-   * The price the strategy is waiting for on THIS pair, or null.
-   *
-   * Only while it is actually waiting — an adopted setup that has not been
-   * touched. It is not an entry: nothing has been entered, and the chart draws
-   * it differently for that reason.
-   */
-  watchLevel: number | null;
-  watchDirection: string | null;
   signalSecondsRemaining: number;
   guaranteedWin: boolean;
   /** Hands back a reader for the chart's last price, as the Dart widget did. */
@@ -102,8 +92,6 @@ export function PriceChart({
   mode,
   signalDirection,
   signalEntryPrice,
-  watchLevel,
-  watchDirection,
   signalSecondsRemaining,
   guaranteedWin,
   onReady,
@@ -199,15 +187,6 @@ export function PriceChart({
     }
   }, [signalDirection, signalEntryPrice, signalSecondsRemaining, guaranteedWin]);
 
-  // ── The level the strategy is waiting for ─────────────────────────────────
-  useEffect(() => {
-    if (!readyRef.current) return;
-    try {
-      window.CandleChart?.setWatchLevel(idRef.current, watchLevel, watchDirection);
-    } catch {
-      // ignored
-    }
-  }, [watchLevel, watchDirection]);
 
   return (
     <div

@@ -1104,7 +1104,6 @@ window.CandleChart = (function () {
     }
 
     /* Entry line */
-    this._drawWatchLevel(py, cl, cr, ct, cb);
     this._drawEntryLine(py, cl, cr, ct, cb, dec, last ? last.c : null);
     this._drawEntryMarker();
 
@@ -1267,35 +1266,6 @@ window.CandleChart = (function () {
     ctx.fillText(ep.toFixed(autoDec(ep)), cr + RM / 2, epy + 4);
   };
 
-  /* ── Watch level (the price the strategy is waiting for) ─────────────────
-     Not an entry line: nothing has been entered. It is the 0.236 retracement
-     the strategy adopted and is waiting for price to touch, drawn only while it
-     is actually waiting — before a setup is adopted no such price exists, and a
-     line from an earlier stage would put a number on the chart that nothing is
-     watching for.
-     Deliberately unlike the entry line: thinner, sparser dashes, and amber
-     rather than the bull/bear colours, because it is a target and not a
-     position. */
-  Chart.prototype._drawWatchLevel = function(py, cl, cr, ct, cb) {
-    if (!this._watchLevel) return;
-    var ctx = this.ctx;
-    var lp  = this._watchLevel.price;
-    var ly  = py(lp);
-    if (ly < ct || ly > cb) return;
-
-    ctx.save();
-    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.4; ctx.setLineDash([3, 6]);
-    ctx.beginPath(); ctx.moveTo(cl, ly); ctx.lineTo(cr, ly); ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(cr, ly - 9, RM, 18);
-    ctx.fillStyle = '#1c1206'; ctx.textAlign = 'center';
-    ctx.font = 'bold 10px Outfit,sans-serif';
-    ctx.fillText(lp.toFixed(autoDec(lp)), cr + RM / 2, ly + 3.5);
-    ctx.restore();
-  };
-
   /* ── Entry marker (BUY/SELL arrow on the candle the signal started from) ──
      CALL → green "BUY" arrow BELOW the candle low (pointing up).
      PUT  → red   "SELL" arrow ABOVE the candle high (pointing down).
@@ -1433,15 +1403,6 @@ window.CandleChart = (function () {
       } else {
         inst._entryLine = null;
       }
-      inst._draw();
-    },
-    setWatchLevel: function(id, price, direction) {
-      var inst = instances[id];
-      if (!inst) return;
-      inst._watchLevel =
-        price != null && isFinite(price) && price > 0
-          ? { price: Number(price), direction: String(direction || '') }
-          : null;
       inst._draw();
     },
     setTradeState: function(id, active, direction, entryPrice, secondsLeft, gwin) {

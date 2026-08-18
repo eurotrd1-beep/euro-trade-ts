@@ -69,41 +69,20 @@ export function remainingText(
 }
 
 /**
- * How to order two pairs.
+ * How to order two pairs: by the reading, highest first.
  *
- * By stage first, then by the gap that is actually left — not by percentage.
- * The percentage is a fraction of each pair's OWN leg, so two pairs can both
- * read 90% while one needs a pip and the other needs six. The user is choosing
- * what to watch next, and "nearly touching" beats "90% of a long way".
+ * The reading already carries everything that decides the order — how close
+ * price is, and how much of the candle is left to close the gap — so ordering
+ * by it means the list ranks by the same number the user is reading off the
+ * bars. Sorting by anything else would put a pair above another that shows a
+ * lower percentage, which is the kind of thing nobody can explain.
+ *
+ * Compared to one decimal place. The percentages move continuously, and two
+ * pairs a thousandth apart swapping places every second is a list that cannot
+ * be read; a tenth is finer than the bars can show and coarse enough to hold
+ * still. Ties fall to the symbol, so equal readings have a fixed order rather
+ * than an arbitrary one.
  */
 export function byNearest(a: SetupProgress, b: SetupProgress): number {
-  const rank = (p: SetupProgress): number =>
-    p.stage === 'fired' ? 4 : p.stage === 'armed' ? 3 : p.stage === 'rejected' ? 2 : p.stage === 'pivots' ? 1 : 0;
-
-  const byStage = rank(b) - rank(a);
-  if (byStage !== 0) return byStage;
-
-  // ── Quantised, so the list stops dancing ────────────────────────────────
-  //
-  // Sorting on the raw numbers re-ordered the card on every update: prices move
-  // constantly, so two pairs a fraction of a pip apart swapped places every few
-  // seconds and a list that will not hold still is a list nobody can read.
-  //
-  // The comparison is made on a coarse version of each value instead. A pair
-  // has to be a whole step nearer to move above another, which is roughly the
-  // point at which the difference is worth showing anyone — and inside a step
-  // the order is fixed by the symbol, so it is stable rather than arbitrary.
-  if (a.gap !== undefined && b.gap !== undefined) {
-    const step = (g: number): number => {
-      // Buckets that get finer as the gap closes: a tenth of a pip matters when
-      // there is a pip left and means nothing when there are twenty.
-      if (g <= 0) return 0;
-      const pips = g / 0.0001;
-      return pips < 2 ? Math.round(pips * 10) : pips < 20 ? Math.round(pips) : Math.round(pips / 5) * 5;
-    };
-    const d = step(a.gap) - step(b.gap);
-    if (d !== 0) return d;
-  }
-
-  return Math.round(b.percent) - Math.round(a.percent);
+  return Math.round(b.percent * 10) - Math.round(a.percent * 10);
 }

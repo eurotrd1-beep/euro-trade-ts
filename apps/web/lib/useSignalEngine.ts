@@ -381,10 +381,10 @@ function sameTrade(signal: TradingSignal | null, chartSymbol: string): boolean {
  * right between polls: the buffer updates every few seconds and this is what
  * makes a reading move in the seconds between.
  */
-function candleElapsed(timeframe: string): number {
+function candleLeft(timeframe: string): number {
   const cs = timeframeSeconds(timeframe);
   const now = Date.now() / 1000;
-  return (now % cs) / cs;
+  return 1 - (now % cs) / cs;
 }
 
 /** Prices at the precision the pair is quoted to — three decimals for yen. */
@@ -1022,6 +1022,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         held,
         diagnosticsRef.current.get(symbol) ?? null,
         close,
+        candleLeft(argsRef.current.timeframe),
         touchedNow(symbol, held.armed, close),
       );
     }
@@ -1134,12 +1135,17 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // `setupProgress`, on a fresher price, so nothing can disagree.
       lastPricesRef.current = { ...lastPricesRef.current, ...status.prices };
       const fresh: Record<string, SetupProgress> = { ...stateRef.current.completions };
-      const elapsed = candleElapsed(argsRef.current.timeframe);
       let moved = false;
       for (const [symbol, st] of programStatesRef.current) {
         const price = status.prices[symbol];
         if (typeof price === 'number' && price > 0) {
-          fresh[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price, touchedNow(symbol, st.armed, price));
+          fresh[symbol] = setupProgress(
+          st,
+          diagnosticsRef.current.get(symbol) ?? null,
+          price,
+          candleLeft(argsRef.current.timeframe),
+          touchedNow(symbol, st.armed, price),
+        );
           moved = true;
         }
 
@@ -1252,7 +1258,6 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // number cannot diverge from the one the poll produces; it is simply
       // asked more often. Measured cost for all 89 pairs: 0.2ms.
       if (programRef.current === null) return;
-      const elapsed = candleElapsed(argsRef.current.timeframe);
       const next: Record<string, SetupProgress> = {};
       let any = false;
       for (const [symbol, st] of programStatesRef.current) {
@@ -1263,7 +1268,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
           symbol === argsRef.current.chartSymbol ? (livePriceRef.current?.() ?? 0) : 0;
         const price = live > 0 ? live : lastPricesRef.current[symbol];
         if (typeof price !== 'number' || price <= 0) continue;
-        next[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price, touchedNow(symbol, st.armed, price));
+        next[symbol] = setupProgress(
+          st,
+          diagnosticsRef.current.get(symbol) ?? null,
+          price,
+          candleLeft(argsRef.current.timeframe),
+          touchedNow(symbol, st.armed, price),
+        );
         any = true;
       }
       if (any) setState((st) => ({ ...st, completions: next }));
