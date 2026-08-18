@@ -1,0 +1,79 @@
+/*
+ * The follow strip, directly above the chart.
+ *
+ * Quiet by design. It explains why the chart moved; it is not competing with
+ * the signal card for attention, and a loud bar over a market nobody has
+ * traded yet would be exactly the wrong emphasis.
+ */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text, #e5e7eb);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Nothing forming. Dimmer, because "no news" should not read as a status
+   worth stopping on. */
+.quiet { color: var(--muted, #9ca3af); }
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text strong { font-weight: 700; }
+
+.bar {
+  flex: none;
+  width: 74px;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22d3ee, #34d399);
+  /* Eased, because the completion moves every few seconds and a bar that
+     jumps reads as noise rather than as progress. */
+  transition: width 0.6s ease;
+}
+
+.pct {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #34d399;
+}
+
+.pausedIcon { flex: none; }
+
+.resume {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #062e23;
+  background: linear-gradient(180deg, #34d399, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+}

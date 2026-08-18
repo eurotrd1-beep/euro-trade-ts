@@ -476,6 +476,48 @@ export const fib236Touch: StrategyProgram = {
   },
 };
 
+/**
+ * How close an armed setup is to firing, as 0…1.
+ *
+ * There is no score in this strategy and there is not going to be one — a
+ * touch happened or it did not, and `buildRow` writes `score: 0` because that
+ * is the truth. But "which pair is closest right now" is a real question with
+ * a real answer, and it is already being computed: the app has watched the gap
+ * between price and the level since the day the near-alert was added.
+ *
+ * The leg is recovered from the level rather than stored, and the arithmetic
+ * is exact: the level sits at `end + 0.236 × (origin − end)`, so the gap
+ * between the level and the end of the leg IS 23.6% of the leg. One divide
+ * gives the whole thing back.
+ *
+ * 1 means price is at the level, which is the moment the trade fires. 0 means
+ * a full leg away. It is clamped because price is free to run past either end
+ * and a setup is not "110% ready" — it is either touched or it is not.
+ *
+ * ── WHAT THIS IS NOT ───────────────────────────────────────────────────────
+ *
+ * It decides nothing. No trade, no setup, no settlement reads it, exactly like
+ * the near-alert threshold it generalises. It exists so that two callers — the
+ * app choosing which chart to show, and the generator choosing which pair to
+ * notify about — rank pairs by the same number instead of each inventing one.
+ */
+export function setupCompletion(
+  armed: Pick<ArmedSetup, 'direction' | 'level' | 'endPrice'>,
+  price: number,
+): number {
+  // Reached is 1, and reached is what `touches` means: the retracement is
+  // approached from the side the leg ran, so an up-swing's level is met from
+  // above and a down-swing's from below. Measuring a bare distance instead
+  // would score a price that has run PAST the level as moving away again —
+  // 70% for a setup that has already fired.
+  const reached = armed.direction === 'CALL' ? price <= armed.level : price >= armed.level;
+  if (reached) return 1;
+
+  const leg = Math.abs(armed.level - armed.endPrice) / FIB;
+  if (!(leg > 0)) return 0; // a zero-width leg has no "closer"; NaN would rank first
+  return Math.max(0, Math.min(1, 1 - Math.abs(price - armed.level) / leg));
+}
+
 /** Exported for the tests, which check the pieces as well as the whole. */
 export const _internals = {
   touches, confirmedPivots, findSetup, lastClosedIndex, contiguousTail, blankDiagnostics,

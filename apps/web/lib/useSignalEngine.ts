@@ -37,6 +37,7 @@ import {
   programFor,
   guaranteedWinExit,
   outcomeFor,
+  setupCompletion,
   resolveExitPrice,
   ruleFromJson,
   scoreStandard,
@@ -115,6 +116,36 @@ const PRICE_POLL_MS = 4000;
  */
 const NEAR_FRACTION = 0.2;
 
+/**
+ * ── FOLLOWING THE LEADER ───────────────────────────────────────────────────
+ *
+ * The chart follows whichever unselected pair is closest to firing, and moves
+ * when a different one is clearly ahead.
+ *
+ * The problem it solves is the same one the push channel has: there are 89
+ * pairs, a setup can form on any of them, and telling the user about each in
+ * turn is not something anybody leaves switched on. So instead of reporting
+ * every pair, the app shows the ONE worth watching, and changes its mind only
+ * when the answer has really changed.
+ *
+ * "Really" is the whole design. Completions move every few seconds; two pairs
+ * within a point of each other would trade the lead back and forth for as long
+ * as they stayed close, and a chart that flickers between two markets is worse
+ * than one that sits on the wrong one.
+ */
+
+/** How far ahead a challenger must be, in percentage points, to take the lead. */
+const LEADER_MARGIN = 10;
+
+/**
+ * Below this, nothing is worth following.
+ *
+ * Something is always technically closest, including on a morning where the
+ * best in the book is 4% of the way there. Following that is a chart that
+ * moves for no reason, and the honest state is no leader at all.
+ */
+const LEADER_FLOOR = 25;
+
 export interface EngineState {
   candles: Candle[];
   currentPrice: number;
@@ -135,6 +166,23 @@ export interface EngineState {
   candleSecondsLeft: number;
   /** Weekend forex, or a price that never moved during analysis. */
   marketClosed: boolean;
+  /**
+   * The pair the chart is following, and how close it is to firing.
+   *
+   * Null when nothing is close enough to be worth watching — which is a real
+   * and common state, not a loading one: 70 of 89 pairs have no setup at all
+   * at any given moment, and on a quiet morning none of the rest is near.
+   */
+  leader: { symbol: string; percent: number } | null;
+  /**
+   * True once the user has picked a pair by hand.
+   *
+   * Following stops there and stays stopped until they say otherwise. A chart
+   * that moves out from under somebody who is reading it is the fastest way to
+   * lose their trust in everything else on the screen — and picking a pair is
+   * about as clear a statement of "I want to look at this one" as exists.
+   */
+  followPaused: boolean;
 }
 
 /**
@@ -316,6 +364,8 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     analysisStage: '',
     candleSecondsLeft: 0,
     marketClosed: false,
+    leader: null,
+    followPaused: false,
   });
 
   const livePriceRef = useRef<(() => number) | null>(null);
@@ -566,6 +616,17 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     settleTo(open, result, bar.open, bar.close);
   }, [settleTo]);
 
+  /**
+   * The user took the chart over, or gave it back.
+   *
+   * Paused by picking a pair by hand and by nothing else — not by scrolling,
+   * not by opening a panel. Only an explicit "show me this one" counts, and
+   * only an explicit press undoes it.
+   */
+  const setFollowPaused = useCallback((paused: boolean) => {
+    setState((st) => (st.followPaused === paused ? st : { ...st, followPaused: paused }));
+  }, []);
+
   const setLivePriceGetter = useCallback((getter: () => number) => {
     livePriceRef.current = getter;
   }, []);
@@ -708,6 +769,78 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    *     signal. The pairs after it keep their state untouched for the same
    *     reason.
    */
+  /**
+   * Ranks every armed pair and moves the chart if the lead genuinely changed.
+   *
+   * Only pairs with an armed setup are candidates. A pair with no setup is not
+   * at 0% — there is nothing to measure on it at all, and treating "no swing
+   * yet" as "furthest away" would put a number on silence.
+   *
+   * The ranking itself is `setupCompletion` from the engine, so this and the
+   * proxy generator order pairs by the same number rather than each inventing
+   * one. Ties go to the longer leg — a bigger swing is a clearer structure than
+   * a twitch — and then to the symbol, so the answer is reproducible instead of
+   * depending on whichever order the pairs arrived in.
+   */
+  const followLeader = useCallback((bulk: Map<string, Candle[]>) => {
+    const prog = programRef.current;
+    if (prog === null) return;
+
+    // A trade owns the screen. Not a new leader, not a pair that just reached
+    // its level — the user is watching this one play out, and moving the chart
+    // during it would take away the thing they were told to look at.
+    if (cycleSymbolRef.current !== null) return;
+
+    const ranked: Array<{ symbol: string; percent: number; leg: number }> = [];
+    for (const [symbol, candles] of bulk) {
+      const armed = programStatesRef.current.get(symbol)?.armed;
+      if (!armed || candles.length === 0) continue;
+      const price = candles[candles.length - 1]!.close;
+      ranked.push({
+        symbol,
+        percent: setupCompletion(armed, price) * 100,
+        leg: Math.abs(armed.level - armed.endPrice) / 0.236,
+      });
+    }
+
+    if (ranked.length === 0) {
+      // Forgotten rather than left standing, so the next pair to arm is a new
+      // leader instead of being compared against a setup that has expired.
+      setState((st) => (st.leader === null ? st : { ...st, leader: null }));
+      return;
+    }
+
+    ranked.sort(
+      (a, b) => b.percent - a.percent || b.leg - a.leg || a.symbol.localeCompare(b.symbol),
+    );
+    const best = ranked[0]!;
+    if (best.percent < LEADER_FLOOR) {
+      setState((st) => (st.leader === null ? st : { ...st, leader: null }));
+      return;
+    }
+
+    const current = stateRef.current.leader;
+    const held = current === null ? undefined : ranked.find((r) => r.symbol === current.symbol);
+
+    // The incumbent keeps the lead unless beaten by a clear margin — but only
+    // while it still HAS a setup. One that has expired does not hold the chart
+    // hostage on the strength of a number that no longer exists.
+    const keep =
+      held !== undefined && held.symbol !== best.symbol && best.percent < held.percent + LEADER_MARGIN
+        ? held
+        : best;
+
+    const changed = current === null || current.symbol !== keep.symbol;
+    setState((st) => ({ ...st, leader: { symbol: keep.symbol, percent: keep.percent } }));
+    if (!changed) return;
+
+    // The chart moves only if the user has not taken it over, and only if it
+    // is not already there.
+    if (stateRef.current.followPaused) return;
+    const a = argsRef.current;
+    if (keep.symbol !== a.chartSymbol) a.onPairSwitch?.(keep.symbol);
+  }, []);
+
   const tickProgram = useCallback(async (): Promise<TickResult> => {
     const prog = programRef.current;
     const a = argsRef.current;
@@ -756,8 +889,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       const result = applyEvent(symbol, prog, candles, stateFor(symbol));
       if (result !== 'none') return result;
     }
+
+    // Which pair to follow is a question about all of them at once, so it is
+    // asked after the loop rather than inside it.
+    followLeader(bulk);
     return 'none';
-  }, [applyEvent, stateFor]);
+  }, [applyEvent, stateFor, followLeader]);
 
   /**
    * Between candles: how close is any watched pair to its level?
@@ -1185,5 +1322,6 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     clearSignal,
     clearMarketClosed,
     setLivePriceGetter,
+    setFollowPaused,
   };
 }

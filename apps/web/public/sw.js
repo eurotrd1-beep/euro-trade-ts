@@ -29,7 +29,8 @@ self.addEventListener('push', (event) => {
 
   const title = data.title || 'إشارة جديدة';
   const symbol = data.symbol || '';
-  const kind = data.kind === 'signal' ? 'signal' : 'armed';
+  const kind =
+    data.kind === 'signal' ? 'signal' : data.kind === 'leader' ? 'leader' : 'armed';
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -38,12 +39,17 @@ self.addEventListener('push', (event) => {
       // full of other apps.
       icon: './logo.jpg',
       badge: './logo.jpg',
-      // One notification per pair per kind: a setup that re-arms replaces its
-      // own line instead of stacking a second one under it.
-      tag: `${kind}:${symbol}`,
+      // A leader notification carries no symbol in its tag, so a new leader
+      // REPLACES the old one rather than stacking beneath it. There is only
+      // ever one pair worth watching, and a shade holding five of these in a
+      // row would be the pile-up this whole channel exists to prevent.
+      //
+      // Everything else is tagged per pair: a setup that re-arms replaces its
+      // own line, and two different pairs stay two different lines.
+      tag: kind === 'leader' ? 'leader' : `${kind}:${symbol}`,
       renotify: true,
       // A trade that has already opened is worth a buzz. A setup only forming
-      // is not, at 3am.
+      // — or the lead changing hands — is not, at 3am.
       silent: kind !== 'signal',
       data: { symbol, kind },
     }),

@@ -89,6 +89,7 @@ export {
   SUPPORTED_TIMEFRAMES,
   TIMEFRAME_MINUTES,
   fib236Touch,
+  setupCompletion,
   NO_EVENT,
   type Plan,
   type StrategyProgram,

@@ -46,6 +46,7 @@ import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import { PushToggle } from '@/components/PushToggle';
+import { LeaderStrip } from '@/components/LeaderStrip';
 import styles from './app.module.css';
 
 /*
@@ -188,6 +189,25 @@ export default function MainScreen() {
    * what the engine reports and what the feed is keyed by — matching on the
    * pretty name would fail on the first pair whose two names differ.
    */
+  /**
+   * A pair the user chose themselves.
+   *
+   * Distinct from `switchToPair`, which is the app moving the chart on its
+   * own. Only this one stops the automatic follow — the difference between
+   * "the app decided" and "I decided" is exactly what the pause is for, and
+   * routing both through one function would make every automatic switch look
+   * like a manual one and freeze the follow after the first move.
+   */
+  const pauseFollowRef = useRef<((paused: boolean) => void) | null>(null);
+
+  const pickPairByHand = useCallback(
+    (symbol: string) => {
+      setActivePair(symbol);
+      pauseFollowRef.current?.(true);
+    },
+    [],
+  );
+
   const switchToPair = useCallback(
     (chartSymbol: string) => {
       const match = visiblePairs.find((p) => p.chart_symbol === chartSymbol);
@@ -280,6 +300,7 @@ export default function MainScreen() {
   const tradeOpen = engine.activeSignal?.status === 'ACTIVE' || monitoring.active;
 
   stopMonitoringRef.current = monitoring.stop;
+  pauseFollowRef.current = engine.setFollowPaused;
 
   useEffect(() => {
     setWatching(monitoring.active);
@@ -342,7 +363,7 @@ export default function MainScreen() {
           <AssetSelector
             pairs={visiblePairs}
             active={activePair}
-            onSelect={setActivePair}
+            onSelect={pickPairByHand}
             closedPairs={market.closedPairs}
           />
 
@@ -351,6 +372,19 @@ export default function MainScreen() {
               {tr('جاري إعادة الاتصال بمزوّد الأسعار...', 'Reconnecting to the price provider…')}
             </div>
           )}
+
+          {/*
+            Above the chart, not inside it: it explains why the chart is
+            showing what it is showing, which has to be readable before the
+            chart is, not after.
+          */}
+          <LeaderStrip
+            leader={engine.leader}
+            paused={engine.followPaused}
+            tradeOpen={engine.activeSignal?.status === 'ACTIVE'}
+            displayName={(sym) => visiblePairs.find((p) => p.chart_symbol === sym)?.symbol ?? sym}
+            onResume={() => engine.setFollowPaused(false)}
+          />
 
           <div className={styles.chartCard}>
             <div className={styles.chartHead}>
