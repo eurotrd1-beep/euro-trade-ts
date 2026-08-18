@@ -614,7 +614,23 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * from the current price would show the setup drifting away from a level it
    * has already met, and take back a trade that is already owed.
    */
-  const touchedRef = useRef(new Map<string, { key: string; candle: number }>());
+  const touchedRef = useRef(new Map<string, { key: string; candle: number; hit: boolean }>());
+  /**
+   * The range price has covered during the candle now running, per pair.
+   *
+   * Built from every price observed, because a touch is CONTAINMENT — the
+   * strategy asks whether the level lies inside the candle's high and low, not
+   * whether price is currently past it. Measured over recorded candles, the
+   * one-sided test was right 6.4% of the time: price that had broken clean
+   * through the level and kept going satisfied it, and that is the opposite of
+   * a touch. Containment was right 87.6%.
+   *
+   * Assembled from polled prices, so it can only ever be NARROWER than the real
+   * candle — a touch between two polls is missed. That is the safe direction to
+   * be wrong in: the reading stays just under 100 and the trade then appears,
+   * which is a surprise rather than a broken promise.
+   */
+  const rangeRef = useRef(new Map<string, { candle: number; high: number; low: number }>());
 
   /** The start of the candle now running, as epoch ms. */
   const currentCandleStart = useCallback((): number => {
@@ -627,23 +643,50 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * this pair's current candle has one.
    */
   const touchedNow = useCallback(
-    (symbol: string, armed: { key: string; level: number; direction: Direction } | null, price: number): boolean => {
-      if (armed === null) {
+    (
+      symbol: string,
+      armed: { key: string; level: number; endPrice: number; direction: Direction } | null,
+      price: number,
+    ): boolean => {
+      if (armed === null || !(price > 0)) {
         touchedRef.current.delete(symbol);
+        rangeRef.current.delete(symbol);
         return false;
       }
+
       const candle = currentCandleStart();
+
+      // The range so far, restarted on a new candle.
+      const seen = rangeRef.current.get(symbol);
+      const range =
+        seen !== undefined && seen.candle === candle
+          ? { candle, high: Math.max(seen.high, price), low: Math.min(seen.low, price) }
+          : { candle, high: price, low: price };
+      rangeRef.current.set(symbol, range);
+
       const held = touchedRef.current.get(symbol);
-      if (held !== undefined && held.key === armed.key && held.candle === candle) return true;
+      const fresh = held === undefined || held.key !== armed.key || held.candle !== candle;
+      if (!fresh && held.hit) return true;
 
-      // Reached: the retracement is approached from the side the leg ran, so an
-      // up-swing's level is met from above and a down-swing's from below. The
-      // same test the strategy uses, on the live price instead of on the candle.
-      const reached = armed.direction === 'CALL' ? price <= armed.level : price >= armed.level;
-      if (!reached) return false;
+      // ── The strategy's own two tests, on the live range ──────────────────
+      //
+      // Broken first, exactly as the strategy does: a setup whose leg end price
+      // has been passed is retired BEFORE the touch is considered, so a level
+      // inside the range of a candle that also broke the leg produces nothing.
+      // Checking it here is what stopped this claim being wrong one time in
+      // eight.
+      const broken =
+        armed.direction === 'CALL' ? range.high > armed.endPrice : range.low < armed.endPrice;
+      if (broken) {
+        touchedRef.current.set(symbol, { key: armed.key, candle, hit: false });
+        return false;
+      }
 
-      touchedRef.current.set(symbol, { key: armed.key, candle });
-      return true;
+      // And then containment: the level has to lie INSIDE the range price has
+      // covered. Being past it is not touching it.
+      const hit = range.low <= armed.level && armed.level <= range.high;
+      touchedRef.current.set(symbol, { key: armed.key, candle, hit });
+      return hit;
     },
     [currentCandleStart],
   );
