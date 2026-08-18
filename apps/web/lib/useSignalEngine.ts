@@ -639,6 +639,18 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         }
       }
 
+      // The trade's own candle is in this array the moment the scan reaches
+      // its pair, which is sooner than the fifteen-second chart poll. The
+      // entry line on the chart is drawn at this price, and until it is
+      // corrected it sits at the previous close — measured on the live feed,
+      // that is a couple of pips from where the trade actually opened.
+      if (
+        stateRef.current.activeSignal?.status === 'ACTIVE' &&
+        stateRef.current.activeSignal.pair === pairNameFor(symbol)
+      ) {
+        reconcileOpenTrade(candles);
+      }
+
       if (event.signal !== null) {
         cycleSymbolRef.current = symbol;
         // The chart follows the signal. Told before the card appears, so the

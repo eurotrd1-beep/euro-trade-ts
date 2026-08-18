@@ -1,0 +1,83 @@
+/*
+ * The notifications switch.
+ *
+ * Sits directly under the account card, above the chart — the first thing on
+ * the page that is not identity. It is the one control that works when the app
+ * is closed, so it is not buried in a settings screen nobody opens.
+ */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text, #e5e7eb);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); }
+.btn:active:not(:disabled) { transform: scale(0.99); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+
+/* On is a state, not an action — it reads as settled rather than as a call to
+   press it again. */
+.on {
+  color: #062e23;
+  background: linear-gradient(180deg, #34d399, #10b981);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.hint {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted, #9ca3af);
+  margin: 0;
+}
+
+.muted {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted, #9ca3af);
+}
+
+/* Refused: the app genuinely cannot fix this, and the wording says so rather
+   than offering a button that would do nothing. */
+.denied {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 10px;
+  padding: 9px 11px;
+}
+
+/* Reopens the picker without touching the subscription. Quiet, because it is a
+   correction rather than the main action. */
+.editBtn {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.editBtn:hover { color: #e5e7eb; }

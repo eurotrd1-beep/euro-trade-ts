@@ -45,6 +45,7 @@ import { requestNotificationPermission } from '@/lib/signalNotify';
 import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
+import { PushToggle } from '@/components/PushToggle';
 import styles from './app.module.css';
 
 /*
@@ -196,6 +197,38 @@ export default function MainScreen() {
   );
 
   /**
+   * Opens the chart the notification was about.
+   *
+   * Two ways in, because a tap lands in one of two states. A cold start opens
+   * `?pair=…` and this reads it once; a tab that was already open gets a
+   * message from the service worker instead, since focusing it is better than
+   * launching a second copy of the app with its own watch loop.
+   *
+   * The symbol arrives in the scraper's form (`EURUSD_otc`) because that is
+   * what the generator knows, and `switchToPair` speaks exactly that.
+   */
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('pair');
+    if (requested) {
+      switchToPair(requested);
+      // Taken out of the address bar so a refresh does not drag the user back
+      // to a pair they have since navigated away from.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('pair');
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    if (!('serviceWorker' in navigator)) return;
+    const onMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string; symbol?: string } | null;
+      if (data?.type === 'open-pair' && data.symbol) switchToPair(data.symbol);
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [switchToPair]);
+
+
+  /**
    * The watch's `active`, mirrored into state.
    *
    * A ref would be simpler and would not work: `useMonitoring` is created
@@ -298,6 +331,12 @@ export default function MainScreen() {
             broker={broker}
             isVip={isVip}
             vipExpiry={user.vipExpiry}
+          />
+
+          <PushToggle
+            accountId={accountId}
+            plan={isVip ? 'paid' : 'free'}
+            pairs={visiblePairs}
           />
 
           <AssetSelector
