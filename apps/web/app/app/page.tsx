@@ -45,7 +45,7 @@ import { requestNotificationPermission } from '@/lib/signalNotify';
 import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
-import { PushToggle } from '@/components/PushToggle';
+import { WatchSettings } from '@/components/WatchSettings';
 import { LeaderStrip } from '@/components/LeaderStrip';
 import styles from './app.module.css';
 
@@ -170,16 +170,26 @@ export default function MainScreen() {
   const takeOverMonitoring = useCallback(() => stopMonitoringRef.current?.(), []);
 
   /**
-   * The pairs the watch sweeps: everything on offer, minus what the feed says
-   * is closed. A closed market cannot produce a candle, so scanning it is a
-   * wasted slot in the sweep.
+   * The pairs the user chose, minus what the feed says is closed.
+   *
+   * It used to be every pair the catalogue offered. Now it is the selection
+   * from ⚙️ settings — the same list the notification subscription uses, so
+   * "which pairs am I following" has exactly one answer.
+   *
+   * Held in state rather than derived, because the source is `localStorage` and
+   * reading it during render would make the first paint disagree with the
+   * server-rendered markup. `WatchSettings` reports it on mount and on every
+   * change, including the migration of the old notifications-only list.
+   *
+   * A closed market cannot produce a candle, so scanning it is a wasted slot —
+   * but it stays in the user's SELECTION, because a market being shut for the
+   * weekend is not them changing their mind.
    */
+  const [watchedPairs, setWatchedPairs] = useState<string[]>([]);
+
   const watchSymbols = useMemo(
-    () =>
-      visiblePairs
-        .map((p) => p.chart_symbol)
-        .filter((sym) => sym && market.closedPairs[sym] !== true),
-    [visiblePairs, market.closedPairs],
+    () => watchedPairs.filter((sym) => sym && market.closedPairs[sym] !== true),
+    [watchedPairs, market.closedPairs],
   );
 
   /**
@@ -374,10 +384,11 @@ export default function MainScreen() {
             vipExpiry={user.vipExpiry}
           />
 
-          <PushToggle
+          <WatchSettings
             accountId={accountId}
             plan={isVip ? 'paid' : 'free'}
             pairs={visiblePairs}
+            onChange={setWatchedPairs}
           />
 
           <AssetSelector
