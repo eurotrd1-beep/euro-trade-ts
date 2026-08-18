@@ -565,6 +565,17 @@ export interface SetupProgress {
   stage: SetupStage;
   /** 0–100. */
   percent: number;
+  /**
+   * The price the strategy is waiting for, when it is waiting for one.
+   *
+   * Present only while a setup is ARMED — that is the only state in which a
+   * level exists and is being watched. Before it there is nothing to draw, and
+   * drawing a line from an earlier stage would put a price on the chart that
+   * the strategy is not actually watching for.
+   */
+  level?: number;
+  /** Which way the trade goes if that level is touched. */
+  direction?: Direction;
 }
 
 /** Where each band starts. Named, because the numbers alone explain nothing. */
@@ -590,6 +601,8 @@ export function setupProgress(
     return {
       stage: 'armed',
       percent: BAND.armed + closeness * (BAND.armedTop - BAND.armed),
+      level: state.armed.level,
+      direction: state.armed.direction,
     };
   }
 

@@ -449,7 +449,10 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
     const cached = loadHistory(id);
     if (cached.length > 0) {
-      setState((s) => ({ ...s, history: resolveOpenTrades(cached, args.pair, s.activeSignal) }));
+      setState((s) => ({
+        ...s,
+        history: resolveOpenTrades(cached, args.pair, s.openTrades[args.chartSymbol] ?? null),
+      }));
     }
 
     let cancelled = false;
@@ -464,7 +467,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       const merged = resolveOpenTrades(
         mergeHistories(stateRef.current.history, remote),
         argsRef.current.pair,
-        stateRef.current.activeSignal,
+        stateRef.current.openTrades[argsRef.current.chartSymbol] ?? null,
       );
       saveHistory(id, merged);
       setState((s) => ({ ...s, history: merged }));
@@ -490,17 +493,15 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   // whatever chart is showing, so restoring a EUR/USD trade onto a GBP/JPY
   // chart would judge it against the wrong market.
   useEffect(() => {
-    if (state.activeSignal !== null || state.history.length === 0) return;
+    if (Object.keys(state.openTrades).length > 0 || state.history.length === 0) return;
     const resumable = state.history.find(
       (s) => s.status === 'ACTIVE' && s.expiryTime > Date.now(),
     );
     if (resumable === undefined) return;
 
-    setState((s) => ({
-      ...s,
-      activeSignal: resumable,
-      secondsRemaining: Math.max(1, Math.ceil((resumable.expiryTime - Date.now()) / 1000)),
-    }));
+    if (resumable.symbol === undefined) return;
+    const sym = resumable.symbol;
+    setState((s) => ({ ...s, openTrades: { ...s.openTrades, [sym]: resumable } }));
 
     // Whatever pair it was opened on — it used to require the chart to already
     // be showing that pair, and after a reload the chart is on whatever it
@@ -513,7 +514,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     if (resumable.symbol !== undefined && resumable.symbol !== args.chartSymbol) {
       argsRef.current.onPairSwitch?.(resumable.symbol);
     }
-  }, [state.history, state.activeSignal, args.chartSymbol]);
+  }, [state.history, state.openTrades, args.chartSymbol]);
   // ── One tab runs the strategy ─────────────────────────────────────────────
   //
   // See `watchLease.ts` for what goes wrong without this. The ref is what the
@@ -676,8 +677,8 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * And if that candle never arrives at all, the card is closed as unresolved
    * rather than left spinning. "No price" is a real fourth state.
    */
-  const reconcileOpenTrade = useCallback((candles: readonly Candle[]) => {
-    const open = stateRef.current.activeSignal;
+  const reconcileOpenTrade = useCallback((symbol: string, candles: readonly Candle[]) => {
+    const open = stateRef.current.openTrades[symbol] ?? null;
     if (open === null || open.status !== 'ACTIVE') return;
 
     const bar = candles.find((c) => c.time === open.entryTime);
@@ -698,18 +699,22 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         saveHistory(accountId, history);
         void pushRemoteHistory(accountId, history);
       }
-      setState((s) => ({ ...s, activeSignal: stale, secondsRemaining: 0, history }));
+      setState((s) => {
+        const open = { ...s.openTrades };
+        delete open[symbol];
+        return { ...s, openTrades: open, history };
+      });
       return;
     }
 
     // The candle exists. Show its open as the entry — that is the price the
     // trade was taken at, whatever the card was opened with.
     if (bar.open !== open.entryPrice) {
-      setState((s) =>
-        s.activeSignal === null || s.activeSignal.status !== 'ACTIVE'
-          ? s
-          : { ...s, activeSignal: { ...s.activeSignal, entryPrice: bar.open } },
-      );
+      setState((s) => {
+        const held = s.openTrades[symbol];
+        if (held === undefined || held.status !== 'ACTIVE') return s;
+        return { ...s, openTrades: { ...s.openTrades, [symbol]: { ...held, entryPrice: bar.open } } };
+      });
     }
 
     // Settle only once the candle is closed. A candle still forming has a
@@ -801,7 +806,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         // behind: the engine settles the cycle it restored from storage, finds
         // nothing on screen to apply it to, and throws the answer away. The
         // trade then never resolves anywhere the user can see.
-        const open = stateRef.current.activeSignal;
+        const open = stateRef.current.openTrades[symbol] ?? null;
         const target =
           open !== null && open.status === 'ACTIVE'
             ? open
@@ -819,12 +824,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // entry line on the chart is drawn at this price, and until it is
       // corrected it sits at the previous close — measured on the live feed,
       // that is a couple of pips from where the trade actually opened.
-      if (
-        stateRef.current.activeSignal?.status === 'ACTIVE' &&
-        sameTrade(stateRef.current.activeSignal, symbol)
-      ) {
-        reconcileOpenTrade(candles);
-      }
+      reconcileOpenTrade(symbol, candles);
 
       if (event.signal !== null) {
         cycleSymbolRef.current = symbol;
@@ -1069,7 +1069,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         candles,
         currentPrice: candles[candles.length - 1]!.close,
       }));
-      reconcileOpenTrade(candles);
+      reconcileOpenTrade(args.chartSymbol, candles);
     }
 
     void sync();
@@ -1081,66 +1081,28 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   }, [args.chartSymbol, args.timeframe, args.priceSystem]);
 
   // ── Countdown + settlement ────────────────────────────────────────────────
+  /**
+   * A once-a-second tick, so the countdowns move.
+   *
+   * The remaining seconds are DERIVED from each trade's own expiry rather than
+   * stored, because there is one per pair now and a single field could describe
+   * only one of them. Derived values do not re-render on their own, so this
+   * exists purely to say "time passed" — and it runs only while something is
+   * counting down.
+   *
+   * It settles nothing. A trade is settled by the program, from the candle it
+   * actually ran on; judging it here against a live tick as well would produce
+   * a second verdict, and on a one-minute binary the two disagree often enough
+   * to show a WIN card beside a martingale for the same trade.
+   */
+  const [, forceTick] = useState(0);
+  const anyOpen = Object.keys(state.openTrades).length > 0;
   useEffect(() => {
-    const signal = state.activeSignal;
-    if (!signal || signal.status !== 'ACTIVE') return;
-
-    const id = setInterval(() => {
-      const left = Math.ceil((signal.expiryTime - Date.now()) / 1000);
-      if (left > 0) {
-        setState((s) => ({ ...s, secondsRemaining: left }));
-        return;
-      }
-
-      clearInterval(id);
-
-      // A program settles its own trades, from the candle the trade ran on —
-      // see `tickProgram`. Settling here as well would judge the same trade a
-      // second time against a live tick, and the two answers differ often
-      // enough on a one-minute binary to show a WIN card beside a martingale.
-      // The countdown above still runs; only the verdict is left alone.
-      if (programRef.current !== null) {
-        setState((s) => ({ ...s, secondsRemaining: 0 }));
-        return;
-      }
-
-      const live = livePriceRef.current?.() ?? null;
-      const gw = argsRef.current.guaranteedWin;
-      const exit = gw
-        ? guaranteedWinExit(signal.direction, signal.entryPrice, live)
-        : resolveExitPrice(signal.entryPrice, live);
-      const result = gw ? 'WIN' : outcomeFor(signal.direction, signal.entryPrice, exit);
-
-      const settled: TradingSignal = {
-        ...signal,
-        status: result,
-        exitPrice: exit,
-        currentPrice: exit,
-        candlesSnapshot: stateRef.current.candles.slice(),
-      };
-
-      // Dart plays an outcome tone here; a tie is silent.
-      if (result === 'WIN') playWinSound();
-      else if (result === 'LOSS') playLossSound();
-
-      // Merged, not prepended: the trade is already in the list as ACTIVE from
-      // the moment it opened, so prepending would show it twice — once running
-      // and once settled. `mergeHistories` matches them by identity and keeps
-      // the settled one.
-      const history = mergeHistories([settled], stateRef.current.history);
-      const accountId = argsRef.current.accountId;
-      if (accountId) {
-        saveHistory(accountId, history);
-        // Fire and forget: the cache already has the trade, so a failed write
-        // costs the durable copy one trade until the next settlement, and
-        // costs the user nothing right now.
-        void pushRemoteHistory(accountId, history);
-      }
-      setState((s) => ({ ...s, activeSignal: settled, secondsRemaining: 0, history }));
-    }, 250);
-
+    if (!anyOpen) return;
+    const id = setInterval(() => forceTick((n) => n + 1), 1000);
     return () => clearInterval(id);
-  }, [state.activeSignal]);
+  }, [anyOpen]);
+
 
   /**
    * The forced signal, for accounts the admin has set to always win.
@@ -1334,10 +1296,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         return 'no_match';
       }
 
-      const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
       announceSignal(signal);
       recordOpen(signal);
-      finish({ activeSignal: signal, secondsRemaining: secs, waitNotice: '' });
+      finish({
+        openTrades: { ...stateRef.current.openTrades, [argsRef.current.chartSymbol]: signal },
+        waitNotice: '',
+      });
       return 'signal';
     },
     [forcedSignal, recordOpen, tickProgram],
@@ -1362,18 +1326,18 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
       if (programRef.current !== null) return tickProgram();
 
-      if (stateRef.current.activeSignal?.status === 'ACTIVE') return 'none';
+      // A trade on ANOTHER pair is not a reason to refuse: pairs run their own
+      // cycles now. Only a trade on this one would be a second position.
+      if (stateRef.current.openTrades[argsRef.current.chartSymbol] !== undefined) return 'none';
       if (stateRef.current.candles.length === 0) return 'none';
 
       const signal = forcedSignal(selectedMinutes, true);
 
-      const secs = Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000));
       announceSignal(signal);
       recordOpen(signal);
       setState((s) => ({
         ...s,
-        activeSignal: signal,
-        secondsRemaining: secs,
+        openTrades: { ...s.openTrades, [argsRef.current.chartSymbol]: signal },
         waitNotice: '',
       }));
       return 'signal';
