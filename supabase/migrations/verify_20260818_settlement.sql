@@ -21,6 +21,10 @@
 --
 -- عشان كده: جدول مؤقت بيتجمّع فيه النتايج، وDO blocks عشان الترتيب يبقى
 -- إجرائي والصف يبقى مرئي للخطوة اللي بعده.
+--
+-- وفي فخ تالت: `pg_get_functiondef` بترمي «array_agg is an aggregate function»
+-- لو وقعت على aggregate، والمخطِّط بينفّذها على صفوف قبل ما يطبّق فلتر
+-- الـschema. الحل: `prokind = 'f'` + CTE بـMATERIALIZED عشان الفلترة تخلص أول.
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -38,10 +42,13 @@ SELECT 1, CASE
   ELSE '❌ الدالة لسه بتحسب من الأسعار — الترحيل مااتطبّقش'
 END
 FROM (
+  -- `prokind = 'f'` مش زيادة: pg_get_functiondef بترمي
+  -- «array_agg is an aggregate function» لو وقعت على aggregate، والمخطِّط
+  -- بينفّذها على صفوف قبل ما يطبّق فلتر الـschema.
   SELECT pg_get_functiondef(p.oid) AS def
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public' AND p.proname = 'resolve_signals'
+  WHERE n.nspname = 'public' AND p.prokind = 'f' AND p.proname::text = 'resolve_signals'
   LIMIT 1
 ) x;
 
@@ -113,14 +120,24 @@ SELECT 4, CASE
   ELSE '❌ فيه ' || n || ' دالة: ' || names
 END
 FROM (
-  SELECT count(*) AS n, coalesce(string_agg(p.proname::text, ', '), '') AS names
-  FROM pg_proc p
-  JOIN pg_namespace ns ON ns.oid = p.pronamespace
-  WHERE ns.nspname = 'public'
-    AND p.proname::text <> 'resolve_signals'
-    AND pg_get_functiondef(p.oid) LIKE '%entry_price%'
-    AND pg_get_functiondef(p.oid) LIKE '%outcome%'
-    AND pg_get_functiondef(p.oid) LIKE '%CASE%'
+  SELECT count(*) AS n, coalesce(string_agg(name, ', '), '') AS names
+  FROM (
+    -- الفلترة لازم تخلص الأول. `MATERIALIZED` بتمنع المخطِّط من إنه ينزّل
+    -- نداء pg_get_functiondef جوّه المسح، وهو اللي كان بيوقّعه على aggregate.
+    WITH plain_public_functions AS MATERIALIZED (
+      SELECT p.oid, p.proname::text AS name
+      FROM pg_proc p
+      JOIN pg_namespace ns ON ns.oid = p.pronamespace
+      WHERE ns.nspname = 'public'
+        AND p.prokind = 'f'
+        AND p.proname::text <> 'resolve_signals'
+    )
+    SELECT name
+    FROM plain_public_functions
+    WHERE pg_get_functiondef(oid) LIKE '%entry_price%'
+      AND pg_get_functiondef(oid) LIKE '%outcome%'
+      AND pg_get_functiondef(oid) LIKE '%CASE%'
+  ) f
 ) x;
 
 
