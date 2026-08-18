@@ -77,12 +77,21 @@ export function WatchCard({
     activeSignal !== null && activeSignal.status === 'ACTIVE' ? (activeSignal.symbol ?? null) : null;
 
   const forming = useMemo(() => {
-    return watched
-      .filter((sym) => sym !== tradingSymbol && completions[sym] !== undefined)
-      .map((sym) => ({ symbol: sym, ...completions[sym]! }))
-      // Re-sorted on every update, so the pair nearest to firing is always at
-      // the top of a list that only shows its first five rows.
-      .sort((a, b) => b.percent - a.percent || a.symbol.localeCompare(b.symbol));
+    return (
+      watched
+        .filter((sym) => sym !== tradingSymbol)
+        // EVERY chosen pair, not only the ones a sweep has reached. A pair the
+        // user picked and cannot find in their own list looks like the app
+        // dropped it; the honest answer for one with no reading yet is a row at
+        // the bottom saying so, not an absence.
+        .map((sym) => ({
+          symbol: sym,
+          ...(completions[sym] ?? { stage: 'idle' as const, percent: 0 }),
+        }))
+        // Re-sorted on every update, so the pair nearest to firing is always in
+        // the five rows the card shows without scrolling.
+        .sort((a, b) => b.percent - a.percent || a.symbol.localeCompare(b.symbol))
+    );
   }, [watched, completions, tradingSymbol]);
 
   if (watched.length === 0) return null;

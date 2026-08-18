@@ -55,7 +55,10 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  max-height: 15.5em;
+  /* Five rows. A row is ~40px with its gap, so this is 5 × 40 less the gap
+     the last one does not have — enough that the sixth is half-visible and the
+     list reads as scrollable rather than as finished. */
+  max-height: 12.6em;
   overflow-y: auto;
   overscroll-behavior: contain;
 }

@@ -83,7 +83,49 @@ export async function requestNotificationPermission(): Promise<boolean> {
 /** Android needs a distinct id per notification, or each replaces the last. */
 let nextId = 1;
 
+/**
+ * ── ONE SWITCH ─────────────────────────────────────────────────────────────
+ *
+ * There were two ways to be told about a setup and only one of them had a
+ * control: the notification while the app is closed had a switch, and the one
+ * raised by the running page had none and always fired. So "turn off
+ * notifications" turned off half of them, and the half it left was the half the
+ * user was most likely to be looking at anyway.
+ *
+ * The switch now means all of them. It is stored rather than derived from the
+ * push subscription because the two can disagree for reasons that have nothing
+ * to do with what the user wants: a browser that cannot do push at all, a
+ * permission refused in settings, a subscription the server dropped. In every
+ * one of those the page can still raise a notification, and whether it should
+ * is this answer and not theirs.
+ *
+ * Default off. An app that starts notifying somebody who never asked it to is
+ * the reason browsers made the permission one-shot in the first place.
+ */
+const ALERTS_KEY = 'alerts_enabled';
+
+export function alertsEnabled(): boolean {
+  try {
+    return localStorage.getItem(ALERTS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setAlertsEnabled(on: boolean): void {
+  try {
+    localStorage.setItem(ALERTS_KEY, on ? '1' : '0');
+  } catch {
+    /* private mode; the session keeps working, it just will not be remembered */
+  }
+}
+
 export function notify(title: string, body: string): void {
+  // Checked here rather than at each call site: there are several, and one that
+  // forgot would be a notification arriving after the user switched them off,
+  // which is the exact complaint this exists to prevent.
+  if (!alertsEnabled()) return;
+
   const plugin = capacitorPlugin();
   if (plugin) {
     void plugin

@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tr, type PairRow } from '@euro/shared';
 import { disablePush, enablePush, pushState, refreshPush, type PushState } from '@/lib/webPush';
+import { alertsEnabled, setAlertsEnabled } from '@/lib/signalNotify';
 import { legacyWantedEverything, loadWatched, saveWatched } from '@/lib/watchedPairs';
 import { PushPairPicker } from './PushPairPicker';
 import styles from './WatchSettings.module.css';
@@ -49,6 +50,15 @@ export function WatchSettings({
   const [picking, setPicking] = useState(false);
   const [push, setPush] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Whether the user wants to be told at all — open or closed.
+   *
+   * Separate from `push`, which is only whether the browser CAN reach them
+   * while the app is shut. The two disagree whenever push is unsupported,
+   * refused, or dropped by the server, and in every one of those the page can
+   * still raise a notification: whether it should is this answer.
+   */
+  const [alerts, setAlerts] = useState(false);
 
   // ── The stored selection ──────────────────────────────────────────────────
   useEffect(() => {
@@ -68,6 +78,7 @@ export function WatchSettings({
   }, [accountId, pairs, onChange]);
 
   useEffect(() => {
+    setAlerts(alertsEnabled());
     let cancelled = false;
     void pushState().then((s) => {
       if (!cancelled) setPush(s);
@@ -91,14 +102,27 @@ export function WatchSettings({
     [accountId, onChange],
   );
 
-  const togglePush = useCallback(async () => {
+  const toggleAlerts = useCallback(async () => {
     setBusy(true);
     try {
-      setPush(push === 'on' ? await disablePush() : await enablePush(accountId, plan, watched));
+      if (alerts) {
+        setAlertsEnabled(false);
+        setAlerts(false);
+        setPush(await disablePush());
+        return;
+      }
+
+      // On means on everywhere. The push subscription is attempted too, and if
+      // it fails — an old browser, a refused permission — the alerts stay on
+      // for the running app rather than the whole switch failing. Half of what
+      // was asked for beats none of it, and the hint below says which half.
+      setAlertsEnabled(true);
+      setAlerts(true);
+      setPush(await enablePush(accountId, plan, watched));
     } finally {
       setBusy(false);
     }
-  }, [push, accountId, plan, watched]);
+  }, [alerts, accountId, plan, watched]);
 
   if (picking) {
     return (
@@ -189,30 +213,35 @@ export function WatchSettings({
           <>
             <button
               type="button"
-              onClick={() => void togglePush()}
-              disabled={busy || (count === 0 && !on)}
-              aria-pressed={on}
-              className={`${styles.pushBtn} ${on ? styles.pushOn : ''}`}
+              onClick={() => void toggleAlerts()}
+              disabled={busy || (count === 0 && !alerts)}
+              aria-pressed={alerts}
+              className={`${styles.pushBtn} ${alerts ? styles.pushOn : ''}`}
             >
-              <span aria-hidden="true">{on ? '🔔' : '🔕'}</span>
+              <span aria-hidden="true">{alerts ? '🔔' : '🔕'}</span>
               {busy
                 ? tr('لحظة...', 'One moment…')
-                : on
-                  ? tr('إشعارات والتطبيق مقفول: شغّالة', 'Alerts while closed: on')
-                  : tr('نبّهني والتطبيق مقفول', 'Alert me while the app is closed')}
+                : alerts
+                  ? tr('الإشعارات شغّالة', 'Notifications on')
+                  : tr('نبّهني بالإشارات', 'Notify me about signals')}
             </button>
             <p className={styles.hint}>
               {count === 0
                 ? tr('اختار الأزواج الأول.', 'Choose your pairs first.')
-                : on
+                : !alerts
                   ? tr(
-                      `هيوصلك تنبيه على ${count} زوج حتى والتطبيق مقفول. اضغط الإشعار يفتحلك شارت الزوج.`,
-                      `You will be alerted on ${count} pairs even with the app closed. Tap one to open that pair's chart.`,
+                      'تنبيه واحد يشمل الحالتين: والتطبيق مفتوح قدامك، أو مقفول خالص.',
+                      'One switch for both: with the app open in front of you, and with it closed.',
                     )
-                  : tr(
-                      'من غير ما تفتح التطبيق، هنقولك على الفرص أول بأول.',
-                      'Without opening the app, we will tell you about setups as they happen.',
-                    )}
+                  : on
+                    ? tr(
+                        `هيوصلك تنبيه على ${count} زوج — والتطبيق مفتوح أو مقفول. اضغط الإشعار يفتحلك شارت الزوج.`,
+                        `You will be alerted on ${count} pairs — app open or closed. Tap one to open that pair's chart.`,
+                      )
+                    : tr(
+                        'التنبيهات شغّالة والتطبيق مفتوح. المتصفح رفض يوصّلها وهو مقفول — راجع إعدادات الموقع لو عايز دي كمان.',
+                        'Alerts work while the app is open. The browser refused to deliver them while it is closed — check the site settings if you want those too.',
+                      )}
             </p>
           </>
         )}
