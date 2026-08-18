@@ -46,7 +46,8 @@ import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import { WatchSettings } from '@/components/WatchSettings';
-import { LeaderStrip } from '@/components/LeaderStrip';
+import { ChartProgress } from '@/components/ChartProgress';
+import { WatchCard } from '@/components/WatchCard';
 import { AwayTradeBar } from '@/components/AwayTradeBar';
 import styles from './app.module.css';
 
@@ -463,12 +464,9 @@ export default function MainScreen() {
             showing what it is showing, which has to be readable before the
             chart is, not after.
           */}
-          <LeaderStrip
-            leader={engine.leader}
-            paused={engine.followPaused}
-            tradeOpen={engine.activeSignal?.status === 'ACTIVE'}
-            displayName={(sym) => visiblePairs.find((p) => p.chart_symbol === sym)?.symbol ?? sym}
-            onResume={() => engine.setFollowPaused(false)}
+          <ChartProgress
+            percent={engine.completions[chartSymbol]}
+            tradeHere={tradeOnThisChart}
           />
 
           <div className={styles.chartCard}>
@@ -553,6 +551,16 @@ export default function MainScreen() {
           />
 
           <LiveFeed logs={socialLogs} />
+
+          {/* Above the history: what is happening now, before what already did. */}
+          <WatchCard
+            watched={watchedPairs}
+            pairs={visiblePairs}
+            completions={engine.completions}
+            activeSignal={engine.activeSignal}
+            chartSymbol={chartSymbol}
+            onSelect={pickPairByHand}
+          />
 
           <SignalHistory history={engine.history} />
         </aside>

@@ -179,6 +179,28 @@ export interface EngineState {
    */
   watchOwner: boolean;
   /**
+   * How close every watched pair is to firing, as a percentage.
+   *
+   * ── ONE SOURCE, AND WHY THAT MATTERS MORE THAN IT SOUNDS ────────────────
+   *
+   * The bar above the chart and the bars in the card read this same map, in the
+   * same render. Two sources — even two correct ones on slightly different
+   * clocks — would show 67% in one place and 59% in the other at the same
+   * moment, and a user comparing them has no way to tell which is the pair's
+   * actual state. So there is one map, written once per sweep.
+   *
+   * There is also no separate timer, and there must not be. The number moves
+   * with the PRICE, which arrives every few seconds; the candle only decides
+   * where the level is. A second interval for the card would be a second clock
+   * with nothing to gain — the smoothness comes from a CSS transition over the
+   * gap between updates, not from updating more often.
+   *
+   * A pair with no armed setup is absent rather than zero: there is nothing to
+   * measure on it, and 0% would claim it is as far away as a pair that has a
+   * setup and is a full leg from the level.
+   */
+  completions: Readonly<Record<string, number>>;
+  /**
    * The pair the chart is following, and how close it is to firing.
    *
    * Null when nothing is close enough to be worth watching — which is a real
@@ -393,6 +415,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     candleSecondsLeft: 0,
     marketClosed: false,
     leader: null,
+    completions: {},
     watchOwner: true,
     followPaused: false,
   });
@@ -872,22 +895,33 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const prog = programRef.current;
     if (prog === null) return;
 
-    // A trade owns the screen. Not a new leader, not a pair that just reached
-    // its level — the user is watching this one play out, and moving the chart
-    // during it would take away the thing they were told to look at.
-    if (cycleSymbolRef.current !== null) return;
 
     const ranked: Array<{ symbol: string; percent: number; leg: number }> = [];
+    const percents: Record<string, number> = {};
     for (const [symbol, candles] of bulk) {
       const armed = programStatesRef.current.get(symbol)?.armed;
       if (!armed || candles.length === 0) continue;
       const price = candles[candles.length - 1]!.close;
+      const percent = setupCompletion(armed, price) * 100;
+      percents[symbol] = percent;
       ranked.push({
         symbol,
-        percent: setupCompletion(armed, price) * 100,
+        percent,
         leg: Math.abs(armed.level - armed.endPrice) / 0.236,
       });
     }
+
+    // Replaced wholesale rather than merged: a pair whose setup has expired
+    // must DISAPPEAR from the card, and merging would leave its last percentage
+    // sitting there for ever, describing a level that no longer exists.
+    setState((st) => ({ ...st, completions: percents }));
+
+    // The CARD keeps updating during a trade — that was asked for explicitly,
+    // and it is why the completions are written above this line rather than
+    // below it. What stops is the CHART moving: the user is watching a trade
+    // play out, and taking away the thing they were told to look at is the one
+    // thing that must not happen.
+    if (cycleSymbolRef.current !== null) return;
 
     if (ranked.length === 0) {
       // Forgotten rather than left standing, so the next pair to arm is a new
