@@ -220,7 +220,24 @@ export async function pushRemoteHistory(
 ): Promise<void> {
   if (!accountId) return;
   try {
-    const trimmed = history.slice(0, LIMIT).map((s) => ({ ...s, candlesSnapshot: null }));
+    // ── Read, merge, then write ────────────────────────────────────────────
+    //
+    // This used to write the caller's whole array straight over the row, and
+    // that quietly destroyed other devices' work. A tab is merged with the
+    // server ONCE, when it mounts; after an hour open its idea of the history
+    // is an hour old, and pushing it erased every trade another device had
+    // settled in the meantime. The trade the caller is saving arrived intact
+    // and everything around it disappeared, which is the worst shape a data
+    // loss can take — it looks like nothing happened.
+    //
+    // Reading first costs one round trip on a write that happens twice per
+    // trade. A lost outcome costs a number the user cannot get back.
+    const remote = await fetchRemoteHistory(accountId);
+    // `null` is "could not ask", NOT "empty". Merging against an empty list on
+    // a failed read would be the same overwrite by a different route.
+    const merged = remote === null ? history : mergeHistories(history, remote);
+
+    const trimmed = merged.slice(0, LIMIT).map((s) => ({ ...s, candlesSnapshot: null }));
     // `updated_at` is deliberately not sent: the trigger sets it from the
     // server clock, because a client's clock can be wrong or lied about.
     await supabase().from(TABLE).upsert({ account_id: accountId, signals: trimmed });

@@ -202,3 +202,20 @@
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.12);
 }
+
+/* The confirmation for a large selection. Its own screen rather than a note
+   beside the save button, because a note beside a button somebody is already
+   reaching for is a note nobody reads. */
+.warnBody {
+  margin: 4px 0 10px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #fbbf24;
+}
+
+.warnNote {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: #9ca3af;
+}

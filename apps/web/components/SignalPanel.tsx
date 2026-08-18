@@ -55,6 +55,20 @@ export interface SignalPanelProps {
   fixedDuration: boolean;
   /** Shown so the user knows which strategy is about to run. */
   strategyName: string | null;
+  /** How many pairs the user has chosen. Zero disables the button. */
+  watchedCount: number;
+  /** Opens the settings sheet — pairs, and whether to be alerted about them. */
+  onOpenSettings: () => void;
+  /**
+   * The pair a trade is running on, when it is not the pair on screen.
+   *
+   * The card for it is deliberately absent here — it lives with its own chart —
+   * so without this the panel would show an idle screen offering to start a new
+   * analysis while one is already open elsewhere. `requestSignal` would refuse,
+   * silently, and a button that does nothing when pressed is worse than one
+   * that says why it cannot.
+   */
+  awayTradePair: string | null;
   monitoring: MonitoringState;
   onStopMonitoring: () => void;
 }
@@ -208,9 +222,22 @@ function IdleView({
   hasCandles,
   fixedDuration,
   strategyName,
+  watchedCount,
+  onOpenSettings,
+  awayTradePair,
 }: SignalPanelProps) {
   const name = pair.replace(' (OTC)', '');
-  const disabled = !hasCandles || marketClosed;
+  /**
+   * Nothing chosen is a different kind of disabled from the other two.
+   *
+   * A closed market or an empty candle buffer are conditions the user cannot
+   * act on and only has to wait out. This one is a step they have not taken
+   * yet, and it is the FIRST thing that has to happen on a new install — so it
+   * is named separately and answered with the way out of it, rather than with a
+   * grey button and no explanation.
+   */
+  const nothingChosen = watchedCount === 0;
+  const disabled = nothingChosen || !hasCandles || marketClosed || awayTradePair !== null;
 
   return (
     <section className={styles.panel}>
@@ -277,14 +304,57 @@ function IdleView({
         <DurationSelector selected={selectedMinutes} onSelect={onSelectMinutes} />
       )}
 
+      {awayTradePair !== null && (
+        <p className={styles.needPairs} role="status">
+          {tr(
+            `فيه صفقة شغالة دلوقتي على ${awayTradePair} — استنى تخلص.`,
+            `A trade is running on ${awayTradePair} right now — wait for it to finish.`,
+          )}
+        </p>
+      )}
+
+      {nothingChosen && (
+        <p className={styles.needPairs} role="status">
+          {tr(
+            '⚙️ اختار الأزواج اللي عايز تتابعها الأول من الإعدادات فوق.',
+            '⚙️ Choose the pairs you want to follow first, in the settings above.',
+          )}
+        </p>
+      )}
+
       <div className={styles.buttonRow}>
+        {/*
+          Beside the button it gates, because that is the only place it reads as
+          a precondition for pressing. Under the account card it looked like one
+          more account setting, which is exactly how the step that has to happen
+          first gets missed.
+        */}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={`${styles.gearBtn} ${nothingChosen ? styles.gearWaiting : ''}`}
+          aria-label={tr('إعدادات الأزواج والإشعارات', 'Pairs and alerts settings')}
+          title={
+            watchedCount === 0
+              ? tr('اختار الأزواج', 'Choose pairs')
+              : tr(`${watchedCount} زوج مختار`, `${watchedCount} pairs selected`)
+          }
+        >
+          <span aria-hidden="true">⚙️</span>
+          {watchedCount > 0 && <span className={styles.gearCount}>{watchedCount}</span>}
+        </button>
+
         <button type="button" onClick={onRequest} disabled={disabled} className={styles.requestBtn}>
-          {tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
+          {awayTradePair !== null
+            ? tr('فيه صفقة شغالة', 'A trade is running')
+            : nothingChosen
+              ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')
+              : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
         </button>
         <HelpButton
           text={tr(
-            'بيشغّل استراتيجية خطتك على الشمعة الحالية، ويستنى إغلاقها عشان الصفقة تفتح مع الشمعة اللي بعدها. لو الشروط ما تحققتش، بيفضل يعيد التحليل على كل شمعة جديدة لحد ما تطلع إشارة — من غير ما تضغط تاني.',
-            "Runs your plan's strategy on the current candle and waits for it to close so the trade opens with the next one. If the conditions do not hold, it keeps re-running on every new candle until a signal fires — without you pressing again.",
+            `بيشغّل استراتيجية خطتك على كل الأزواج اللي اخترتها (${watchedCount}) في نفس الوقت، وبيستنى إغلاق الشمعة عشان الصفقة تفتح مع اللي بعدها. لو الشروط ما تحققتش على ولا زوج، بيفضل يعيد على كل شمعة جديدة لحد ما تطلع إشارة — من غير ما تضغط تاني.`,
+            `Runs your plan's strategy across all ${watchedCount} pairs you chose at once, and waits for the candle to close so the trade opens with the next one. If the conditions hold on none of them, it keeps re-running on every new candle until a signal fires — without you pressing again.`,
           )}
         />
       </div>

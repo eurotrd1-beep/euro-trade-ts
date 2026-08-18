@@ -1,0 +1,88 @@
+/*
+ * The panel of events held during a trade.
+ *
+ * Arrives once, at the end, and stays until dismissed. Distinct enough to be
+ * noticed — it is news — and calm enough not to read as an emergency, because
+ * everything in it has already happened.
+ */
+
+.panel {
+  padding: 11px 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  animation: arrive 0.35s ease-out;
+}
+
+@keyframes arrive {
+  from { opacity: 0; transform: translateY(-5px); }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.title { flex: 1; margin: 0; font-size: 12.5px; font-weight: 800; color: var(--text, #e5e7eb); }
+
+.close {
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+  color: var(--text, #e5e7eb);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.row:hover { background: rgba(255, 255, 255, 0.08); }
+
+.icon { flex: none; }
+.name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+/* Reached its level: a different claim from "was close", and coloured to say so
+   rather than being another percentage in the same ink. */
+.fired {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #062e23;
+  background: #34d399;
+}
+
+.near {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #22d3ee;
+}
+
+.more { margin: 8px 0 0; font-size: 11px; color: #9ca3af; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+}

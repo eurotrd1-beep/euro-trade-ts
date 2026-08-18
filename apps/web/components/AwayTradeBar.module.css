@@ -1,0 +1,65 @@
+/*
+ * The away-trade bar.
+ *
+ * Sticky, and deliberately hard to lose. It is the only thing telling the user
+ * that a trade of theirs is running somewhere else, and a line that scrolls out
+ * of sight would put them right back in the state this replaced — money on a
+ * market they have forgotten is open.
+ */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  margin-bottom: 8px;
+  border-radius: 11px;
+  font-size: 12.5px;
+  color: #0b1220;
+  /* Amber, not green and not red. The trade has no outcome yet, and colouring
+     it either way would be reporting one. */
+  background: linear-gradient(180deg, #fcd34d, #f59e0b);
+  border: 1px solid rgba(180, 83, 9, 0.5);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
+}
+
+.icon { flex: none; font-size: 15px; }
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* The pair name is the load-bearing word in the sentence — it is what makes
+   every other number on the page unambiguous. */
+.text strong { font-weight: 800; }
+
+.dir { font-weight: 700; opacity: 0.8; }
+
+.clock {
+  flex: none;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.back {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fef3c7;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.back:hover { background: rgba(0, 0, 0, 0.72); }

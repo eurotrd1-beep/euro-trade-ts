@@ -45,8 +45,11 @@ import { requestNotificationPermission } from '@/lib/signalNotify';
 import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
-import { PushToggle } from '@/components/PushToggle';
-import { LeaderStrip } from '@/components/LeaderStrip';
+import { WatchSettings } from '@/components/WatchSettings';
+import { ChartProgress } from '@/components/ChartProgress';
+import { HeldEvents } from '@/components/HeldEvents';
+import { WatchCard } from '@/components/WatchCard';
+import { AwayTradeBar } from '@/components/AwayTradeBar';
 import styles from './app.module.css';
 
 /*
@@ -170,16 +173,27 @@ export default function MainScreen() {
   const takeOverMonitoring = useCallback(() => stopMonitoringRef.current?.(), []);
 
   /**
-   * The pairs the watch sweeps: everything on offer, minus what the feed says
-   * is closed. A closed market cannot produce a candle, so scanning it is a
-   * wasted slot in the sweep.
+   * The pairs the user chose, minus what the feed says is closed.
+   *
+   * It used to be every pair the catalogue offered. Now it is the selection
+   * from ⚙️ settings — the same list the notification subscription uses, so
+   * "which pairs am I following" has exactly one answer.
+   *
+   * Held in state rather than derived, because the source is `localStorage` and
+   * reading it during render would make the first paint disagree with the
+   * server-rendered markup. `WatchSettings` reports it on mount and on every
+   * change, including the migration of the old notifications-only list.
+   *
+   * A closed market cannot produce a candle, so scanning it is a wasted slot —
+   * but it stays in the user's SELECTION, because a market being shut for the
+   * weekend is not them changing their mind.
    */
+  const [watchedPairs, setWatchedPairs] = useState<string[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const watchSymbols = useMemo(
-    () =>
-      visiblePairs
-        .map((p) => p.chart_symbol)
-        .filter((sym) => sym && market.closedPairs[sym] !== true),
-    [visiblePairs, market.closedPairs],
+    () => watchedPairs.filter((sym) => sym && market.closedPairs[sym] !== true),
+    [watchedPairs, market.closedPairs],
   );
 
   /**
@@ -190,22 +204,20 @@ export default function MainScreen() {
    * pretty name would fail on the first pair whose two names differ.
    */
   /**
-   * A pair the user chose themselves.
+   * A pair the user asked for — from the list, the card, or a notification.
    *
-   * Distinct from `switchToPair`, which is the app moving the chart on its
-   * own. Only this one stops the automatic follow — the difference between
-   * "the app decided" and "I decided" is exactly what the pause is for, and
-   * routing both through one function would make every automatic switch look
-   * like a manual one and freeze the follow after the first move.
+   * It takes a CHART symbol, which is what every caller has: the card lists
+   * them, the service worker sends one, and the asset selector is keyed by
+   * them. `activePair` holds the catalogue's display name, and the two are not
+   * derivable from each other for nine pairs — the catalogue calls
+   * `XAUUSD_otc` "Gold OTC" — so the lookup is a lookup, never a transform.
    */
-  const pauseFollowRef = useRef<((paused: boolean) => void) | null>(null);
-
   const pickPairByHand = useCallback(
-    (symbol: string) => {
-      setActivePair(symbol);
-      pauseFollowRef.current?.(true);
+    (chartSymbol: string) => {
+      const match = visiblePairs.find((p) => p.chart_symbol === chartSymbol);
+      setActivePair(match?.symbol ?? chartSymbol);
     },
-    [],
+    [visiblePairs],
   );
 
   const switchToPair = useCallback(
@@ -299,8 +311,43 @@ export default function MainScreen() {
   // close, and the countdown on screen would be measuring nothing.
   const tradeOpen = engine.activeSignal?.status === 'ACTIVE' || monitoring.active;
 
+  /**
+   * Whether the open trade belongs to the pair currently on the chart.
+   *
+   * Compared on the SYMBOL, never the display name: the catalogue calls
+   * `XAUUSD_otc` "Gold OTC", so nine pairs — every metal and every crypto —
+   * do not match anything derivable from their own symbol, and a name-based
+   * check would report "different pair" for a chart showing exactly that pair.
+   *
+   * The chart used to be handed `activeSignal` unconditionally, so a trade
+   * running on gold drew its entry line and its countdown overlay across
+   * whatever pair the user had opened — a price from one market laid over the
+   * candles of another, at the exact level of detail somebody would act on.
+   */
+  const tradeOnThisChart =
+    engine.activeSignal !== null &&
+    engine.activeSignal.status === 'ACTIVE' &&
+    (engine.activeSignal.symbol !== undefined
+      ? engine.activeSignal.symbol === chartSymbol
+      : engine.activeSignal.pair === activePair);
+
+  /**
+   * The open trade, when it is NOT the pair on screen.
+   *
+   * Null both when there is no trade and when the trade is right here — the
+   * two cases where the card is the correct thing to show. Derived from
+   * `tradeOnThisChart` rather than beside it, so the two can never disagree
+   * about which state the screen is in.
+   */
+  const awayTrade =
+    engine.activeSignal !== null &&
+    engine.activeSignal.status === 'ACTIVE' &&
+    !tradeOnThisChart
+      ? engine.activeSignal
+      : null;
+
+
   stopMonitoringRef.current = monitoring.stop;
-  pauseFollowRef.current = engine.setFollowPaused;
 
   useEffect(() => {
     setWatching(monitoring.active);
@@ -354,12 +401,6 @@ export default function MainScreen() {
             vipExpiry={user.vipExpiry}
           />
 
-          <PushToggle
-            accountId={accountId}
-            plan={isVip ? 'paid' : 'free'}
-            pairs={visiblePairs}
-          />
-
           <AssetSelector
             pairs={visiblePairs}
             active={activePair}
@@ -374,16 +415,68 @@ export default function MainScreen() {
           )}
 
           {/*
+            Another tab of this account is driving the strategy. Said out loud
+            rather than left to look broken: this tab shows live prices and the
+            full history, it simply is not the one opening trades — and one tab
+            must be, because two of them ticking the same pair open two trades
+            for one setup and then overwrite each other's cycle.
+          */}
+          {!engine.watchOwner && (
+            <div className={styles.reconnecting} role="status">
+              {tr(
+                'المراقبة شغالة في تاب تاني من نفس الحساب. التاب ده بيعرض الأسعار والسجل عادي، بس مش هو اللي بيفتح الصفقات.',
+                'Watching is running in another tab of this account. This tab shows live prices and history, but is not the one opening trades.',
+              )}
+            </div>
+          )}
+
+          {/*
+            ── Everything on screen belongs to the pair on screen ──────────
+
+            One open trade, one chart. When they are the same pair the screen
+            reads straight. When they are not, the card for gold used to sit
+            above the candles of EUR/USD with nothing saying which was which,
+            and one market's entry line drawn across the other's.
+
+            So off its own pair the card is not dimmed or shrunk — it is gone,
+            with the entry line and the overlay, and this takes its place. It
+            names its own market inside itself, so there is no number left on
+            screen that could be read as belonging to the chart. The trade is
+            untouched: it counts down, settles on its own candle and owes its
+            martingale exactly as if nobody had navigated.
+          */}
+          {awayTrade !== null && (
+            <AwayTradeBar
+              pair={awayTrade.pair}
+              direction={awayTrade.direction}
+              secondsRemaining={engine.secondsRemaining}
+              martingale={awayTrade.stage === 'martingale'}
+              onGoBack={() => {
+                if (awayTrade.symbol !== undefined) switchToPair(awayTrade.symbol);
+              }}
+            />
+          )}
+
+          {/*
             Above the chart, not inside it: it explains why the chart is
             showing what it is showing, which has to be readable before the
             chart is, not after.
           */}
-          <LeaderStrip
-            leader={engine.leader}
-            paused={engine.followPaused}
-            tradeOpen={engine.activeSignal?.status === 'ACTIVE'}
+          {/*
+            What was held back during the trade, delivered in one go now that it
+            is over. Above the chart, because it is the newest thing on the page
+            and because acting on any of it means opening one of those pairs.
+          */}
+          <HeldEvents
+            events={engine.heldEvents}
             displayName={(sym) => visiblePairs.find((p) => p.chart_symbol === sym)?.symbol ?? sym}
-            onResume={() => engine.setFollowPaused(false)}
+            onSelect={pickPairByHand}
+            onDismiss={engine.clearHeldEvents}
+          />
+
+          <ChartProgress
+            percent={engine.completions[chartSymbol]}
+            tradeHere={tradeOnThisChart}
           />
 
           <div className={styles.chartCard}>
@@ -433,13 +526,9 @@ export default function MainScreen() {
                 interval={timeframe}
                 mode={effectiveMode}
                 guaranteedWin={user.guaranteedWin}
-                signalDirection={
-                  engine.activeSignal?.status === 'ACTIVE' ? engine.activeSignal.direction : null
-                }
-                signalEntryPrice={engine.activeSignal?.entryPrice ?? null}
-                signalSecondsRemaining={
-                  engine.activeSignal?.status === 'ACTIVE' ? engine.secondsRemaining : 0
-                }
+                signalDirection={tradeOnThisChart ? engine.activeSignal!.direction : null}
+                signalEntryPrice={tradeOnThisChart ? engine.activeSignal!.entryPrice : null}
+                signalSecondsRemaining={tradeOnThisChart ? engine.secondsRemaining : 0}
                 onReady={engine.setLivePriceGetter}
               />
             </div>
@@ -448,7 +537,7 @@ export default function MainScreen() {
 
         <aside className={styles.sideColumn}>
           <SignalPanel
-            signal={engine.activeSignal}
+            signal={tradeOnThisChart ? engine.activeSignal : null}
             secondsRemaining={engine.secondsRemaining}
             waitNotice={engine.waitNotice}
             analysing={engine.analysing}
@@ -457,6 +546,9 @@ export default function MainScreen() {
             marketClosed={marketClosed}
             pair={activePair}
             timeframe={timeframe}
+            watchedCount={watchedPairs.length}
+            onOpenSettings={() => setSettingsOpen(true)}
+            awayTradePair={awayTrade?.pair ?? null}
             selectedMinutes={program?.durationMinutes ?? selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
             fixedDuration={program !== null}
@@ -470,9 +562,33 @@ export default function MainScreen() {
 
           <LiveFeed logs={socialLogs} />
 
+          {/* Above the history: what is happening now, before what already did. */}
+          <WatchCard
+            watched={watchedPairs}
+            pairs={visiblePairs}
+            completions={engine.completions}
+            activeSignal={engine.activeSignal}
+            chartSymbol={chartSymbol}
+            onSelect={pickPairByHand}
+          />
+
           <SignalHistory history={engine.history} />
         </aside>
       </div>
+
+      {/*
+        Last in the tree because it is a modal: it belongs to the page rather
+        than to the chart column, and nesting a fixed overlay inside a scrolling
+        column is how one ends up clipped by its parent on a phone.
+      */}
+      <WatchSettings
+        accountId={accountId}
+        plan={isVip ? 'paid' : 'free'}
+        pairs={visiblePairs}
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onChange={setWatchedPairs}
+      />
     </main>
   );
 }

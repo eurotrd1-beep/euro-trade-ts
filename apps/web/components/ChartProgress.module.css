@@ -1,0 +1,58 @@
+/*
+ * The progress strip above the chart.
+ *
+ * Quiet. It reports a condition, it is not competing with the trade card for
+ * attention, and a loud bar over a market nobody has traded yet would be the
+ * wrong emphasis entirely.
+ */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text, #e5e7eb);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* No setup at all. Dimmer, because "nothing to report" should not read as a
+   status worth stopping on. */
+.quiet { color: var(--muted, #9ca3af); }
+
+.text { flex: none; }
+
+.bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22d3ee, #34d399);
+  /* Longer than the gap between price updates, so the bar is always mid-travel
+     rather than stepping from one value to the next. The number it shows moves
+     with the price, and the price arrives when it arrives — this is what makes
+     it read as progress instead of as a jump. */
+  transition: width 4.5s linear;
+}
+
+.pct {
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #34d399;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+}

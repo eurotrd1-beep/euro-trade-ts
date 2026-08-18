@@ -1,28 +1,36 @@
 'use client';
 
 /**
- * Which pairs the notifications are about.
+ * Which pairs the app watches — and therefore which ones it notifies about.
  *
- * ── WHY THIS IS A SCREEN AND NOT A CHECKBOX ────────────────────────────────
+ * ── ONE CHOICE, NOT TWO ────────────────────────────────────────────────────
  *
- * Because the honest default is "all 89 of them", and 89 notifications a day
- * from markets somebody does not trade is how a user turns the feature off for
- * good. But the choice cannot be a plain list either: 89 rows is a scroll
- * nobody finishes, so it is grouped the way the asset selector already groups
- * them and searchable the way the user already expects.
+ * This used to pick only the notification list while the watch swept every
+ * pair the catalogue offered. Those were two answers to one question, and a
+ * mismatch between them is invisible: a notification about a pair nobody chose,
+ * or silence about the one they did, with nothing anywhere reporting it. The
+ * list this returns is now the only answer — see `watchedPairs.ts`.
  *
- * "All pairs" stays one tap, and it is the first thing on the screen, because
- * for most people it is the right answer and they should not have to work for
- * it.
+ * ── WHY IT IS A SCREEN AND NOT A CHECKBOX ──────────────────────────────────
  *
- * The distinction this file exists to preserve: choosing everything is stored
- * as "no filter", not as a list of every symbol. A stored list would freeze
- * today's catalogue — add a pair next month and everyone who picked "all"
- * would silently not be told about it.
+ * 89 rows is a scroll nobody finishes, so it is grouped the way the asset
+ * selector already groups them and searchable the way the user already expects.
+ * "All pairs" stays one tap, first on the screen, because for a lot of people
+ * it is the right answer.
+ *
+ * ── AND WHY A LARGE SELECTION ASKS FIRST ───────────────────────────────────
+ *
+ * Every chosen pair is announced individually. That is what was asked for and
+ * it is right — a pair somebody named should not wait its turn behind others —
+ * but it means choosing all of them is choosing up to 89 separate alerts. Not
+ * a performance problem: evaluating 89 pairs costs a fraction of a millisecond.
+ * A phone problem. So the number is said out loud before it is committed to,
+ * rather than discovered overnight.
  */
 
 import { useMemo, useState } from 'react';
 import { tr, type PairRow } from '@euro/shared';
+import { NOISY_SELECTION } from '@/lib/watchedPairs';
 import styles from './PushPairPicker.module.css';
 
 const CATEGORIES: Array<{ id: string; ar: string; en: string; icon: string }> = [
@@ -33,17 +41,18 @@ const CATEGORIES: Array<{ id: string; ar: string; en: string; icon: string }> = 
 
 export interface PushPairPickerProps {
   pairs: PairRow[];
-  /** null means every pair, which is not the same as an empty selection. */
-  initial: string[] | null;
+  /** The pairs already chosen. Empty means nothing has been chosen yet. */
+  initial: readonly string[];
   onCancel: () => void;
-  onConfirm: (symbols: string[] | null) => void;
+  onConfirm: (symbols: string[]) => void;
 }
 
 export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPairPickerProps) {
-  const [everything, setEverything] = useState(initial === null);
-  const [chosen, setChosen] = useState<Set<string>>(new Set(initial ?? []));
+  const [chosen, setChosen] = useState<Set<string>>(new Set(initial));
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('all');
+  /** Set when a large selection needs confirming, so the count can be shown. */
+  const [confirming, setConfirming] = useState<string[] | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toUpperCase();
@@ -57,7 +66,6 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
   }, [pairs, query, category]);
 
   const toggle = (chartSymbol: string) => {
-    setEverything(false);
     setChosen((prev) => {
       const next = new Set(prev);
       if (next.has(chartSymbol)) next.delete(chartSymbol);
@@ -68,7 +76,6 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
 
   /** Everything currently on screen, so a search plus this is "all the EUR pairs". */
   const addVisible = () => {
-    setEverything(false);
     setChosen((prev) => {
       const next = new Set(prev);
       for (const p of visible) next.add(p.chart_symbol);
@@ -77,7 +84,6 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
   };
 
   const clearVisible = () => {
-    setEverything(false);
     setChosen((prev) => {
       const next = new Set(prev);
       for (const p of visible) next.delete(p.chart_symbol);
@@ -85,8 +91,62 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
     });
   };
 
-  const count = everything ? pairs.length : chosen.size;
-  const nothing = !everything && chosen.size === 0;
+  const count = chosen.size;
+  const nothing = count === 0;
+  const everything = count > 0 && count === pairs.length;
+
+  /**
+   * Asks before a selection large enough to be a stream of alerts.
+   *
+   * The confirmation is a second screen rather than an inline note, because a
+   * note beside a button somebody is already reaching for is a note nobody
+   * reads.
+   */
+  const commit = () => {
+    const list = [...chosen];
+    if (list.length > NOISY_SELECTION) setConfirming(list);
+    else onConfirm(list);
+  };
+
+  if (confirming !== null) {
+    return (
+      <div className={styles.backdrop} role="dialog" aria-modal="true">
+        <div className={styles.sheet}>
+          <header className={styles.head}>
+            <h2 className={styles.title}>{tr('متأكد؟', 'Are you sure?')}</h2>
+          </header>
+          <p className={styles.warnBody}>
+            {tr(
+              `اخترت ${confirming.length} زوج. كل زوج فيهم هيبعتلك إشعار لوحده لما شروطه تكتمل — يعني لحد ${confirming.length} إشعار مستقل.`,
+              `You picked ${confirming.length} pairs. Each one alerts you on its own when its conditions are met — up to ${confirming.length} separate notifications.`,
+            )}
+          </p>
+          <p className={styles.warnNote}>
+            {tr(
+              'المراقبة نفسها مش بتتقل — الحساب على 89 زوج بياخد أقل من واحد على ألف من الثانية. الكلام هنا على عدد الإشعارات اللي هتوصل تليفونك.',
+              'The watching itself is not the cost — evaluating 89 pairs takes under a millisecond. This is about how many alerts reach your phone.',
+            )}
+          </p>
+          <footer className={styles.foot}>
+            <button
+              type="button"
+              onClick={() => setConfirming(null)}
+              className={styles.bulkBtn}
+            >
+              {tr('أرجع أعدّل', 'Go back and edit')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirm(confirming)}
+              className={styles.confirm}
+            >
+              {tr('أيوه، كمّل', 'Yes, continue')}
+            </button>
+          </footer>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true">
@@ -101,7 +161,7 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
         {/* First, biggest, and for most people the only thing they need. */}
         <button
           type="button"
-          onClick={() => { setEverything(true); setChosen(new Set()); }}
+          onClick={() => setChosen(new Set(pairs.map((p) => p.chart_symbol)))}
           aria-pressed={everything}
           className={`${styles.allBtn} ${everything ? styles.allOn : ''}`}
         >
@@ -110,8 +170,8 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
             <strong>{tr('كل الأزواج', 'All pairs')}</strong>
             <em>
               {tr(
-                `${pairs.length} زوج · وأي زوج يتضاف بعدين`,
-                `${pairs.length} pairs, plus any added later`,
+                `${pairs.length} زوج · إشعار مستقل لكل واحد`,
+                `${pairs.length} pairs, each alerted separately`,
               )}
             </em>
           </span>
@@ -163,7 +223,7 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
             <p className={styles.empty}>{tr('مفيش زوج بالاسم ده', 'No pair by that name')}</p>
           ) : (
             visible.map((p) => {
-              const on = everything || chosen.has(p.chart_symbol);
+              const on = chosen.has(p.chart_symbol);
               return (
                 <button
                   key={p.id}
@@ -182,19 +242,14 @@ export function PushPairPicker({ pairs, initial, onCancel, onConfirm }: PushPair
 
         <footer className={styles.foot}>
           <p className={styles.count}>
-            {everything
-              ? tr('كل الأزواج', 'All pairs')
-              : nothing
-                ? tr('مختارتش ولا زوج', 'Nothing selected')
+            {nothing
+              ? tr('مختارتش ولا زوج', 'Nothing selected')
+              : everything
+                ? tr(`كل الأزواج (${count})`, `All ${count} pairs`)
                 : tr(`${count} زوج مختار`, `${count} selected`)}
           </p>
-          <button
-            type="button"
-            disabled={nothing}
-            onClick={() => onConfirm(everything ? null : [...chosen])}
-            className={styles.confirm}
-          >
-            {tr('فعّل الإشعارات', 'Enable notifications')}
+          <button type="button" disabled={nothing} onClick={commit} className={styles.confirm}>
+            {tr('حفظ', 'Save')}
           </button>
         </footer>
       </div>
