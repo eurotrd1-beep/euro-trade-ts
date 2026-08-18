@@ -1,191 +1,153 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- تحقّق — شغّله في Supabase SQL Editor بعد 20260818_unified_settlement.sql
+-- تحقّق — بعد تطبيق 20260818_unified_settlement.sql
 --
--- مش ترحيل. بيثبت بالتنفيذ الفعلي — مش بقراءة الملفات — إن التسوية بقى ليها
--- تعريف واحد، وإن الصلاحيات اتقفلت فعلًا.
+-- جزئين، كل واحد **يتنسخ ويتشغّل لوحده** في Supabase SQL Editor.
 --
--- آمن على الإنتاج: كله جوه transaction بينتهي بـ ROLLBACK. الصفوف التجريبية
--- بتتكتب وبتختفي، ومفيش صف حقيقي بيتلمس.
+-- ── ليه جزئين، وليه بالشكل الغريب ده ───────────────────────────────────────
 --
--- شغّل الملف كله مرة واحدة. النتيجة جدول واحد في الآخر، سطر لكل فحص.
+-- الملف ده اتكتب تلات مرات قبل كده وكل مرة بيقع في مكان مختلف، والسبب دايمًا
+-- إن محرر Supabase مش terminal:
 --
--- ── ليه الشكل ده بالذات ────────────────────────────────────────────────────
+--   • بيعرض نتيجة آخر جملة بس — فالفحوصات المتفرّقة بتختفي.
+--   • الجلسة مش مضمون تفضل هي هي بين الجُمل، فأي `CREATE TEMP TABLE` بيتبخّر
+--     وبيرمي "relation _verify does not exist".
+--   • الصف اللي بيتكتب في CTE مش مرئي لدالة بتتنادى في نفس الجملة.
 --
--- النسخة الأولى كانت بتحط الفحوصات في جُمَل منفصلة وبتعمل INSERT وresolve في
--- نفس الجملة. الاتنين غلط:
---
---   • محرر Supabase بيعرض نتيجة آخر جملة بس، فست فحوصات كانت هتختفي.
---   • الصف اللي بيتدخل في CTE **مش موجود** بالنسبة لدالة بتتنادى في نفس
---     الجملة — نفس اللقطة الزمنية. فالتسوية كانت هتشتغل على لا شيء وترجع 0
---     من غير ما تفشل، وده أسوأ من خطأ صريح.
---
--- عشان كده: جدول مؤقت بيتجمّع فيه النتايج، وDO blocks عشان الترتيب يبقى
--- إجرائي والصف يبقى مرئي للخطوة اللي بعده.
---
--- وفي فخ تالت: `pg_get_functiondef` بترمي «array_agg is an aggregate function»
--- لو وقعت على aggregate، والمخطِّط بينفّذها على صفوف قبل ما يطبّق فلتر
--- الـschema. الحل: `prokind = 'f'` + CTE بـMATERIALIZED عشان الفلترة تخلص أول.
+-- فالجزء الأول بقى **جملة واحدة** بترجّع كل الفحوصات اللي بتتقري من غير ما
+-- تكتب حاجة. والجزء التاني **بلوك واحد** بيكتب ويقرا ويبلّغ النتيجة عن طريق
+-- خطأ مقصود — والخطأ ده هو اللي بيضمن إن ولا صف تجريبي فضل في الجدول.
 -- ════════════════════════════════════════════════════════════════════════════
 
-BEGIN;
 
-CREATE TEMP TABLE _verify (step int PRIMARY KEY, result text);
+-- ════════════════════════════════════════════════════════════════════════════
+-- الجزء الأول — الفحوصات اللي بتتقري. انسخ من هنا لحد نهاية الجملة وشغّله.
+-- بيرجّع 5 أسطر. مبيكتبش أي حاجة.
+-- ════════════════════════════════════════════════════════════════════════════
 
+WITH plain_functions AS MATERIALIZED (
+  -- `prokind = 'f'` مش زيادة: `pg_get_functiondef` بترمي
+  -- «array_agg is an aggregate function» لو وقعت على aggregate، والمخطِّط حر
+  -- ينفّذها على صفوف قبل ما يطبّق فلتر الـschema. والـMATERIALIZED بتضمن إن
+  -- الفلترة تخلص الأول.
+  SELECT p.oid, p.proname::text AS name
+  FROM pg_proc p
+  JOIN pg_namespace ns ON ns.oid = p.pronamespace
+  WHERE ns.nspname = 'public' AND p.prokind = 'f'
+),
+target AS (
+  SELECT coalesce(
+    (SELECT pg_get_functiondef(oid) FROM plain_functions WHERE name = 'resolve_signals' LIMIT 1),
+    ''
+  ) AS def
+),
+others AS (
+  SELECT coalesce(string_agg(name, ', '), '') AS names, count(*) AS n
+  FROM plain_functions
+  WHERE name <> 'resolve_signals'
+    AND pg_get_functiondef(oid) LIKE '%entry_price%'
+    AND pg_get_functiondef(oid) LIKE '%outcome%'
+    AND pg_get_functiondef(oid) LIKE '%CASE%'
+),
+guarded AS (
+  SELECT
+    coalesce(string_agg(name, ', ') FILTER (WHERE anon_can), '') AS anon_names,
+    count(*) FILTER (WHERE anon_can) AS anon_n,
+    count(*) FILTER (WHERE NOT svc_can) AS svc_missing
+  FROM (
+    SELECT
+      name,
+      has_function_privilege('anon', oid, 'EXECUTE') AS anon_can,
+      has_function_privilege('service_role', oid, 'EXECUTE') AS svc_can
+    FROM plain_functions
+    WHERE name IN ('resolve_signals', 'record_signals', 'pending_signals',
+                   'prune_signals', 'refresh_signal_daily')
+  ) p
+),
+budget AS (SELECT min(max_rows) AS cap FROM public.signal_write_budget)
 
--- ── ١. الدالة بطّلت تحسب النتيجة من الأسعار ────────────────────────────────
-INSERT INTO _verify
-SELECT 1, CASE
-  WHEN def LIKE '%i.outcome IN%'
-   AND def NOT LIKE '%i.price > s.entry_price%'
-   AND def NOT LIKE '%i.price = s.entry_price%'
+SELECT 1 AS "#", CASE
+  WHEN t.def = '' THEN '❌ resolve_signals مش موجودة أصلاً'
+  WHEN t.def LIKE '%i.outcome IN%'
+   AND t.def NOT LIKE '%i.price > s.entry_price%'
+   AND t.def NOT LIKE '%i.price = s.entry_price%'
   THEN '✅ resolve_signals بتخزّن النتيجة ومبتحسبهاش'
   ELSE '❌ الدالة لسه بتحسب من الأسعار — الترحيل مااتطبّقش'
-END
-FROM (
-  -- `prokind = 'f'` مش زيادة: pg_get_functiondef بترمي
-  -- «array_agg is an aggregate function» لو وقعت على aggregate، والمخطِّط
-  -- بينفّذها على صفوف قبل ما يطبّق فلتر الـschema.
-  SELECT pg_get_functiondef(p.oid) AS def
-  FROM pg_proc p
-  JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public' AND p.prokind = 'f' AND p.proname::text = 'resolve_signals'
-  LIMIT 1
-) x;
+END AS "النتيجة" FROM target t
+UNION ALL
+SELECT 4, CASE
+  WHEN o.n = 0 THEN '✅ مفيش دالة تانية بتحسب outcome من الأسعار'
+  ELSE '❌ فيه ' || o.n || ' دالة: ' || o.names
+END FROM others o
+UNION ALL
+SELECT 5, CASE
+  WHEN g.anon_n = 0 THEN '✅ anon مالوش EXECUTE على ولا واحدة من الخمسة'
+  ELSE '❌ anon لسه بينفّذ: ' || g.anon_names
+END FROM guarded g
+UNION ALL
+SELECT 6, CASE
+  WHEN g.svc_missing = 0 THEN '✅ service_role بينفّذ الكل — المولّد شغّال'
+  ELSE '❌ service_role اتحرم من ' || g.svc_missing || ' دالة — المولّد هيقف'
+END FROM guarded g
+UNION ALL
+SELECT 7, CASE
+  WHEN b.cap IS NULL THEN '⚠️ signal_write_budget فاضي — السقف هيتاخد من الـdefault'
+  WHEN b.cap >= 20000 THEN '✅ سقف الكتابة ' || b.cap
+  ELSE '❌ السقف لسه ' || b.cap
+END FROM budget b
+ORDER BY 1;
 
 
--- ── ٢. إغلاق جوه هامش التعادل بيتسجّل tie ──────────────────────────────────
+-- ════════════════════════════════════════════════════════════════════════════
+-- الجزء التاني — اختبار التعادل الحقيقي. انسخ البلوك ده لوحده وشغّله.
 --
--- هامش المحرك: |إغلاق − دخول| ≤ |دخول| × 0.000005
--- بندخل صفقة CALL بدخول 1.09700، وبنسوّيها بسعر أعلى بنص الهامش: مش مساوي
--- للدخول، وجوّه الهامش. التعريف القديم (مساواة تامة) كان هيسجّلها WIN.
+-- ⚠️ النتيجة هتظهرلك كـ **ERROR**. ده مقصود ومش عطل.
+--
+-- البلوك بيدخل صفقتين تجريبيتين، بيسوّيهم بالدالة الحقيقية، بيقرا النتيجة،
+-- وبعدين بيرمي خطأ فيه النتيجة. الخطأ هو اللي **بيلغي الكتابة كلها** — يعني
+-- مستحيل يفضل صف تجريبي في `signals` حتى لو الاتصال اتقطع في النص. ضمانة
+-- أقوى من ROLLBACK في آخر السطر.
+--
+-- المطلوب تشوفه في رسالة الخطأ:
+--
+--   ✅ داخل الهامش = tie   ·   ✅ بدون سعر = unresolved
+-- ════════════════════════════════════════════════════════════════════════════
+
 DO $$
 DECLARE
-  v_id     bigint;
   v_entry  double precision := 1.09700;
   v_inside double precision;
-  v_out    text;
+  v_tie_id bigint;
+  v_nul_id bigint;
+  v_tie    text;
+  v_nul    text;
 BEGIN
+  -- نص الهامش فوق سعر الدخول: مش مساوي للدخول، وجوّه هامش المحرك
+  -- (|إغلاق − دخول| ≤ |دخول| × 0.000005). التعريف القديم كان هيسجّلها WIN.
   v_inside := v_entry + (v_entry * 0.000005) / 2;
 
   INSERT INTO public.signals
     (symbol, timeframe, direction, bar_time, slot, entry_price, expiry_seconds, outcome)
-  VALUES
-    ('__VERIFY_TIE__', '1m', 'CALL', now(), 'instant_free', v_entry, 60, 'pending')
-  RETURNING id INTO v_id;
+  VALUES ('__VERIFY_TIE__', '1m', 'CALL', now(), 'instant_free', v_entry, 60, 'pending')
+  RETURNING id INTO v_tie_id;
 
-  PERFORM public.resolve_signals(
-    jsonb_build_array(jsonb_build_object('id', v_id, 'price', v_inside, 'outcome', 'tie'))
-  );
-
-  SELECT outcome INTO v_out FROM public.signals WHERE id = v_id;
-
-  INSERT INTO _verify VALUES (2, CASE
-    WHEN v_out = 'tie'
-    THEN '✅ إغلاق جوه الهامش اتسجّل tie (فرق ' ||
-         to_char(v_inside - v_entry, 'FM0.0000000000') || ')'
-    ELSE '❌ اتسجّل ' || coalesce(v_out, 'NULL') || ' بدل tie'
-  END);
-END $$;
-
-
--- ── ٣. «مفيش سعر» مبيتسجّلش تعادل ──────────────────────────────────────────
-DO $$
-DECLARE
-  v_id  bigint;
-  v_out text;
-BEGIN
   INSERT INTO public.signals
     (symbol, timeframe, direction, bar_time, slot, entry_price, expiry_seconds, outcome)
-  VALUES
-    ('__VERIFY_NULL__', '1m', 'PUT', now(), 'instant_free', 1.09700, 60, 'pending')
-  RETURNING id INTO v_id;
+  VALUES ('__VERIFY_NULL__', '1m', 'PUT', now(), 'instant_free', v_entry, 60, 'pending')
+  RETURNING id INTO v_nul_id;
 
-  PERFORM public.resolve_signals(
-    jsonb_build_array(jsonb_build_object('id', v_id, 'price', NULL, 'outcome', NULL))
-  );
+  PERFORM public.resolve_signals(jsonb_build_array(
+    jsonb_build_object('id', v_tie_id, 'price', v_inside, 'outcome', 'tie'),
+    jsonb_build_object('id', v_nul_id, 'price', NULL,     'outcome', NULL)
+  ));
 
-  SELECT outcome INTO v_out FROM public.signals WHERE id = v_id;
+  SELECT outcome INTO v_tie FROM public.signals WHERE id = v_tie_id;
+  SELECT outcome INTO v_nul FROM public.signals WHERE id = v_nul_id;
 
-  INSERT INTO _verify VALUES (3, CASE
-    WHEN v_out = 'unresolved' THEN '✅ سعر مفقود اتسجّل unresolved مش tie'
-    ELSE '❌ اتسجّل ' || coalesce(v_out, 'NULL')
-  END);
+  RAISE EXCEPTION E'\n\n%\n%\n\n(الخطأ ده مقصود — هو اللي بيلغي الصفوف التجريبية)',
+    CASE WHEN v_tie = 'tie'
+      THEN '✅ ٢. إغلاق جوه الهامش اتسجّل tie · الفرق ' || (v_inside - v_entry)
+      ELSE '❌ ٢. اتسجّل ' || coalesce(v_tie, 'NULL') || ' بدل tie' END,
+    CASE WHEN v_nul = 'unresolved'
+      THEN '✅ ٣. سعر مفقود اتسجّل unresolved مش tie'
+      ELSE '❌ ٣. اتسجّل ' || coalesce(v_nul, 'NULL') || ' بدل unresolved' END;
 END $$;
-
-
--- ── ٤. مفيش أي دالة تانية بتقرر نتيجة من الأسعار ───────────────────────────
-INSERT INTO _verify
-SELECT 4, CASE
-  WHEN n = 0 THEN '✅ مفيش دالة تانية بتحسب outcome من الأسعار'
-  ELSE '❌ فيه ' || n || ' دالة: ' || names
-END
-FROM (
-  SELECT count(*) AS n, coalesce(string_agg(name, ', '), '') AS names
-  FROM (
-    -- الفلترة لازم تخلص الأول. `MATERIALIZED` بتمنع المخطِّط من إنه ينزّل
-    -- نداء pg_get_functiondef جوّه المسح، وهو اللي كان بيوقّعه على aggregate.
-    WITH plain_public_functions AS MATERIALIZED (
-      SELECT p.oid, p.proname::text AS name
-      FROM pg_proc p
-      JOIN pg_namespace ns ON ns.oid = p.pronamespace
-      WHERE ns.nspname = 'public'
-        AND p.prokind = 'f'
-        AND p.proname::text <> 'resolve_signals'
-    )
-    SELECT name
-    FROM plain_public_functions
-    WHERE pg_get_functiondef(oid) LIKE '%entry_price%'
-      AND pg_get_functiondef(oid) LIKE '%outcome%'
-      AND pg_get_functiondef(oid) LIKE '%CASE%'
-  ) f
-) x;
-
-
--- ── ٥. anon مالوش تنفيذ — الاختبار بالصلاحية نفسها مش بنص الملف ────────────
-INSERT INTO _verify
-SELECT 5, CASE
-  WHEN n = 0 THEN '✅ anon مالوش EXECUTE على ولا واحدة من الخمسة'
-  ELSE '❌ anon لسه بينفّذ: ' || names
-END
-FROM (
-  SELECT count(*) AS n, coalesce(string_agg(p.proname::text, ', '), '') AS names
-  FROM pg_proc p
-  JOIN pg_namespace ns ON ns.oid = p.pronamespace
-  WHERE ns.nspname = 'public'
-    AND p.proname::text IN ('resolve_signals', 'record_signals', 'pending_signals',
-                            'prune_signals', 'refresh_signal_daily')
-    AND has_function_privilege('anon', p.oid, 'EXECUTE')
-) x;
-
-
--- ── ٦. المولّد لسه بيقدر يشتغل ─────────────────────────────────────────────
-INSERT INTO _verify
-SELECT 6, CASE
-  WHEN missing = 0 THEN '✅ service_role بينفّذ الكل — المولّد شغّال'
-  ELSE '❌ service_role اتحرم من ' || missing || ' دالة — المولّد هيقف'
-END
-FROM (
-  SELECT count(*) AS missing
-  FROM pg_proc p
-  JOIN pg_namespace ns ON ns.oid = p.pronamespace
-  WHERE ns.nspname = 'public'
-    AND p.proname::text IN ('resolve_signals', 'record_signals', 'pending_signals',
-                            'prune_signals', 'refresh_signal_daily')
-    AND NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
-) x;
-
-
--- ── ٧. سقف الكتابة اليومي ──────────────────────────────────────────────────
-INSERT INTO _verify
-SELECT 7, CASE
-  WHEN cap IS NULL THEN '⚠️ مفيش صف في signal_write_budget لسه — السقف هيتاخد من الـdefault'
-  WHEN cap >= 20000 THEN '✅ سقف الكتابة ' || cap
-  ELSE '❌ السقف لسه ' || cap
-END
-FROM (SELECT min(max_rows) AS cap FROM public.signal_write_budget) x;
-
-
--- ── النتيجة ────────────────────────────────────────────────────────────────
-SELECT step AS "الفحص", result AS "النتيجة" FROM _verify ORDER BY step;
-
-ROLLBACK;
