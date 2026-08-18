@@ -60,6 +60,16 @@ import {
   type TradeResult,
 } from './types.js';
 
+/**
+ * How sharply the approach band climbs.
+ *
+ * 1 would be a straight line from "a leg away" to "on the level", which spends
+ * the whole band on the first half of the journey. 5 keeps the middle low and
+ * gives the last stretch the room — which is the stretch anyone is actually
+ * choosing between.
+ */
+const CLOSENESS_CURVE = 5;
+
 /** The one level this strategy watches. Exact, never rounded to a nearby tick. */
 const FIB = 0.236;
 
@@ -603,6 +613,17 @@ const BAND = {
    */
   armed: 90,
   /**
+   * The ceilings of the two searching bands.
+   *
+   * Written down rather than taken from the band above, which is what they used
+   * to do — and when the armed band moved from 50 up to 90, both of these
+   * silently moved with it. A pair that had found a leg and refused it started
+   * reading 90: the same number as an adopted setup, for the opposite outcome.
+   * The bands are neighbours, not a formula.
+   */
+  pivotsTop: 30,
+  rejectedTop: 50,
+  /**
    * The top of the approach — everything below a touch.
    *
    * 99.9 rather than a round number, and deliberately never reached: the last
@@ -684,9 +705,23 @@ export function setupProgress(
     const need = Math.max(1 - closeness, 1e-9);
     const reach = Math.min(1, Math.max(0, candleLeft) / need);
 
+    // ── Curved, because a straight line spends the band too early ──────────
+    //
+    // `closeness` is the gap measured against the leg, and a leg is the whole
+    // swing — often a couple of hundred pips. Straight, that made 35 pips out
+    // and 84 pips out read 98 and 96: both "nearly there", when one is more
+    // than twice as far as the other. Everything bunched at the top and the
+    // band said nothing.
+    //
+    // The power spreads it back out. The last stretch is where the difference
+    // matters — a pair two pips away and one twenty pips away are not in the
+    // same position — so the scale only climbs steeply once the gap is a small
+    // fraction of the leg, and the wide middle no longer all reads 99.
+    const curved = Math.pow(closeness, CLOSENESS_CURVE);
+
     return {
       stage: 'armed',
-      percent: BAND.armed + closeness * reach * (BAND.armedTop - BAND.armed),
+      percent: BAND.armed + curved * reach * (BAND.armedTop - BAND.armed),
       level: state.armed.level,
       direction: state.armed.direction,
       gap,
@@ -706,12 +741,12 @@ export function setupProgress(
     // Within the band by how many candidates survived the shape test, so a pair
     // with several near-misses reads as busier than one with a single refusal.
     const share = Math.min(1, refused / 3);
-    return { stage: 'rejected', percent: BAND.rejected + share * (BAND.armed - BAND.rejected) };
+    return { stage: 'rejected', percent: BAND.rejected + share * (BAND.rejectedTop - BAND.rejected) };
   }
 
   if (diagnostics.pairsExamined > 0) {
     const share = Math.min(1, diagnostics.pairsExamined / 4);
-    return { stage: 'pivots', percent: BAND.pivots + share * (BAND.rejected - BAND.pivots) };
+    return { stage: 'pivots', percent: BAND.pivots + share * (BAND.pivotsTop - BAND.pivots) };
   }
 
   // Not even a pivot pair to look at. Some fraction of the first band rather
