@@ -57,6 +57,8 @@ export interface SignalPanelProps {
   strategyName: string | null;
   /** How many pairs the user has chosen. Zero disables the button. */
   watchedCount: number;
+  /** Opens the settings sheet — pairs, and whether to be alerted about them. */
+  onOpenSettings: () => void;
   monitoring: MonitoringState;
   onStopMonitoring: () => void;
 }
@@ -211,6 +213,7 @@ function IdleView({
   fixedDuration,
   strategyName,
   watchedCount,
+  onOpenSettings,
 }: SignalPanelProps) {
   const name = pair.replace(' (OTC)', '');
   /**
@@ -300,6 +303,27 @@ function IdleView({
       )}
 
       <div className={styles.buttonRow}>
+        {/*
+          Beside the button it gates, because that is the only place it reads as
+          a precondition for pressing. Under the account card it looked like one
+          more account setting, which is exactly how the step that has to happen
+          first gets missed.
+        */}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={`${styles.gearBtn} ${nothingChosen ? styles.gearWaiting : ''}`}
+          aria-label={tr('إعدادات الأزواج والإشعارات', 'Pairs and alerts settings')}
+          title={
+            watchedCount === 0
+              ? tr('اختار الأزواج', 'Choose pairs')
+              : tr(`${watchedCount} زوج مختار`, `${watchedCount} pairs selected`)
+          }
+        >
+          <span aria-hidden="true">⚙️</span>
+          {watchedCount > 0 && <span className={styles.gearCount}>{watchedCount}</span>}
+        </button>
+
         <button type="button" onClick={onRequest} disabled={disabled} className={styles.requestBtn}>
           {nothingChosen
             ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')

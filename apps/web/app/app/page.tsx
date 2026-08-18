@@ -186,6 +186,7 @@ export default function MainScreen() {
    * weekend is not them changing their mind.
    */
   const [watchedPairs, setWatchedPairs] = useState<string[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const watchSymbols = useMemo(
     () => watchedPairs.filter((sym) => sym && market.closedPairs[sym] !== true),
@@ -384,13 +385,6 @@ export default function MainScreen() {
             vipExpiry={user.vipExpiry}
           />
 
-          <WatchSettings
-            accountId={accountId}
-            plan={isVip ? 'paid' : 'free'}
-            pairs={visiblePairs}
-            onChange={setWatchedPairs}
-          />
-
           <AssetSelector
             pairs={visiblePairs}
             active={activePair}
@@ -501,6 +495,7 @@ export default function MainScreen() {
             pair={activePair}
             timeframe={timeframe}
             watchedCount={watchedPairs.length}
+            onOpenSettings={() => setSettingsOpen(true)}
             selectedMinutes={program?.durationMinutes ?? selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
             fixedDuration={program !== null}
@@ -517,6 +512,20 @@ export default function MainScreen() {
           <SignalHistory history={engine.history} />
         </aside>
       </div>
+
+      {/*
+        Last in the tree because it is a modal: it belongs to the page rather
+        than to the chart column, and nesting a fixed overlay inside a scrolling
+        column is how one ends up clipped by its parent on a phone.
+      */}
+      <WatchSettings
+        accountId={accountId}
+        plan={isVip ? 'paid' : 'free'}
+        pairs={visiblePairs}
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onChange={setWatchedPairs}
+      />
     </main>
   );
 }
