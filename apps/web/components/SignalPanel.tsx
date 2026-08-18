@@ -55,6 +55,8 @@ export interface SignalPanelProps {
   fixedDuration: boolean;
   /** Shown so the user knows which strategy is about to run. */
   strategyName: string | null;
+  /** How many pairs the user has chosen. Zero disables the button. */
+  watchedCount: number;
   monitoring: MonitoringState;
   onStopMonitoring: () => void;
 }
@@ -208,9 +210,20 @@ function IdleView({
   hasCandles,
   fixedDuration,
   strategyName,
+  watchedCount,
 }: SignalPanelProps) {
   const name = pair.replace(' (OTC)', '');
-  const disabled = !hasCandles || marketClosed;
+  /**
+   * Nothing chosen is a different kind of disabled from the other two.
+   *
+   * A closed market or an empty candle buffer are conditions the user cannot
+   * act on and only has to wait out. This one is a step they have not taken
+   * yet, and it is the FIRST thing that has to happen on a new install — so it
+   * is named separately and answered with the way out of it, rather than with a
+   * grey button and no explanation.
+   */
+  const nothingChosen = watchedCount === 0;
+  const disabled = nothingChosen || !hasCandles || marketClosed;
 
   return (
     <section className={styles.panel}>
@@ -277,14 +290,25 @@ function IdleView({
         <DurationSelector selected={selectedMinutes} onSelect={onSelectMinutes} />
       )}
 
+      {nothingChosen && (
+        <p className={styles.needPairs} role="status">
+          {tr(
+            '⚙️ اختار الأزواج اللي عايز تتابعها الأول من الإعدادات فوق.',
+            '⚙️ Choose the pairs you want to follow first, in the settings above.',
+          )}
+        </p>
+      )}
+
       <div className={styles.buttonRow}>
         <button type="button" onClick={onRequest} disabled={disabled} className={styles.requestBtn}>
-          {tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
+          {nothingChosen
+            ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')
+            : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
         </button>
         <HelpButton
           text={tr(
-            'بيشغّل استراتيجية خطتك على الشمعة الحالية، ويستنى إغلاقها عشان الصفقة تفتح مع الشمعة اللي بعدها. لو الشروط ما تحققتش، بيفضل يعيد التحليل على كل شمعة جديدة لحد ما تطلع إشارة — من غير ما تضغط تاني.',
-            "Runs your plan's strategy on the current candle and waits for it to close so the trade opens with the next one. If the conditions do not hold, it keeps re-running on every new candle until a signal fires — without you pressing again.",
+            `بيشغّل استراتيجية خطتك على كل الأزواج اللي اخترتها (${watchedCount}) في نفس الوقت، وبيستنى إغلاق الشمعة عشان الصفقة تفتح مع اللي بعدها. لو الشروط ما تحققتش على ولا زوج، بيفضل يعيد على كل شمعة جديدة لحد ما تطلع إشارة — من غير ما تضغط تاني.`,
+            `Runs your plan's strategy across all ${watchedCount} pairs you chose at once, and waits for the candle to close so the trade opens with the next one. If the conditions hold on none of them, it keeps re-running on every new candle until a signal fires — without you pressing again.`,
           )}
         />
       </div>

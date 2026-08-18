@@ -914,7 +914,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     }
 
     // ── Scanning ─────────────────────────────────────────────────────────
-    const symbols = a.watchSymbols.length > 0 ? a.watchSymbols : [a.chartSymbol];
+    // Nothing chosen means nothing watched. It used to fall back to whatever
+    // pair was on the chart, which was right when the watch swept the whole
+    // catalogue and the fallback only mattered before the list loaded — but now
+    // the list IS the user's choice, and quietly watching a pair they did not
+    // pick is the mismatch this redesign exists to remove.
+    const symbols = a.watchSymbols;
+    if (symbols.length === 0) return 'none';
     const bulk = await fetchCandlesBulk(symbols, a.timeframe);
 
     // The bulk endpoint is part of the proxy, and the two deploy separately.
@@ -1165,6 +1171,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   const requestSignal = useCallback(
     async (selectedMinutes: number): Promise<RequestOutcome> => {
       const current = stateRef.current;
+
+      // Nothing to watch. The button is disabled in this state, so reaching
+      // here means something got past the UI — a stale render, a keyboard
+      // press on a control that has not repainted yet — and starting a sweep
+      // over an empty list would leave a counter running for a watch that can
+      // never produce anything.
+      if (argsRef.current.watchSymbols.length === 0) return 'unavailable';
 
       // Dart: refuse while analysing or while a trade is open.
       if (analysingRef.current) return 'unavailable';

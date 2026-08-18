@@ -500,6 +500,7 @@ export default function MainScreen() {
             marketClosed={marketClosed}
             pair={activePair}
             timeframe={timeframe}
+            watchedCount={watchedPairs.length}
             selectedMinutes={program?.durationMinutes ?? selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
             fixedDuration={program !== null}

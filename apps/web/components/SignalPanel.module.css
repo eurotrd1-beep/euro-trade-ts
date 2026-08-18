@@ -285,3 +285,31 @@
   letter-spacing: .01em;
   color: var(--text-primary);
 }
+
+/* Nothing chosen yet. Not an error — the first step, and the button says the
+   same thing, because a grey control with no explanation is the one state a new
+   user has no way out of. */
+.needPairs {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+/* Nothing chosen yet. Not an error — the first step, and the button says the
+   same thing, because a grey control with no explanation is the one state a new
+   user has no way out of. */
+.needPairs {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
