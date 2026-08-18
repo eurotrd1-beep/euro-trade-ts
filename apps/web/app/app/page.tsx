@@ -47,6 +47,7 @@ import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import { WatchSettings } from '@/components/WatchSettings';
 import { ChartProgress } from '@/components/ChartProgress';
+import { HeldEvents } from '@/components/HeldEvents';
 import { WatchCard } from '@/components/WatchCard';
 import { AwayTradeBar } from '@/components/AwayTradeBar';
 import styles from './app.module.css';
@@ -203,22 +204,20 @@ export default function MainScreen() {
    * pretty name would fail on the first pair whose two names differ.
    */
   /**
-   * A pair the user chose themselves.
+   * A pair the user asked for — from the list, the card, or a notification.
    *
-   * Distinct from `switchToPair`, which is the app moving the chart on its
-   * own. Only this one stops the automatic follow — the difference between
-   * "the app decided" and "I decided" is exactly what the pause is for, and
-   * routing both through one function would make every automatic switch look
-   * like a manual one and freeze the follow after the first move.
+   * It takes a CHART symbol, which is what every caller has: the card lists
+   * them, the service worker sends one, and the asset selector is keyed by
+   * them. `activePair` holds the catalogue's display name, and the two are not
+   * derivable from each other for nine pairs — the catalogue calls
+   * `XAUUSD_otc` "Gold OTC" — so the lookup is a lookup, never a transform.
    */
-  const pauseFollowRef = useRef<((paused: boolean) => void) | null>(null);
-
   const pickPairByHand = useCallback(
-    (symbol: string) => {
-      setActivePair(symbol);
-      pauseFollowRef.current?.(true);
+    (chartSymbol: string) => {
+      const match = visiblePairs.find((p) => p.chart_symbol === chartSymbol);
+      setActivePair(match?.symbol ?? chartSymbol);
     },
-    [],
+    [visiblePairs],
   );
 
   const switchToPair = useCallback(
@@ -349,7 +348,6 @@ export default function MainScreen() {
 
 
   stopMonitoringRef.current = monitoring.stop;
-  pauseFollowRef.current = engine.setFollowPaused;
 
   useEffect(() => {
     setWatching(monitoring.active);
@@ -464,6 +462,18 @@ export default function MainScreen() {
             showing what it is showing, which has to be readable before the
             chart is, not after.
           */}
+          {/*
+            What was held back during the trade, delivered in one go now that it
+            is over. Above the chart, because it is the newest thing on the page
+            and because acting on any of it means opening one of those pairs.
+          */}
+          <HeldEvents
+            events={engine.heldEvents}
+            displayName={(sym) => visiblePairs.find((p) => p.chart_symbol === sym)?.symbol ?? sym}
+            onSelect={pickPairByHand}
+            onDismiss={engine.clearHeldEvents}
+          />
+
           <ChartProgress
             percent={engine.completions[chartSymbol]}
             tradeHere={tradeOnThisChart}
