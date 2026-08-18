@@ -49,10 +49,41 @@ BEGIN
   RETURN v_n;
 END $$;
 
-REVOKE EXECUTE ON FUNCTION public.resolve_signals(jsonb) FROM anon, authenticated;
-
 COMMENT ON FUNCTION public.resolve_signals(jsonb) IS
   'بتخزّن النتيجة اللي المحرك قرّرها — مبتحسبش. التعريف الوحيد في outcomeFor.';
+
+
+-- ── ١.ب صلاحيات التنفيذ — إصلاح REVOKE كان بيبان شغّال وهو مش شغّال ────────
+--
+-- الترحيل القديم كتب:
+--
+--   REVOKE EXECUTE ON FUNCTION ... FROM anon, authenticated;
+--
+-- ودي **مبتعملش حاجة**. بوستجريس بيمنح EXECUTE لـPUBLIC تلقائيًا على أي دالة
+-- جديدة، وanon عضو في PUBLIC — فسحب المنحة من anon بيسيب منحة PUBLIC مكانها.
+-- اتقاس فعليًا بمفتاح anon (المشحون في كل نسخة من التطبيق):
+--
+--   resolve_signals  → 200، الدالة اتنفّذت
+--   prune_signals    → 200  ← دي بتمسح صفوف
+--   pending_signals  → 200
+--
+-- وده بقى أخطر بعد التغيير فوق: الدالة بقت بتاخد `outcome` جاهزة، فأي حد
+-- معاه المفتاح كان يقدر يكتب أرباح وخسائر وهمية في الإحصائيات مباشرة.
+--
+-- السحب من PUBLIC هو اللي بيقفلها. والمنح الصريح لـservice_role بعده مقصود:
+-- المولّد بيشتغل بالمفتاح ده، والاعتماد على وراثة منحة PUBLIC هو اللي وقعنا
+-- فيه من الأول.
+REVOKE EXECUTE ON FUNCTION public.resolve_signals(jsonb)           FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.record_signals(jsonb)            FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.pending_signals()                FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.prune_signals(integer)           FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.refresh_signal_daily(date, date) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.resolve_signals(jsonb)           TO service_role;
+GRANT EXECUTE ON FUNCTION public.record_signals(jsonb)            TO service_role;
+GRANT EXECUTE ON FUNCTION public.pending_signals()                TO service_role;
+GRANT EXECUTE ON FUNCTION public.prune_signals(integer)           TO service_role;
+GRANT EXECUTE ON FUNCTION public.refresh_signal_daily(date, date) TO service_role;
 
 
 -- ── ٢. سقف الكتابة اليومي ──────────────────────────────────────────────────
