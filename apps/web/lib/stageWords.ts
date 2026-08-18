@@ -23,8 +23,18 @@ export function pips(gap: number, price: number): string {
   return n >= 10 ? n.toFixed(0) : n.toFixed(1);
 }
 
+/** How long until the running candle closes, at this timeframe. */
+export function secondsToClose(timeframeSeconds: number): number {
+  const now = Date.now() / 1000;
+  return Math.max(0, Math.ceil(timeframeSeconds - (now % timeframeSeconds)));
+}
+
 /** One short line: what is left before this pair can produce a trade. */
-export function remainingText(progress: SetupProgress, price: number): string {
+export function remainingText(
+  progress: SetupProgress,
+  price: number,
+  timeframeSeconds = 60,
+): string {
   switch (progress.stage) {
     case 'fired':
       return tr('اتأكد — الصفقة داخلة الشمعة الجاية', 'Confirmed — the trade enters next candle');
@@ -33,15 +43,17 @@ export function remainingText(progress: SetupProgress, price: number): string {
       if (progress.level === undefined || progress.gap === undefined) {
         return tr('مستني السعر يلمس المستوى', 'Waiting for price to reach the level');
       }
-      // Touched on the live price, but the strategy judges on the CLOSE — so
-      // this is the one state where saying "the trade is coming" would be a
-      // promise the strategy has not made.
-      if (progress.gap <= 0) {
-        return tr('لمس المستوى — مستني الشمعة تقفل تأكّد', 'Level touched — waiting for the candle to close');
+      // The touch is the last condition, and the candle's high and low record
+      // it whatever price does afterwards. So this is not a wait for
+      // confirmation — it IS the confirmation.
+      if (progress.percent >= 100) {
+        return tr('لمس المستوى — الصفقة الشمعة الجاية', 'Level touched — the trade enters next candle');
       }
+      // Both numbers, because both are moving and each answers half of "will
+      // this happen": how far price still has to travel, and how long it has.
       return tr(
-        `فاضل ${pips(progress.gap, price)} نقطة على المستوى`,
-        `${pips(progress.gap, price)} pips left to the level`,
+        `فاضل ${pips(progress.gap, price)} نقطة · الشمعة تقفل بعد ${secondsToClose(timeframeSeconds)}ث`,
+        `${pips(progress.gap, price)} pips left · candle closes in ${secondsToClose(timeframeSeconds)}s`,
       );
     }
 

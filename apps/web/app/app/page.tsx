@@ -494,6 +494,7 @@ export default function MainScreen() {
             progress={engine.completions[chartSymbol]}
             tradeHere={tradeOnThisChart}
             price={engine.currentPrice}
+            candleSeconds={timeframeSeconds(timeframe)}
           />
 
           <div className={styles.chartCard}>
@@ -596,6 +597,7 @@ export default function MainScreen() {
             chartSymbol={chartSymbol}
             closedPairs={market.closedPairs}
             prices={market.prices}
+            candleSeconds={timeframeSeconds(timeframe)}
             onSelect={pickPairByHand}
           />
 

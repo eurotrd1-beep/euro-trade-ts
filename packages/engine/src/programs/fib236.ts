@@ -594,55 +594,65 @@ const BAND = {
   pivots: 15,
   rejected: 30,
   armed: 50,
-  /** Where a touch lands. Above this the wait is for the candle, not the price. */
-  armedTop: 95,
+  /**
+   * The top of the approach — everything below a touch.
+   *
+   * 99.9 rather than a round number, and deliberately never reached: the last
+   * tenth belongs to the touch, and a bar that shows 100 before one has
+   * happened would be claiming a trade the strategy has not been given.
+   */
+  armedTop: 99.9,
 } as const;
 
-/**
- * The highest a reading can go without the trade being decided.
- *
- * Not 100: that is reserved for a cycle that is actually open, and the whole
- * point of the scale is that its top is a promise. A candle one second from
- * closing on the level is very nearly certain and still not certain — 99 says
- * that, and 100 would not.
- */
-const CONFIRM_TOP = 99;
+
 
 export function setupProgress(
   state: Pick<ProgramState, 'cycle' | 'armed'>,
   diagnostics: SetupDiagnostics | null,
   price: number,
   /**
-   * How much of the current candle has already elapsed, 0 to 1.
+   * Whether THIS candle has already touched the level.
    *
-   * Only used once price is ON the level, and it is the answer to a real
-   * question. A touch is not a trade: the strategy judges the CLOSE, so price
-   * can reach the level early in a candle and drift away before it ends. Early
-   * in the candle that is very possible; with seconds left it is nearly
-   * settled. Without this the reading sat flat at the top of the band for a
-   * whole minute, saying the same thing about a coin-flip and a near-certainty.
+   * The caller tracks it, because it is a fact about a moment that has passed
+   * and this function only ever sees the present. Price reaches the level, the
+   * candle records it in its high or low, and the trade is owed — then price
+   * moves on, and a reading taken from where it is now would show the setup
+   * drifting away from a level it has already met.
    */
-  candleElapsed = 0,
+  touchedThisCandle = false,
 ): SetupProgress {
   // A trade is open, or one is about to open on the next candle. Either way the
   // strategy has everything it was looking for.
   if (state.cycle !== null) return { stage: 'fired', percent: 100 };
 
   if (state.armed !== null) {
+    const gap = Math.abs(state.armed.level - price);
+
+    // ── The touch is the last condition, and it is not undone ─────────────
+    //
+    // `touches` reads the candle's HIGH and LOW, so a price that reaches the
+    // level and moves away has still touched it and the candle will say so when
+    // it closes. The trade is settled from that moment; nothing after it in the
+    // candle can take it back.
+    //
+    // Which is why this is 100 and why it is passed in rather than derived from
+    // the current price: the price has usually left the level by the time
+    // anybody looks, and a reading recomputed from where price is NOW would
+    // fall back down and un-promise a trade that is already certain.
+    if (touchedThisCandle) {
+      return {
+        stage: 'armed',
+        percent: 100,
+        level: state.armed.level,
+        direction: state.armed.direction,
+        gap: 0,
+      };
+    }
+
     const closeness = setupCompletion(state.armed, price);
-    const gap = Math.abs(price - state.armed.level);
-
-    // On the level. What is left is not distance any more — it is time, and
-    // how much of it has gone. The band above `armedTop` belongs to that wait,
-    // and it stops short of 100 because 100 is the confirmation itself.
-    const percent =
-      closeness >= 1
-        ? BAND.armedTop + Math.min(1, Math.max(0, candleElapsed)) * (CONFIRM_TOP - BAND.armedTop)
-        : BAND.armed + closeness * (BAND.armedTop - BAND.armed);
-
     return {
       stage: 'armed',
-      percent,
+      percent: BAND.armed + closeness * (BAND.armedTop - BAND.armed),
       level: state.armed.level,
       direction: state.armed.direction,
       gap,

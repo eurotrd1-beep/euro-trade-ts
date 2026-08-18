@@ -58,6 +58,8 @@ export interface WatchCardProps {
   chartSymbol: string;
   /** Live prices by symbol, for saying how much distance is left on each. */
   prices: Readonly<Record<string, number>>;
+  /** Seconds in one candle, for the countdown in each row. */
+  candleSeconds: number;
   /**
    * Pairs whose market is shut. Listed, but set apart.
    *
@@ -78,6 +80,7 @@ export function WatchCard({
   chartSymbol,
   closedPairs,
   prices,
+  candleSeconds,
   onSelect,
 }: WatchCardProps) {
   const nameOf = useMemo(() => {
@@ -181,7 +184,7 @@ export function WatchCard({
                     <span className={styles.name}>{nameOf(f.symbol)}</span>
                     {!f.shut && (
                       <span className={styles.left}>
-                        {remainingText(f, prices[f.symbol] ?? 0)}
+                        {remainingText(f, prices[f.symbol] ?? 0, candleSeconds)}
                       </span>
                     )}
                   </span>

@@ -34,9 +34,11 @@ export interface ChartProgressProps {
   tradeHere: boolean;
   /** The pair's live price, for saying what distance is left. */
   price: number;
+  /** Seconds in one candle, for the countdown beside the distance. */
+  candleSeconds: number;
 }
 
-export function ChartProgress({ progress, tradeHere, price }: ChartProgressProps) {
+export function ChartProgress({ progress, tradeHere, price, candleSeconds }: ChartProgressProps) {
   if (tradeHere) return null;
 
   if (progress === undefined) {
@@ -57,7 +59,7 @@ export function ChartProgress({ progress, tradeHere, price }: ChartProgressProps
       <span aria-hidden="true">{progress.stage === 'fired' ? '⚡' : '🎯'}</span>
       {/* The stage, not a fixed caption. A bar at 40% means nothing without
           knowing what the strategy is doing at 40%. */}
-      <span className={styles.text}>{remainingText(progress, price)}</span>
+      <span className={styles.text}>{remainingText(progress, price, candleSeconds)}</span>
       <span className={styles.bar} aria-hidden="true">
         <span className={styles.fill} style={{ width: `${pct}%` }} />
       </span>

@@ -600,6 +600,53 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * asking the server again.
    */
   const lastPricesRef = useRef<Record<string, number>>({});
+  /**
+   * Pairs whose level has been touched during the candle now running.
+   *
+   * Keyed by symbol, holding the setup and the candle it happened on. Both are
+   * needed: the flag has to clear when a new candle starts, and it has to clear
+   * again if the setup is replaced, or a touch on one level would keep vouching
+   * for the next.
+   *
+   * It exists because the touch is the last condition and cannot be un-done —
+   * `touches` reads the candle's high and low, so once price has reached the
+   * level the candle will report it whatever price does afterwards. Recomputing
+   * from the current price would show the setup drifting away from a level it
+   * has already met, and take back a trade that is already owed.
+   */
+  const touchedRef = useRef(new Map<string, { key: string; candle: number }>());
+
+  /** The start of the candle now running, as epoch ms. */
+  const currentCandleStart = useCallback((): number => {
+    const cs = timeframeSeconds(argsRef.current.timeframe) * 1000;
+    return Math.floor(Date.now() / cs) * cs;
+  }, []);
+
+  /**
+   * Records a touch the moment price reaches the level, and reports whether
+   * this pair's current candle has one.
+   */
+  const touchedNow = useCallback(
+    (symbol: string, armed: { key: string; level: number; direction: Direction } | null, price: number): boolean => {
+      if (armed === null) {
+        touchedRef.current.delete(symbol);
+        return false;
+      }
+      const candle = currentCandleStart();
+      const held = touchedRef.current.get(symbol);
+      if (held !== undefined && held.key === armed.key && held.candle === candle) return true;
+
+      // Reached: the retracement is approached from the side the leg ran, so an
+      // up-swing's level is met from above and a down-swing's from below. The
+      // same test the strategy uses, on the live price instead of on the candle.
+      const reached = armed.direction === 'CALL' ? price <= armed.level : price >= armed.level;
+      if (!reached) return false;
+
+      touchedRef.current.set(symbol, { key: armed.key, candle });
+      return true;
+    },
+    [currentCandleStart],
+  );
 
   const stateFor = useCallback((symbol: string): ProgramState => {
     const prog = programRef.current;
@@ -927,11 +974,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       if (candles.length === 0) continue;
       const held = programStatesRef.current.get(symbol);
       if (held === undefined) continue;
+      const close = candles[candles.length - 1]!.close;
       percents[symbol] = setupProgress(
         held,
         diagnosticsRef.current.get(symbol) ?? null,
-        candles[candles.length - 1]!.close,
-        candleElapsed(argsRef.current.timeframe),
+        close,
+        touchedNow(symbol, held.armed, close),
       );
     }
 
@@ -1048,7 +1096,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       for (const [symbol, st] of programStatesRef.current) {
         const price = status.prices[symbol];
         if (typeof price === 'number' && price > 0) {
-          fresh[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price, elapsed);
+          fresh[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price, touchedNow(symbol, st.armed, price));
           moved = true;
         }
 
@@ -1076,17 +1124,19 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         const name = displayNameFor(symbol);
         const arrow = armed.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط';
         if (stage === 'touched') {
-          // NOT "the trade opens next candle". This fires on the LIVE price
-          // reaching the level, and the strategy judges on the candle's CLOSE:
-          // price can touch and pull back before it closes, and then there is
-          // no trade at all. Promising one here would be wrong several times a
-          // day, which is how an alert stops being believed.
+          // A promise, and a safe one. `touches` reads the candle's high and
+          // low, so a price that reaches the level and moves away has still
+          // touched it — the candle will report it at the close whatever
+          // happens in between, and the trade is owed from this moment.
           notify(
-            `السعر لمس المستوى — ${name}`,
-            `${arrow} · ${formatLevel(armed.level)} · مستنيين الشمعة تقفل تأكّد`,
+            `الشروط اكتملت — ${name}`,
+            `${arrow} · لمس ${formatLevel(armed.level)} · الصفقة هتفتح مع الشمعة الجاية`,
           );
         } else {
-          notify(`الإشارة قربت — ${name}`, `${arrow} · فاضل ${formatLevel(distance)} على ${formatLevel(armed.level)}`);
+          notify(
+            `أغلب الشروط اتحققت — ${name}`,
+            `${arrow} · فاضل ${formatLevel(distance)} على ${formatLevel(armed.level)} · جهّز نفسك`,
+          );
         }
       }
 
@@ -1170,7 +1220,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
           symbol === argsRef.current.chartSymbol ? (livePriceRef.current?.() ?? 0) : 0;
         const price = live > 0 ? live : lastPricesRef.current[symbol];
         if (typeof price !== 'number' || price <= 0) continue;
-        next[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price, elapsed);
+        next[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price, touchedNow(symbol, st.armed, price));
         any = true;
       }
       if (any) setState((st) => ({ ...st, completions: next }));
