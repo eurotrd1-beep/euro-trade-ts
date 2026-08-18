@@ -520,6 +520,23 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
           <Metric label={tr('الاتجاه', 'Direction')} value={signal.direction} />
         </dl>
 
+        {/*
+          A primary trade lost, so the strategy owes one recovery attempt at
+          double the stake — and the user is the one who has to place it, so the
+          instruction has to be here, on the card that just told them they lost.
+          Only after a PRIMARY loss: a losing martingale ends the cycle, and
+          telling somebody to double again there would be inventing a third
+          trade the strategy will never take.
+        */}
+        {result === 'LOSS' && !isMartingale && (
+          <p className={styles.doubleUp} role="status">
+            {tr(
+              '🔁 ضاعِف مبلغ الصفقة دي في الصفقة الجاية على نفس الزوج — فرصة تعويض واحدة بس، مفيش تالتة.',
+              '🔁 Double this trade’s stake on the next one, same pair — one recovery attempt only, never a third.',
+            )}
+          </p>
+        )}
+
         <button type="button" onClick={onClear} className={styles.clearBtn}>
           {tr('إشارة جديدة', 'New signal')}
         </button>
