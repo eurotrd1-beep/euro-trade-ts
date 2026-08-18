@@ -277,14 +277,57 @@ export interface BacktestReport {
   coverage: {
     /** Distinct UTC hours seen, out of 24. */
     hours: number;
-    /** Distinct calendar days seen. */
+    /**
+     * Distinct calendar days touched — a COUNT, not a duration.
+     *
+     * Kept because it answers "did this see more than one date", but it is a
+     * bad answer to "how much history is this". A hundred one-minute candles
+     * that happen to straddle midnight touch two days and cover an hour and
+     * forty minutes. Read `spanMs` for the length.
+     */
     days: number;
+    /** Oldest and newest candle actually replayed, across every pair. */
+    fromMs: number | null;
+    toMs: number | null;
+    /**
+     * Newest minus oldest: the real width of the window, gaps included.
+     *
+     * The scraper records every symbol in the same minutes, so eight pairs do
+     * not widen this — they deepen it. `evaluated` is the depth.
+     */
+    spanMs: number;
     /** Holes in the scraped history that the replay was split at. */
     gaps: number;
     /** Bars thrown away because their segment was shorter than the warm-up. */
     barsDropped: number;
   };
   warnings: string[];
+}
+
+/**
+ * A span in milliseconds, in the largest unit that does not lie about it.
+ *
+ * "3 days" for four hours is wrong and "240 minutes" for four hours is
+ * unreadable, so the unit is chosen from the size: minutes below an hour,
+ * hours below a day, days above — and the remainder comes along, because
+ * "1 day" for 47 hours is the same rounding that let a 100-minute sample be
+ * described as two days.
+ */
+export function formatSpan(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return 'صفر';
+
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} دقيقة`;
+
+  const hours = Math.floor(minutes / 60);
+  const restMin = minutes % 60;
+  if (hours < 24) {
+    return restMin === 0 ? `${hours} ساعة` : `${hours} ساعة و${restMin} دقيقة`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  return restHours === 0 ? `${days} يوم` : `${days} يوم و${restHours} ساعة`;
 }
 
 /** One candle's counters, into the running total. */
@@ -336,6 +379,8 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   // timeframe — a pair with a gap in its history covers less than it looks.
   const hoursSeen = new Set<number>();
   const daysSeen = new Set<string>();
+  let oldest = Number.POSITIVE_INFINITY;
+  let newest = Number.NEGATIVE_INFINITY;
 
   for (const [n, symbol] of symbols.entries()) {
     onProgress?.(n, symbols.length);
@@ -355,6 +400,8 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
     for (const candle of candles) {
       const d = new Date(candle.time);
       hoursSeen.add(d.getUTCHours());
+      if (candle.time < oldest) oldest = candle.time;
+      if (candle.time > newest) newest = candle.time;
       daysSeen.add(d.toISOString().slice(0, 10));
     }
 
@@ -511,7 +558,17 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
       signalGaps.length > 0 ? signalGaps.reduce((a, b) => a + b, 0) / signalGaps.length : null,
     signalsPer100: evaluated > 0 ? (trades.length / evaluated) * 100 : 0,
     perPair: perPair.sort((a, b) => b.trades - a.trades),
-    coverage: { hours: hoursSeen.size, days: daysSeen.size, gaps: gapsFound, barsDropped },
+    coverage: {
+      hours: hoursSeen.size,
+      days: daysSeen.size,
+      fromMs: Number.isFinite(oldest) ? oldest : null,
+      toMs: Number.isFinite(newest) ? newest : null,
+      // The last candle's own minute counts as covered, so the span runs to
+      // the END of it rather than to its opening tick.
+      spanMs: Number.isFinite(oldest) && Number.isFinite(newest) ? newest - oldest + timeframeMs : 0,
+      gaps: gapsFound,
+      barsDropped,
+    },
     warnings,
   };
 }

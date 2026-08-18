@@ -29,6 +29,7 @@ import { programForPlan, type Plan, type StrategyProgram } from '@euro/engine';
 import {
   backtest,
   confidence,
+  formatSpan,
   verdict,
   BREAKEVEN_HIGH,
   MIN_TRADES_TO_JUDGE,
@@ -52,6 +53,24 @@ const PLANS: Array<{ id: Plan; label: string }> = [
   { id: 'free', label: 'الخطة المجانية' },
   { id: 'paid', label: 'الخطة المدفوعة' },
 ];
+
+/**
+ * A candle time as `17 أغسطس 18:04` — date and minute, no seconds.
+ *
+ * `-u-nu-latn` because plain `ar-EG` renders Arabic-Indic digits, and every
+ * other number on this screen is Latin. One panel showing ١٨:٤٦ next to 800
+ * candles reads as two different pages.
+ */
+function stamp(ms: number): string {
+  return new Date(ms).toLocaleString('ar-EG-u-nu-latn', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
 
 export default function StrategyView() {
   const [plan, setPlan] = useState<Plan>('free');
@@ -327,11 +346,31 @@ function BacktestPanel({ report, program }: { report: BacktestReport; program: S
         </p>
       )}
 
+      {/*
+        The window used to be described as "N days", which was a count of
+        calendar dates rather than a length: a hundred one-minute candles that
+        straddle midnight touch two dates and cover an hour and forty minutes.
+        The span is now stated as a duration, with the dates it runs between,
+        so nobody sizes a decision off a number that means something else.
+      */}
+      <p className={styles.spanLine}>
+        التحليل ده على <strong>{formatSpan(report.coverage.spanMs)}</strong> من التاريخ
+        {report.coverage.fromMs !== null && report.coverage.toMs !== null && (
+          <>
+            {' '}— من <strong>{stamp(report.coverage.fromMs)}</strong> لـ{' '}
+            <strong>{stamp(report.coverage.toMs)}</strong> بتوقيت UTC
+          </>
+        )}
+        .{' '}
+        {report.coverage.days > 1
+          ? `بيلمس ${report.coverage.days} تواريخ مختلفة.`
+          : 'كله في يوم واحد.'}
+      </p>
+
       <p className={styles.switchHint}>
         اتجرّبت على <strong>{report.evaluated.toLocaleString('en-US')}</strong> شمعة من{' '}
         <strong>{report.pairsUsed}</strong> زوج، بتغطية{' '}
-        <strong>{report.coverage.hours}/24</strong> ساعة على{' '}
-        <strong>{report.coverage.days}</strong> يوم. الدخول على افتتاح الشمعة اللي بعد الإشارة
+        <strong>{report.coverage.hours}/24</strong> ساعة. الدخول على افتتاح الشمعة اللي بعد الإشارة
         والخروج على إغلاقها.
         {report.coverage.gaps > 0 && (
           <>
