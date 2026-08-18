@@ -463,15 +463,28 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   useEffect(() => {
     if (state.activeSignal !== null || state.history.length === 0) return;
     const resumable = state.history.find(
-      (s) => s.status === 'ACTIVE' && sameTrade(s, args.chartSymbol) && s.expiryTime > Date.now(),
+      (s) => s.status === 'ACTIVE' && s.expiryTime > Date.now(),
     );
     if (resumable === undefined) return;
+
     setState((s) => ({
       ...s,
       activeSignal: resumable,
       secondsRemaining: Math.max(1, Math.ceil((resumable.expiryTime - Date.now()) / 1000)),
     }));
-  }, [state.history, state.activeSignal, args.pair]);
+
+    // Whatever pair it was opened on — it used to require the chart to already
+    // be showing that pair, and after a reload the chart is on whatever it
+    // defaults to. So a trade running on any other market was never picked back
+    // up: no card, no countdown, and nothing to settle it against, leaving a
+    // row that sat ACTIVE until it aged into PENDING and stayed there.
+    //
+    // The chart follows it, which is also the rule everywhere else now: what is
+    // on screen and what is being traded are the same pair.
+    if (resumable.symbol !== undefined && resumable.symbol !== args.chartSymbol) {
+      argsRef.current.onPairSwitch?.(resumable.symbol);
+    }
+  }, [state.history, state.activeSignal, args.chartSymbol]);
   // ── One tab runs the strategy ─────────────────────────────────────────────
   //
   // See `watchLease.ts` for what goes wrong without this. The ref is what the
@@ -583,7 +596,17 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         saveHistory(accountId, history);
         void pushRemoteHistory(accountId, history);
       }
-      setState((s) => ({ ...s, activeSignal: settled, secondsRemaining: 0, history }));
+      setState((s) => ({
+        ...s,
+        // Only if this IS the trade on screen. Settling a row the user was not
+        // looking at must not put its result up as though they had been.
+        activeSignal:
+          s.activeSignal !== null && s.activeSignal.entryTime === settled.entryTime
+            ? settled
+            : s.activeSignal,
+        secondsRemaining: s.activeSignal?.entryTime === settled.entryTime ? 0 : s.secondsRemaining,
+        history,
+      }));
     },
     [],
   );
@@ -743,9 +766,22 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       if (armedNow === null && armedBefore !== null) alertedRef.current.delete(symbol);
 
       if (event.settled !== null) {
+        // The card, or — when there is no card — the trade's own row in the
+        // history. The verdict used to be dropped entirely if `activeSignal`
+        // happened to be empty, which is exactly the state a reload leaves
+        // behind: the engine settles the cycle it restored from storage, finds
+        // nothing on screen to apply it to, and throws the answer away. The
+        // trade then never resolves anywhere the user can see.
         const open = stateRef.current.activeSignal;
-        if (open !== null && open.status === 'ACTIVE') {
-          settleTo(open, event.settled.result, event.settled.entryPrice, event.settled.exitPrice);
+        const target =
+          open !== null && open.status === 'ACTIVE'
+            ? open
+            : (stateRef.current.history.find(
+                (h) => h.status === 'ACTIVE' && sameTrade(h, symbol),
+              ) ?? null);
+
+        if (target !== null) {
+          settleTo(target, event.settled.result, event.settled.entryPrice, event.settled.exitPrice);
         }
       }
 

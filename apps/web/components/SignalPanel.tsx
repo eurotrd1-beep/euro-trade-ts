@@ -59,6 +59,16 @@ export interface SignalPanelProps {
   watchedCount: number;
   /** Opens the settings sheet — pairs, and whether to be alerted about them. */
   onOpenSettings: () => void;
+  /**
+   * The pair a trade is running on, when it is not the pair on screen.
+   *
+   * The card for it is deliberately absent here — it lives with its own chart —
+   * so without this the panel would show an idle screen offering to start a new
+   * analysis while one is already open elsewhere. `requestSignal` would refuse,
+   * silently, and a button that does nothing when pressed is worse than one
+   * that says why it cannot.
+   */
+  awayTradePair: string | null;
   monitoring: MonitoringState;
   onStopMonitoring: () => void;
 }
@@ -214,6 +224,7 @@ function IdleView({
   strategyName,
   watchedCount,
   onOpenSettings,
+  awayTradePair,
 }: SignalPanelProps) {
   const name = pair.replace(' (OTC)', '');
   /**
@@ -226,7 +237,7 @@ function IdleView({
    * grey button and no explanation.
    */
   const nothingChosen = watchedCount === 0;
-  const disabled = nothingChosen || !hasCandles || marketClosed;
+  const disabled = nothingChosen || !hasCandles || marketClosed || awayTradePair !== null;
 
   return (
     <section className={styles.panel}>
@@ -293,6 +304,15 @@ function IdleView({
         <DurationSelector selected={selectedMinutes} onSelect={onSelectMinutes} />
       )}
 
+      {awayTradePair !== null && (
+        <p className={styles.needPairs} role="status">
+          {tr(
+            `فيه صفقة شغالة دلوقتي على ${awayTradePair} — استنى تخلص.`,
+            `A trade is running on ${awayTradePair} right now — wait for it to finish.`,
+          )}
+        </p>
+      )}
+
       {nothingChosen && (
         <p className={styles.needPairs} role="status">
           {tr(
@@ -325,9 +345,11 @@ function IdleView({
         </button>
 
         <button type="button" onClick={onRequest} disabled={disabled} className={styles.requestBtn}>
-          {nothingChosen
-            ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')
-            : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
+          {awayTradePair !== null
+            ? tr('فيه صفقة شغالة', 'A trade is running')
+            : nothingChosen
+              ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')
+              : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
         </button>
         <HelpButton
           text={tr(

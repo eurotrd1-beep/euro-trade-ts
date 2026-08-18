@@ -47,6 +47,7 @@ import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import { WatchSettings } from '@/components/WatchSettings';
 import { LeaderStrip } from '@/components/LeaderStrip';
+import { AwayTradeBar } from '@/components/AwayTradeBar';
 import styles from './app.module.css';
 
 /*
@@ -330,6 +331,22 @@ export default function MainScreen() {
       ? engine.activeSignal.symbol === chartSymbol
       : engine.activeSignal.pair === activePair);
 
+  /**
+   * The open trade, when it is NOT the pair on screen.
+   *
+   * Null both when there is no trade and when the trade is right here — the
+   * two cases where the card is the correct thing to show. Derived from
+   * `tradeOnThisChart` rather than beside it, so the two can never disagree
+   * about which state the screen is in.
+   */
+  const awayTrade =
+    engine.activeSignal !== null &&
+    engine.activeSignal.status === 'ACTIVE' &&
+    !tradeOnThisChart
+      ? engine.activeSignal
+      : null;
+
+
   stopMonitoringRef.current = monitoring.stop;
   pauseFollowRef.current = engine.setFollowPaused;
 
@@ -415,6 +432,33 @@ export default function MainScreen() {
           )}
 
           {/*
+            ── Everything on screen belongs to the pair on screen ──────────
+
+            One open trade, one chart. When they are the same pair the screen
+            reads straight. When they are not, the card for gold used to sit
+            above the candles of EUR/USD with nothing saying which was which,
+            and one market's entry line drawn across the other's.
+
+            So off its own pair the card is not dimmed or shrunk — it is gone,
+            with the entry line and the overlay, and this takes its place. It
+            names its own market inside itself, so there is no number left on
+            screen that could be read as belonging to the chart. The trade is
+            untouched: it counts down, settles on its own candle and owes its
+            martingale exactly as if nobody had navigated.
+          */}
+          {awayTrade !== null && (
+            <AwayTradeBar
+              pair={awayTrade.pair}
+              direction={awayTrade.direction}
+              secondsRemaining={engine.secondsRemaining}
+              martingale={awayTrade.stage === 'martingale'}
+              onGoBack={() => {
+                if (awayTrade.symbol !== undefined) switchToPair(awayTrade.symbol);
+              }}
+            />
+          )}
+
+          {/*
             Above the chart, not inside it: it explains why the chart is
             showing what it is showing, which has to be readable before the
             chart is, not after.
@@ -485,7 +529,7 @@ export default function MainScreen() {
 
         <aside className={styles.sideColumn}>
           <SignalPanel
-            signal={engine.activeSignal}
+            signal={tradeOnThisChart ? engine.activeSignal : null}
             secondsRemaining={engine.secondsRemaining}
             waitNotice={engine.waitNotice}
             analysing={engine.analysing}
@@ -496,6 +540,7 @@ export default function MainScreen() {
             timeframe={timeframe}
             watchedCount={watchedPairs.length}
             onOpenSettings={() => setSettingsOpen(true)}
+            awayTradePair={awayTrade?.pair ?? null}
             selectedMinutes={program?.durationMinutes ?? selectedMinutes}
             onSelectMinutes={setSelectedMinutes}
             fixedDuration={program !== null}
