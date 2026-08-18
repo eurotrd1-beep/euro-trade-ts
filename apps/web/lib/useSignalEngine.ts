@@ -37,7 +37,8 @@ import {
   programFor,
   guaranteedWinExit,
   outcomeFor,
-  setupCompletion,
+  setupProgress,
+  type SetupProgress,
   resolveExitPrice,
   ruleFromJson,
   scoreStandard,
@@ -46,6 +47,7 @@ import {
   type Direction,
   type DynamicStrategy,
   type ProgramState,
+  type SetupDiagnostics,
   type StrategyProgram,
   type TradingSignal,
 } from '@euro/engine';
@@ -192,11 +194,14 @@ export interface EngineState {
    * with nothing to gain — the smoothness comes from a CSS transition over the
    * gap between updates, not from updating more often.
    *
-   * A pair with no armed setup is absent rather than zero: there is nothing to
-   * measure on it, and 0% would claim it is as far away as a pair that has a
-   * setup and is a full leg from the level.
+   * Every WATCHED pair is in here, including ones with no setup yet. That is
+   * the change from the first version, which measured only the gap between
+   * price and the level and so could only describe a pair that already had one:
+   * everything else was absent, and everything present was already nearly
+   * ready. The scale started at "almost" and never showed the work in front of
+   * it. `setupProgress` spreads it across the strategy's own gates instead.
    */
-  completions: Readonly<Record<string, number>>;
+  completions: Readonly<Record<string, SetupProgress>>;
 
   /**
    * True once the user has picked a pair by hand.
@@ -551,6 +556,16 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
   /** The loudest alert already sent for a pair's current setup, keyed by setup. */
   const alertedRef = useRef(new Map<string, string>());
+  /**
+   * The last candle's search diagnostics, per pair.
+   *
+   * `setupProgress` needs them to tell "no confirmed pivots at all" from "a leg
+   * was found and refused", and they arrive on the event rather than living in
+   * the program's state. A ref rather than state: they are read during the same
+   * sweep that writes them, and a render behind is a whole candle at this
+   * cadence.
+   */
+  const diagnosticsRef = useRef(new Map<string, SetupDiagnostics>());
 
   const stateFor = useCallback((symbol: string): ProgramState => {
     const prog = programRef.current;
@@ -756,6 +771,10 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         progState,
       );
 
+      if (event.diagnostics !== undefined) {
+        diagnosticsRef.current.set(symbol, event.diagnostics);
+      }
+
       // Only the cycle is worth storing — see `stateFor`.
       if (a.accountId && (progState.cycle !== null || event.cycleEnd !== null)) {
         saveProgramState(prog, a.accountId, symbol, a.timeframe, progState);
@@ -879,14 +898,16 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   const rankWatched = useCallback((bulk: Map<string, Candle[]>) => {
     if (programRef.current === null) return;
 
-    const percents: Record<string, number> = {};
+    const percents: Record<string, SetupProgress> = {};
     for (const [symbol, candles] of bulk) {
-      const armed = programStatesRef.current.get(symbol)?.armed;
-      if (!armed || candles.length === 0) continue;
-      // A pair with no armed setup is ABSENT, not zero. There is nothing to
-      // measure on it, and zero would rank it alongside a pair that has a setup
-      // and is simply a full leg away from its level.
-      percents[symbol] = setupCompletion(armed, candles[candles.length - 1]!.close) * 100;
+      if (candles.length === 0) continue;
+      const held = programStatesRef.current.get(symbol);
+      if (held === undefined) continue;
+      percents[symbol] = setupProgress(
+        held,
+        diagnosticsRef.current.get(symbol) ?? null,
+        candles[candles.length - 1]!.close,
+      );
     }
 
     // Replaced wholesale rather than merged: a pair whose setup has expired must
@@ -914,7 +935,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const bulk = await fetchCandlesBulk(others, a.timeframe);
     if (bulk.size === 0) return;
 
-    const percents: Record<string, number> = { ...stateRef.current.completions };
+    const percents: Record<string, SetupProgress> = { ...stateRef.current.completions };
     const fresh: Array<{ symbol: string; percent: number; at: number; fired: boolean }> = [];
 
     for (const [symbol, candles] of bulk) {
@@ -939,20 +960,23 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
 
       const price = candles[candles.length - 1]!.close;
 
+      if (event.diagnostics !== undefined) diagnosticsRef.current.set(symbol, event.diagnostics);
+
       if (event.signal !== null) {
         // It would have traded. The copy is thrown away — including the cycle it
         // just opened, which must not exist — and the pair is left exactly where
-        // it was, free to fire properly once the screen is clear.
+        // it was, free to fire properly once the screen is clear. It is shown at
+        // the top of the armed band rather than as fired, because on this pair
+        // nothing was actually taken.
         fresh.push({ symbol, percent: 100, at: Date.now(), fired: true });
-        delete percents[symbol];
+        percents[symbol] = { stage: 'armed', percent: 95 };
         continue;
       }
 
       // Nothing fired, so the copy is the truth and is kept: this is what stops
       // the pair re-reading the same candle for ever and never ageing its setup.
       programStatesRef.current.set(symbol, copy);
-      if (copy.armed !== null) percents[symbol] = setupCompletion(copy.armed, price) * 100;
-      else delete percents[symbol];
+      percents[symbol] = setupProgress(copy, diagnosticsRef.current.get(symbol) ?? null, price);
     }
 
     setState((st) => {

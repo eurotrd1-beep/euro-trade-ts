@@ -475,7 +475,7 @@ export default function MainScreen() {
           />
 
           <ChartProgress
-            percent={engine.completions[chartSymbol]}
+            progress={engine.completions[chartSymbol]}
             tradeHere={tradeOnThisChart}
           />
 

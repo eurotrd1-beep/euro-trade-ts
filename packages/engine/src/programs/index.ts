@@ -17,7 +17,13 @@ import { fib236Touch } from './fib236.js';
 import type { StrategyProgram } from './types.js';
 
 export * from './types.js';
-export { fib236Touch, setupCompletion } from './fib236.js';
+export {
+  fib236Touch,
+  setupCompletion,
+  setupProgress,
+  type SetupProgress,
+  type SetupStage,
+} from './fib236.js';
 
 const PROGRAMS: readonly StrategyProgram[] = [fib236Touch];
 

@@ -23,35 +23,54 @@
  */
 
 import { tr } from '@euro/shared';
+import type { SetupProgress } from '@euro/engine';
 import styles from './ChartProgress.module.css';
 
 export interface ChartProgressProps {
-  /** 0–100, or undefined when the pair has no setup to measure. */
-  percent: number | undefined;
+  /** Stage and percentage, or undefined before the first sweep has run. */
+  progress: SetupProgress | undefined;
   /** True while a trade is open on this pair — the card takes over. */
   tradeHere: boolean;
 }
 
-export function ChartProgress({ percent, tradeHere }: ChartProgressProps) {
+/** What the strategy is doing at each stage, in the user's words. */
+function label(stage: SetupProgress['stage']): string {
+  switch (stage) {
+    case 'fired':
+      return tr('الإشارة على الشمعة الجاية', 'Signal on the next candle');
+    case 'armed':
+      return tr('مستنيين السعر يلمس المستوى', 'Waiting for price to touch the level');
+    case 'rejected':
+      return tr('لقى سوينج وما ينفعش — بيدوّر على غيره', 'Found a swing and refused it — looking again');
+    case 'pivots':
+      return tr('بيرتّب القمم والقيعان', 'Pairing the highs and lows');
+    default:
+      return tr('لسه بيدوّر على سوينج مؤكد', 'Still looking for a confirmed swing');
+  }
+}
+
+export function ChartProgress({ progress, tradeHere }: ChartProgressProps) {
   if (tradeHere) return null;
 
-  if (percent === undefined) {
+  if (progress === undefined) {
     return (
       <div className={`${styles.strip} ${styles.quiet}`} role="status">
         <span aria-hidden="true">👀</span>
         <span className={styles.text}>
-          {tr('لسه مفيش سوينج مؤكد على الزوج ده', 'No confirmed swing on this pair yet')}
+          {tr('لسه بيقرا الزوج ده', 'Reading this pair')}
         </span>
       </div>
     );
   }
 
-  const pct = Math.round(percent);
+  const pct = Math.round(progress.percent);
 
   return (
     <div className={styles.strip} role="status">
-      <span aria-hidden="true">🎯</span>
-      <span className={styles.text}>{tr('اكتمال الشروط', 'Conditions met')}</span>
+      <span aria-hidden="true">{progress.stage === 'fired' ? '⚡' : '🎯'}</span>
+      {/* The stage, not a fixed caption. A bar at 40% means nothing without
+          knowing what the strategy is doing at 40%. */}
+      <span className={styles.text}>{label(progress.stage)}</span>
       <span className={styles.bar} aria-hidden="true">
         <span className={styles.fill} style={{ width: `${pct}%` }} />
       </span>

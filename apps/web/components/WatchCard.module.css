@@ -142,3 +142,20 @@
 @media (prefers-reduced-motion: reduce) {
   .fill { transition: none; }
 }
+
+/* The trade opens on the next candle. Loud, because it is the one row on the
+   card that is about to become money. */
+.next {
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.nextBadge {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #1c1206;
+  background: linear-gradient(180deg, #fcd34d, #f59e0b);
+}

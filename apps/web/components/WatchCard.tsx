@@ -36,15 +36,21 @@
 
 import { useMemo } from 'react';
 import { tr, type PairRow } from '@euro/shared';
-import type { TradingSignal } from '@euro/engine';
+import type { SetupProgress, TradingSignal } from '@euro/engine';
 import styles from './WatchCard.module.css';
 
 export interface WatchCardProps {
   /** The user's chosen pairs, as chart symbols. */
   watched: readonly string[];
   pairs: PairRow[];
-  /** Completion per symbol, 0–100. Absent means no setup to measure. */
-  completions: Readonly<Record<string, number>>;
+  /**
+   * Stage and percentage per symbol.
+   *
+   * Every watched pair is in here, not only the ones with a setup: the scale is
+   * spread across the strategy's own gates, so a pair still looking for a swing
+   * has a real position on it rather than being missing.
+   */
+  completions: Readonly<Record<string, SetupProgress>>;
   /** The open trade, whichever pair it is on. */
   activeSignal: TradingSignal | null;
   /** The chart on screen, so the row for it can be marked rather than moved. */
@@ -73,7 +79,9 @@ export function WatchCard({
   const forming = useMemo(() => {
     return watched
       .filter((sym) => sym !== tradingSymbol && completions[sym] !== undefined)
-      .map((sym) => ({ symbol: sym, percent: completions[sym]! }))
+      .map((sym) => ({ symbol: sym, ...completions[sym]! }))
+      // Re-sorted on every update, so the pair nearest to firing is always at
+      // the top of a list that only shows its first five rows.
       .sort((a, b) => b.percent - a.percent || a.symbol.localeCompare(b.symbol));
   }, [watched, completions, tradingSymbol]);
 
@@ -124,18 +132,32 @@ export function WatchCard({
         <ul className={styles.list}>
           {forming.map((f) => {
             const pct = Math.round(f.percent);
+            // The pair has everything it needs and the trade opens on the next
+            // candle. Said in words rather than as another percentage: at that
+            // point the number has stopped being the useful thing about it.
+            const next = f.stage === 'fired';
             return (
               <li key={f.symbol}>
                 <button
                   type="button"
                   onClick={() => onSelect(f.symbol)}
-                  className={`${styles.row} ${f.symbol === chartSymbol ? styles.onChart : ''}`}
+                  className={`${styles.row} ${f.symbol === chartSymbol ? styles.onChart : ''} ${
+                    next ? styles.next : ''
+                  }`}
                 >
                   <span className={styles.name}>{nameOf(f.symbol)}</span>
-                  <span className={styles.pct}>{pct}%</span>
-                  <span className={styles.bar} aria-hidden="true">
-                    <span className={styles.fill} style={{ width: `${pct}%` }} />
-                  </span>
+                  {next ? (
+                    <span className={styles.nextBadge}>
+                      {tr('الإشارة الشمعة الجاية', 'Signal next candle')}
+                    </span>
+                  ) : (
+                    <>
+                      <span className={styles.pct}>{pct}%</span>
+                      <span className={styles.bar} aria-hidden="true">
+                        <span className={styles.fill} style={{ width: `${pct}%` }} />
+                      </span>
+                    </>
+                  )}
                 </button>
               </li>
             );

@@ -518,6 +518,108 @@ export function setupCompletion(
   return Math.max(0, Math.min(1, 1 - Math.abs(price - armed.level) / leg));
 }
 
+/**
+ * How far through the strategy a pair has got, as a stage and a percentage.
+ *
+ * ── WHY `setupCompletion` WAS NOT ENOUGH ───────────────────────────────────
+ *
+ * That one measures a single thing: the gap between price and the level. It is
+ * the right number once a setup EXISTS, and useless before — a pair with no
+ * armed setup has no gap to measure, so it was simply absent, and every pair
+ * that did appear was already most of the way there. The scale started at
+ * "nearly ready" and the user could not see the work in front of it.
+ *
+ * The strategy actually passes through several gates before it is waiting on a
+ * price at all, and it already reports on each of them: it looks for confirmed
+ * pivots, pairs them into a leg, refuses legs whose own candle already touched
+ * the level, refuses legs price has already broken, refuses legs that have
+ * fired before, and only then adopts one. Those refusals are counted on every
+ * candle for the backtest. This reads the same counters.
+ *
+ * ── THE SCALE ──────────────────────────────────────────────────────────────
+ *
+ * Five bands, and the boundaries are the strategy's own gates rather than
+ * round numbers chosen to look tidy:
+ *
+ *   0–15   nothing to work with — no confirmed pivot pair on this candle
+ *   15–30  pivots exist, but no two of them form a usable leg
+ *   30–50  a leg was found and refused — touched, broken, or already traded
+ *   50–95  a setup is ARMED, and the remainder is the distance left to the
+ *          level, which is the part `setupCompletion` was always measuring
+ *   100    price reached the level; the trade opens on the next candle
+ *
+ * Half the scale sits after a setup is adopted, because that is genuinely half
+ * the work: everything before it can repeat on the next candle for free, and
+ * once a setup is armed the strategy is committed to it until it fires, breaks
+ * or ages out.
+ *
+ * ── IT DECIDES NOTHING ─────────────────────────────────────────────────────
+ *
+ * Not one line of the strategy reads this. It is derived from state and
+ * counters that already exist, exactly like `setupCompletion`, and exists so
+ * the app can show the same number in two places rather than invent one.
+ */
+export type SetupStage = 'idle' | 'pivots' | 'rejected' | 'armed' | 'fired';
+
+export interface SetupProgress {
+  stage: SetupStage;
+  /** 0–100. */
+  percent: number;
+}
+
+/** Where each band starts. Named, because the numbers alone explain nothing. */
+const BAND = {
+  pivots: 15,
+  rejected: 30,
+  armed: 50,
+  /** The top of the armed band. The last 5 belong to the touch itself. */
+  armedTop: 95,
+} as const;
+
+export function setupProgress(
+  state: Pick<ProgramState, 'cycle' | 'armed'>,
+  diagnostics: SetupDiagnostics | null,
+  price: number,
+): SetupProgress {
+  // A trade is open, or one is about to open on the next candle. Either way the
+  // strategy has everything it was looking for.
+  if (state.cycle !== null) return { stage: 'fired', percent: 100 };
+
+  if (state.armed !== null) {
+    const closeness = setupCompletion(state.armed, price);
+    return {
+      stage: 'armed',
+      percent: BAND.armed + closeness * (BAND.armedTop - BAND.armed),
+    };
+  }
+
+  if (diagnostics === null) return { stage: 'idle', percent: 0 };
+
+  // A leg was found and refused. That is further along than having no leg at
+  // all: the structure is there, and one of the strategy's own rules turned it
+  // down — most of which stop applying as price moves.
+  const refused =
+    diagnostics.rejectedSwingTouched +
+    diagnostics.rejectedBroken +
+    diagnostics.rejectedAlreadyFired;
+  if (refused > 0) {
+    // Within the band by how many candidates survived the shape test, so a pair
+    // with several near-misses reads as busier than one with a single refusal.
+    const share = Math.min(1, refused / 3);
+    return { stage: 'rejected', percent: BAND.rejected + share * (BAND.armed - BAND.rejected) };
+  }
+
+  if (diagnostics.pairsExamined > 0) {
+    const share = Math.min(1, diagnostics.pairsExamined / 4);
+    return { stage: 'pivots', percent: BAND.pivots + share * (BAND.rejected - BAND.pivots) };
+  }
+
+  // Not even a pivot pair to look at. Some fraction of the first band rather
+  // than a flat zero, because "the window is filling" and "there is nothing
+  // here" look identical to a user staring at an empty bar.
+  return { stage: 'idle', percent: 0 };
+}
+
 /** Exported for the tests, which check the pieces as well as the whole. */
 export const _internals = {
   touches, confirmedPivots, findSetup, lastClosedIndex, contiguousTail, blankDiagnostics,
