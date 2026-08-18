@@ -97,9 +97,22 @@ export function SignalPanel(props: SignalPanelProps) {
   // watch panel is what it starts — a narrated pass over one pair, followed by
   // a countdown, described work the app had stopped doing: the strategy runs
   // over every chosen pair, on every candle, until something fires.
-  if (analysing || (monitoring.active && signal === null)) return <MonitoringView {...props} />;
-  if (signal === null) return <IdleView {...props} />;
-  return <TradeView {...props} />;
+  if (signal !== null) {
+    // The trade AND the watch. The watch used to be replaced by the trade card
+    // and stopped when the cycle ended, so a user watching five pairs lost
+    // sight of the other four the moment one of them fired — and had to press
+    // the button again afterwards to get them back. The trade leads, because it
+    // is the thing with money on it; the watch continues underneath, because it
+    // never stopped.
+    return (
+      <>
+        <TradeView {...props} />
+        {monitoring.active && <MonitoringView {...props} compact />}
+      </>
+    );
+  }
+  if (analysing || monitoring.active) return <MonitoringView {...props} />;
+  return <IdleView {...props} />;
 }
 
 /* ── Monitoring ────────────────────────────────────────────────────────────── */
@@ -110,15 +123,20 @@ function MonitoringView({
   onStopMonitoring,
   candlesAnalysed,
   watchedCount,
-}: SignalPanelProps) {
+  compact = false,
+}: SignalPanelProps & { compact?: boolean }) {
   return (
-    <section className={`${styles.panel} ${styles.monitoringPanel}`}>
+    <section
+      className={`${styles.panel} ${styles.monitoringPanel} ${compact ? styles.monCompact : ''}`}
+    >
       <div className={styles.monHead}>
         <span className={styles.radar} aria-hidden="true">
           ◎
         </span>
         <h2 className={styles.monTitle}>
-          {tr('الاستراتيجية شغالة على كل شمعة...', 'The strategy is running on every candle…')}
+          {compact
+            ? tr('والمراقبة مكمّلة على باقي الأزواج', 'And the watch continues on the other pairs')
+            : tr('الاستراتيجية شغالة على كل شمعة...', 'The strategy is running on every candle…')}
         </h2>
       </div>
 
@@ -128,6 +146,9 @@ function MonitoringView({
         actually holding: the first candle did not match, and here is what
         about it did not match.
       */}
+      {/* Both paragraphs answer "why is nothing happening yet", which is not a
+          question anybody has while a trade is counting down in front of them. */}
+      {!compact && (
       <p className={styles.notMet}>
         {waitNotice === 'min_score'
           ? tr(
@@ -139,13 +160,16 @@ function MonitoringView({
               'The strategy conditions were not met on the first candle — the analysis carries on each new candle until a signal fires.',
             )}
       </p>
+      )}
 
+      {!compact && (
       <p className={styles.watching}>
         {tr(
           'المراقبة شغالة على كل الأزواج، مش على الزوج اللي قدامك بس. مش محتاج تضغط تاني ولا تفضل قاعد قدام الشاشة — هيوصلك تنبيه أول ما فرصة تتكوّن، وتنبيه تاني أول ما تقرب، وتنبيه أول ما تتحقق. والشارت هيقلب لوحده على الزوج اللي طلعت منه.',
           'The watch runs on every pair, not just the one on screen. You get an alert when an opportunity forms, another when it gets close, and one the moment it triggers — and the chart switches to the pair on its own.',
         )}
       </p>
+      )}
 
       {/*
         The stat row from `_buildMonitoringCard` (main_screen.dart:4133), plus

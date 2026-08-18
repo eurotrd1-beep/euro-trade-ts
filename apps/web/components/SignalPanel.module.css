@@ -358,3 +358,14 @@
   font-variant-numeric: tabular-nums;
   color: #34d399;
 }
+
+/* The watch, continuing underneath an open trade. Quieter than on its own:
+   the trade is the thing with money on it, and this is only saying that the
+   other pairs are still being read. */
+.monCompact {
+  margin-top: 8px;
+  padding: 10px 12px;
+  opacity: 0.9;
+}
+
+.monCompact h2 { font-size: 12px; }

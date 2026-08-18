@@ -171,14 +171,18 @@ export function useMonitoring(args: UseMonitoringArgs) {
         .then((result) => {
           scheduleNextBoundary();
 
-          // The strategy is done — it produced its signal and settled it, or
-          // gave up on the cycle. Leaving the loop running past that would
-          // open a trade the user never asked for.
-          if (result === 'cycle_end') {
-            activeRef.current = false;
-            setState(IDLE);
-            return;
-          }
+          // A finished cycle is no longer the end of the watch.
+          //
+          // It used to stop here, on the reasoning that carrying on would open
+          // a trade the user had not asked for. That was true when one press
+          // meant one pass over one pair. It is not what the watch is any more:
+          // the user chose a set of pairs and asked to be watched on them, and
+          // a cycle ending is one opportunity finishing, not the end of the
+          // watching. Stopping there meant pressing the button again after
+          // every single trade.
+          //
+          // It stops when the user stops it, which is what the cancel button
+          // has always been for.
 
           setState((s) => ({
             ...s,
