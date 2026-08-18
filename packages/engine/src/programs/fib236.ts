@@ -576,6 +576,17 @@ export interface SetupProgress {
   level?: number;
   /** Which way the trade goes if that level is touched. */
   direction?: Direction;
+  /**
+   * How far price still has to travel to reach the level, in price units.
+   *
+   * Present with `level`, and for the same reason: it is the answer to "what is
+   * left", which a percentage cannot give. Two pairs can both read 90% and be a
+   * pip and a half apart in what they actually need — the percentage is a
+   * fraction of each pair's OWN leg, so it compares progress rather than
+   * proximity. This is what ranks "about to touch" ahead of "close, on a long
+   * leg".
+   */
+  gap?: number;
 }
 
 /** Where each band starts. Named, because the numbers alone explain nothing. */
@@ -603,6 +614,7 @@ export function setupProgress(
       percent: BAND.armed + closeness * (BAND.armedTop - BAND.armed),
       level: state.armed.level,
       direction: state.armed.direction,
+      gap: Math.abs(price - state.armed.level),
     };
   }
 

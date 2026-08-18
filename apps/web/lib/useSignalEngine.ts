@@ -1010,11 +1010,24 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       const status = await fetchOtcStatus(argsRef.current.chartSymbol);
       if (cancelled || status === null) return;
 
+      // ── The bars move with the price, not with the candle ────────────────
+      //
+      // `/api/otc/status` carries a price for every symbol, so the readings can
+      // be refreshed on this poll rather than waiting for the next candle to
+      // close. That is the difference between a bar that steps once a minute
+      // and one the user can watch approaching — and it is the same
+      // `setupProgress`, on a fresher price, so nothing can disagree.
+      const fresh: Record<string, SetupProgress> = { ...stateRef.current.completions };
+      let moved = false;
       for (const [symbol, st] of programStatesRef.current) {
+        const price = status.prices[symbol];
+        if (typeof price === 'number' && price > 0) {
+          fresh[symbol] = setupProgress(st, diagnosticsRef.current.get(symbol) ?? null, price);
+          moved = true;
+        }
+
         const armed = st.armed;
         if (armed === null || st.cycle !== null) continue;
-
-        const price = status.prices[symbol];
         if (typeof price !== 'number' || price <= 0) continue;
 
         // The leg's size, recovered from the level: the level sits 23.6% of
@@ -1037,14 +1050,21 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         const name = displayNameFor(symbol);
         const arrow = armed.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط';
         if (stage === 'touched') {
+          // NOT "the trade opens next candle". This fires on the LIVE price
+          // reaching the level, and the strategy judges on the candle's CLOSE:
+          // price can touch and pull back before it closes, and then there is
+          // no trade at all. Promising one here would be wrong several times a
+          // day, which is how an alert stops being believed.
           notify(
-            `الشروط اتحققت — ${name}`,
-            `${arrow} · السعر لمس ${formatLevel(armed.level)} · الصفقة هتفتح مع الشمعة الجاية`,
+            `السعر لمس المستوى — ${name}`,
+            `${arrow} · ${formatLevel(armed.level)} · مستنيين الشمعة تقفل تأكّد`,
           );
         } else {
           notify(`الإشارة قربت — ${name}`, `${arrow} · فاضل ${formatLevel(distance)} على ${formatLevel(armed.level)}`);
         }
       }
+
+      if (moved) setState((st) => ({ ...st, completions: fresh }));
     }
 
     void poll();

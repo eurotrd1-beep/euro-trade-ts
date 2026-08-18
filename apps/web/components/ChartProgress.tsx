@@ -24,6 +24,7 @@
 
 import { tr } from '@euro/shared';
 import type { SetupProgress } from '@euro/engine';
+import { remainingText } from '@/lib/stageWords';
 import styles from './ChartProgress.module.css';
 
 export interface ChartProgressProps {
@@ -31,25 +32,11 @@ export interface ChartProgressProps {
   progress: SetupProgress | undefined;
   /** True while a trade is open on this pair — the card takes over. */
   tradeHere: boolean;
+  /** The pair's live price, for saying what distance is left. */
+  price: number;
 }
 
-/** What the strategy is doing at each stage, in the user's words. */
-function label(stage: SetupProgress['stage']): string {
-  switch (stage) {
-    case 'fired':
-      return tr('الإشارة على الشمعة الجاية', 'Signal on the next candle');
-    case 'armed':
-      return tr('مستنيين السعر يلمس المستوى', 'Waiting for price to touch the level');
-    case 'rejected':
-      return tr('لقى سوينج وما ينفعش — بيدوّر على غيره', 'Found a swing and refused it — looking again');
-    case 'pivots':
-      return tr('بيرتّب القمم والقيعان', 'Pairing the highs and lows');
-    default:
-      return tr('لسه بيدوّر على سوينج مؤكد', 'Still looking for a confirmed swing');
-  }
-}
-
-export function ChartProgress({ progress, tradeHere }: ChartProgressProps) {
+export function ChartProgress({ progress, tradeHere, price }: ChartProgressProps) {
   if (tradeHere) return null;
 
   if (progress === undefined) {
@@ -70,7 +57,7 @@ export function ChartProgress({ progress, tradeHere }: ChartProgressProps) {
       <span aria-hidden="true">{progress.stage === 'fired' ? '⚡' : '🎯'}</span>
       {/* The stage, not a fixed caption. A bar at 40% means nothing without
           knowing what the strategy is doing at 40%. */}
-      <span className={styles.text}>{label(progress.stage)}</span>
+      <span className={styles.text}>{remainingText(progress, price)}</span>
       <span className={styles.bar} aria-hidden="true">
         <span className={styles.fill} style={{ width: `${pct}%` }} />
       </span>

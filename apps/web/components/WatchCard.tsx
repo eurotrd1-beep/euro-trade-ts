@@ -37,6 +37,7 @@
 import { useMemo } from 'react';
 import { tr, type PairRow } from '@euro/shared';
 import type { SetupProgress, TradingSignal } from '@euro/engine';
+import { byNearest, remainingText } from '@/lib/stageWords';
 import styles from './WatchCard.module.css';
 
 export interface WatchCardProps {
@@ -55,6 +56,8 @@ export interface WatchCardProps {
   activeSignal: TradingSignal | null;
   /** The chart on screen, so the row for it can be marked rather than moved. */
   chartSymbol: string;
+  /** Live prices by symbol, for saying how much distance is left on each. */
+  prices: Readonly<Record<string, number>>;
   /**
    * Pairs whose market is shut. Listed, but set apart.
    *
@@ -74,6 +77,7 @@ export function WatchCard({
   activeSignal,
   chartSymbol,
   closedPairs,
+  prices,
   onSelect,
 }: WatchCardProps) {
   const nameOf = useMemo(() => {
@@ -101,12 +105,13 @@ export function WatchCard({
         // Re-sorted on every update, so the pair nearest to firing is always in
         // the five rows the card shows without scrolling.
         .map((f) => ({ ...f, shut: closedPairs[f.symbol] === true }))
-        // Closed markets last, whatever their reading says: a pair that cannot
-        // move is not competing with one that can.
+        // Closed markets last, whatever their reading says — a pair that cannot
+        // move is not competing with one that can — then by what is actually
+        // left, which is not the same as by percentage. See `byNearest`.
         .sort(
           (a, b) =>
             Number(a.shut) - Number(b.shut) ||
-            b.percent - a.percent ||
+            byNearest(a, b) ||
             a.symbol.localeCompare(b.symbol),
         )
     );
@@ -172,7 +177,14 @@ export function WatchCard({
                     f.shut ? styles.shutRow : next ? styles.next : ''
                   }`}
                 >
-                  <span className={styles.name}>{nameOf(f.symbol)}</span>
+                  <span className={styles.nameCol}>
+                    <span className={styles.name}>{nameOf(f.symbol)}</span>
+                    {!f.shut && (
+                      <span className={styles.left}>
+                        {remainingText(f, prices[f.symbol] ?? 0)}
+                      </span>
+                    )}
+                  </span>
                   {f.shut ? (
                     <span className={styles.shut}>{tr('السوق مقفول', 'Market closed')}</span>
                   ) : next ? (

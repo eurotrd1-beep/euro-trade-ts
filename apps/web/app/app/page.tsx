@@ -48,6 +48,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { WatchSettings } from '@/components/WatchSettings';
 import { ChartProgress } from '@/components/ChartProgress';
 import { WatchCard } from '@/components/WatchCard';
+import { byNearest } from '@/lib/stageWords';
 import { AwayTradeBar } from '@/components/AwayTradeBar';
 import styles from './app.module.css';
 
@@ -380,9 +381,25 @@ export default function MainScreen() {
     unlockAudio();
     void requestNotificationPermission();
 
+    // Standing on a pair that is not being watched is a screen showing a market
+    // the strategy will never mention. The nearest chosen pair is what the user
+    // is about to be told about, so that is where the chart goes — before the
+    // watch starts, not after, so nothing is missed in between.
+    if (watchSymbols.length > 0 && !watchSymbols.includes(chartSymbol)) {
+      const best = [...watchSymbols].sort((a, b) => {
+        const pa = engine.completions[a];
+        const pb = engine.completions[b];
+        if (pa === undefined && pb === undefined) return a.localeCompare(b);
+        if (pa === undefined) return 1;
+        if (pb === undefined) return -1;
+        return byNearest(pa, pb) || a.localeCompare(b);
+      })[0];
+      if (best !== undefined) switchToPair(best);
+    }
+
     const outcome = await engine.requestSignal(program.durationMinutes);
     if (outcome !== 'unavailable') monitoring.start();
-  }, [engine, monitoring, program.durationMinutes]);
+  }, [engine, monitoring, program.durationMinutes, watchSymbols, chartSymbol, switchToPair]);
 
   const socialPairs = useMemo(() => visiblePairs.map((p) => p.symbol), [visiblePairs]);
   const socialLogs = useSocialFeed({ pairs: socialPairs, marketClosed });
@@ -476,6 +493,7 @@ export default function MainScreen() {
           <ChartProgress
             progress={engine.completions[chartSymbol]}
             tradeHere={tradeOnThisChart}
+            price={engine.currentPrice}
           />
 
           <div className={styles.chartCard}>
@@ -528,6 +546,12 @@ export default function MainScreen() {
                 signalDirection={tradeOnThisChart ? engine.activeSignal!.direction : null}
                 signalEntryPrice={tradeOnThisChart ? engine.activeSignal!.entryPrice : null}
                 signalSecondsRemaining={tradeOnThisChart ? engine.secondsRemaining : 0}
+                watchLevel={
+                  !tradeOnThisChart && engine.completions[chartSymbol]?.stage === 'armed'
+                    ? (engine.completions[chartSymbol]?.level ?? null)
+                    : null
+                }
+                watchDirection={engine.completions[chartSymbol]?.direction ?? null}
                 onReady={engine.setLivePriceGetter}
               />
             </div>
@@ -571,6 +595,7 @@ export default function MainScreen() {
             activeSignal={engine.activeSignal}
             chartSymbol={chartSymbol}
             closedPairs={market.closedPairs}
+            prices={market.prices}
             onSelect={pickPairByHand}
           />
 

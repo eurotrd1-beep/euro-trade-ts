@@ -28,6 +28,14 @@ const UNHEALTHY_AFTER = 2;
 
 export interface MarketStatus {
   closedPairs: Record<string, boolean>;
+  /**
+   * The latest price per symbol.
+   *
+   * Already carried by every poll — the status endpoint returns one for each —
+   * it simply was not on the type, so nothing could read it. The watch card
+   * needs them to say how far each pair still has to travel.
+   */
+  prices: Record<string, number>;
   /** False when the feed has stalled — shows the reconnecting banner. */
   healthy: boolean;
   /** Whether the ACTIVE pair's market is open. Optimistic until the first poll. */
@@ -37,6 +45,7 @@ export interface MarketStatus {
 
 const INITIAL: MarketStatus = {
   closedPairs: {},
+  prices: {},
   healthy: true,
   // Optimistic default, as in Dart: never show a closed market before we know.
   open: true,
