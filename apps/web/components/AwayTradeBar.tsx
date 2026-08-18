@@ -36,6 +36,15 @@ export interface AwayTradeBarProps {
   secondsRemaining: number;
   /** True for the doubled recovery trade, which is the one worth flagging. */
   martingale: boolean;
+  /**
+   * How many trades are running away from this chart, this one included.
+   *
+   * Each watched pair runs its own cycle, so there can be several. The bar
+   * names the nearest to finishing and counts the rest: "a trade is running
+   * elsewhere" and "three are" are different things to know, and a bar that
+   * mentioned only one would be hiding the others.
+   */
+  awayCount: number;
   onGoBack: () => void;
 }
 
@@ -49,6 +58,7 @@ export function AwayTradeBar({
   direction,
   secondsRemaining,
   martingale,
+  awayCount,
   onGoBack,
 }: AwayTradeBarProps) {
   return (
@@ -66,6 +76,11 @@ export function AwayTradeBar({
           : tr('صفقة شغالة على ', 'Trade running on ')}
         <strong>{pair}</strong>
         <span className={styles.dir}> · {direction === 'CALL' ? '▲' : '▼'} {direction}</span>
+        {awayCount > 1 && (
+          <span className={styles.more}>
+            {tr(` · و${awayCount - 1} غيرها`, ` · and ${awayCount - 1} more`)}
+          </span>
+        )}
       </span>
 
       <span className={styles.clock} dir="ltr">

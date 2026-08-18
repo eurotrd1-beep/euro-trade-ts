@@ -47,7 +47,6 @@ import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import { WatchSettings } from '@/components/WatchSettings';
 import { ChartProgress } from '@/components/ChartProgress';
-import { HeldEvents } from '@/components/HeldEvents';
 import { WatchCard } from '@/components/WatchCard';
 import { AwayTradeBar } from '@/components/AwayTradeBar';
 import styles from './app.module.css';
@@ -339,12 +338,23 @@ export default function MainScreen() {
    * `tradeOnThisChart` rather than beside it, so the two can never disagree
    * about which state the screen is in.
    */
-  const awayTrade =
-    engine.activeSignal !== null &&
-    engine.activeSignal.status === 'ACTIVE' &&
-    !tradeOnThisChart
-      ? engine.activeSignal
-      : null;
+  /**
+   * Trades running on pairs other than the one on screen.
+   *
+   * There can be several now — each watched pair runs its own cycle — so this
+   * is the nearest one to finishing, which is the one worth offering a way to
+   * first. The count comes with it, because "a trade is running elsewhere" and
+   * "three are" are different things to know.
+   */
+  const awayTrades = useMemo(
+    () =>
+      Object.entries(engine.openTrades)
+        .filter(([sym]) => sym !== chartSymbol)
+        .map(([, t]) => t)
+        .sort((a, b) => a.expiryTime - b.expiryTime),
+    [engine.openTrades, chartSymbol],
+  );
+  const awayTrade = awayTrades[0] ?? null;
 
 
   stopMonitoringRef.current = monitoring.stop;
@@ -449,8 +459,9 @@ export default function MainScreen() {
             <AwayTradeBar
               pair={awayTrade.pair}
               direction={awayTrade.direction}
-              secondsRemaining={engine.secondsRemaining}
+              secondsRemaining={Math.max(0, Math.ceil((awayTrade.expiryTime - Date.now()) / 1000))}
               martingale={awayTrade.stage === 'martingale'}
+              awayCount={awayTrades.length}
               onGoBack={() => {
                 if (awayTrade.symbol !== undefined) switchToPair(awayTrade.symbol);
               }}
@@ -462,18 +473,6 @@ export default function MainScreen() {
             showing what it is showing, which has to be readable before the
             chart is, not after.
           */}
-          {/*
-            What was held back during the trade, delivered in one go now that it
-            is over. Above the chart, because it is the newest thing on the page
-            and because acting on any of it means opening one of those pairs.
-          */}
-          <HeldEvents
-            events={engine.heldEvents}
-            displayName={(sym) => visiblePairs.find((p) => p.chart_symbol === sym)?.symbol ?? sym}
-            onSelect={pickPairByHand}
-            onDismiss={engine.clearHeldEvents}
-          />
-
           <ChartProgress
             progress={engine.completions[chartSymbol]}
             tradeHere={tradeOnThisChart}

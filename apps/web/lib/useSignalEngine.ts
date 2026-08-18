@@ -122,7 +122,30 @@ const NEAR_FRACTION = 0.2;
 export interface EngineState {
   candles: Candle[];
   currentPrice: number;
+  /**
+   * The trade on the pair currently on the chart, or null.
+   *
+   * Derived from `openTrades` rather than stored: there is one of these per
+   * pair now, and a single field could only ever describe one of them.
+   */
   activeSignal: TradingSignal | null;
+  /**
+   * Every running trade, by symbol.
+   *
+   * ── WHY THIS IS NO LONGER ONE ──────────────────────────────────────────
+   *
+   * The watch covers several pairs at once, and they do not take turns: two of
+   * them can reach their level on the same candle. Holding one trade for the
+   * whole app meant the second was suppressed — evaluated on a discarded copy
+   * of its state and recorded as an event to read about afterwards, which is a
+   * missed trade described politely.
+   *
+   * Each pair now runs its own cycle to its own end, martingale included, and
+   * switching to a pair shows that pair's trade. What is on screen is still
+   * exactly one market's worth of information; there are simply more of them
+   * behind it.
+   */
+  openTrades: Readonly<Record<string, TradingSignal>>;
   secondsRemaining: number;
   history: TradingSignal[];
   /** 'strategy' | 'min_score' | '' — the "no opportunity now" banner. */
@@ -164,19 +187,6 @@ export interface EngineState {
    * would make the counter stall for a minute at a time for no visible reason.
    */
   candlesAnalysed: number;
-  /**
-   * What happened on the other watched pairs while a trade was running.
-   *
-   * The pairs are still evaluated throughout — nothing stops computing, which
-   * is the whole point of watching several at once. What stops is INTERRUPTING:
-   * a phone that buzzes about GBP/JPY while the user is watching a trade play
-   * out on gold is taking their attention off the one thing that is actually
-   * costing them money right now.
-   *
-   * So the events are held rather than dropped, and shown together the moment
-   * the trade finishes. Nothing is lost; it is only deferred.
-   */
-  heldEvents: ReadonlyArray<{ symbol: string; percent: number; at: number; fired: boolean }>;
   /**
    * How close every watched pair is to firing, as a percentage.
    *
@@ -402,6 +412,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     candles: [],
     currentPrice: 0,
     activeSignal: null,
+    openTrades: {},
     secondsRemaining: 0,
     history: [],
     waitNotice: '',
@@ -410,7 +421,6 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     candleSecondsLeft: 0,
     marketClosed: false,
     completions: {},
-    heldEvents: [],
     candlesAnalysed: 0,
     watchOwner: true,
     followPaused: false,
@@ -625,17 +635,14 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         saveHistory(accountId, history);
         void pushRemoteHistory(accountId, history);
       }
-      setState((s) => ({
-        ...s,
-        // Only if this IS the trade on screen. Settling a row the user was not
-        // looking at must not put its result up as though they had been.
-        activeSignal:
-          s.activeSignal !== null && s.activeSignal.entryTime === settled.entryTime
-            ? settled
-            : s.activeSignal,
-        secondsRemaining: s.activeSignal?.entryTime === settled.entryTime ? 0 : s.secondsRemaining,
-        history,
-      }));
+      setState((s) => {
+        // The settled trade leaves the open set. Its result is in the history,
+        // which is where a finished trade belongs; leaving it here would keep a
+        // countdown on screen for something that has already happened.
+        const open = { ...s.openTrades };
+        if (settled.symbol !== undefined) delete open[settled.symbol];
+        return { ...s, openTrades: open, history };
+      });
     },
     [],
   );
@@ -716,11 +723,6 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       : outcomeFor(open.direction, bar.open, bar.close);
     settleTo(open, result, bar.open, bar.close);
   }, [settleTo]);
-
-  /** Dismisses the held-events panel once the user has read it. */
-  const clearHeldEvents = useCallback(() => {
-    setState((st) => (st.heldEvents.length === 0 ? st : { ...st, heldEvents: [] }));
-  }, []);
 
   const setLivePriceGetter = useCallback((getter: () => number) => {
     livePriceRef.current = getter;
@@ -853,8 +855,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         recordOpen(signal);
         setState((st) => ({
           ...st,
-          activeSignal: signal,
-          secondsRemaining: Math.max(1, Math.ceil((signal.expiryTime - Date.now()) / 1000)),
+          openTrades: { ...st.openTrades, [symbol]: signal },
           waitNotice: '',
         }));
       }
@@ -916,81 +917,6 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     setState((st) => ({ ...st, completions: percents }));
   }, []);
 
-  /**
-   * Evaluates every watched pair except the one trading, without letting any of
-   * them open a trade.
-   *
-   * Deduplicated by pair: a setup that stays touched across several ticks is one
-   * event, not one per tick. Sorted and trimmed where it is displayed rather
-   * than here, so the record stays complete.
-   */
-  const holdOthers = useCallback(async (busySymbol: string) => {
-    const prog = programRef.current;
-    const a = argsRef.current;
-    if (prog === null || !ownerRef.current) return;
-
-    const others = a.watchSymbols.filter((sym) => sym !== busySymbol);
-    if (others.length === 0) return;
-
-    const bulk = await fetchCandlesBulk(others, a.timeframe);
-    if (bulk.size === 0) return;
-
-    const percents: Record<string, SetupProgress> = { ...stateRef.current.completions };
-    const fresh: Array<{ symbol: string; percent: number; at: number; fired: boolean }> = [];
-
-    for (const [symbol, candles] of bulk) {
-      if (candles.length === 0) continue;
-      const real = stateFor(symbol);
-      const copy: ProgramState = {
-        cycle: real.cycle,
-        armed: real.armed,
-        firedKeys: real.firedKeys.slice(),
-        lastCandleTime: real.lastCandleTime,
-      };
-
-      let event;
-      try {
-        event = prog.onCandleClose(
-          { candles, timeframeMs: timeframeSeconds(a.timeframe) * 1000, now: Date.now() },
-          copy,
-        );
-      } catch {
-        continue;
-      }
-
-      const price = candles[candles.length - 1]!.close;
-
-      if (event.diagnostics !== undefined) diagnosticsRef.current.set(symbol, event.diagnostics);
-
-      if (event.signal !== null) {
-        // It would have traded. The copy is thrown away — including the cycle it
-        // just opened, which must not exist — and the pair is left exactly where
-        // it was, free to fire properly once the screen is clear. It is shown at
-        // the top of the armed band rather than as fired, because on this pair
-        // nothing was actually taken.
-        fresh.push({ symbol, percent: 100, at: Date.now(), fired: true });
-        percents[symbol] = { stage: 'armed', percent: 95 };
-        continue;
-      }
-
-      // Nothing fired, so the copy is the truth and is kept: this is what stops
-      // the pair re-reading the same candle for ever and never ageing its setup.
-      programStatesRef.current.set(symbol, copy);
-      percents[symbol] = setupProgress(copy, diagnosticsRef.current.get(symbol) ?? null, price);
-    }
-
-    setState((st) => {
-      const byPair = new Map(st.heldEvents.map((e) => [e.symbol, e]));
-      for (const e of fresh) byPair.set(e.symbol, e);
-      return {
-        ...st,
-        completions: percents,
-        heldEvents: [...byPair.values()],
-        candlesAnalysed: st.candlesAnalysed + bulk.size,
-      };
-    });
-  }, [stateFor]);
-
   const tickProgram = useCallback(async (): Promise<TickResult> => {
     const prog = programRef.current;
     const a = argsRef.current;
@@ -1002,29 +928,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     // the double-trade this prevents.
     if (!ownerRef.current) return 'none';
 
-    // ── A cycle owns the engine ──────────────────────────────────────────
-    const busy = cycleSymbolRef.current;
-    if (busy !== null) {
-      // The other pairs keep being evaluated, on a COPY of their state.
-      //
-      // Copying is what lets both halves of the requirement hold at once. The
-      // strategy runs on every watched pair, so nothing stops computing — but a
-      // pair that would fire must not actually open a trade, because there is
-      // one open already and two would be a second position nobody asked for.
-      // Running the real state and ignoring the result is not an option either:
-      // the program would believe it had a cycle the app never showed.
-      //
-      // So the copy is committed when nothing fired, and dropped when something
-      // did — with the event recorded, to be shown when the trade ends. The
-      // cost is 0.02ms for all 89 pairs, measured; it is free.
-      void holdOthers(busy);
-      const fresh = await fetchCandles(busy, a.timeframe);
-      if (fresh === null || fresh.length === 0) return 'none';
-      if (busy === a.chartSymbol) {
-        setState((st) => ({ ...st, candles: fresh, currentPrice: fresh[fresh.length - 1]!.close }));
-      }
-      return applyEvent(busy, prog, fresh, stateFor(busy));
-    }
+    // Every watched pair, every sweep, on its own real state.
+    //
+    // There used to be a branch here that gave the engine to whichever pair had
+    // an open cycle and shadow-ticked the rest on discarded copies. That was
+    // how "one trade at a time" was enforced, and it meant a second pair
+    // reaching its level had its trade suppressed and reported afterwards as
+    // something the user had missed. Pairs run independently now.
 
     // ── Scanning ─────────────────────────────────────────────────────────
     // Nothing chosen means nothing watched. It used to fall back to whatever
@@ -1077,7 +987,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     // asked after the loop rather than inside it.
     rankWatched(bulk);
     return 'none';
-  }, [applyEvent, stateFor, rankWatched, holdOthers]);
+  }, [applyEvent, stateFor, rankWatched]);
 
   /**
    * Between candles: how close is any watched pair to its level?
@@ -1479,8 +1389,20 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     setState((s) => ({ ...s, marketClosed: false }));
   }, []);
 
+  /**
+   * The trade the screen is about: the one on the pair being shown.
+   *
+   * Derived rather than stored, so it cannot drift from `openTrades`. The other
+   * trades carry on in the background — they are on `openTrades`, which is what
+   * the bar offering a way back to them reads.
+   */
+  const onChart = state.openTrades[args.chartSymbol] ?? null;
+
   return {
     ...state,
+    activeSignal: onChart,
+    secondsRemaining:
+      onChart === null ? 0 : Math.max(0, Math.ceil((onChart.expiryTime - Date.now()) / 1000)),
     /** The program driving this session, or null when the rules are. */
     program,
     requestSignal,
@@ -1488,6 +1410,5 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     clearSignal,
     clearMarketClosed,
     setLivePriceGetter,
-    clearHeldEvents,
   };
 }

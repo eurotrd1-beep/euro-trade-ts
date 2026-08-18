@@ -63,3 +63,7 @@
 }
 
 .back:hover { background: rgba(0, 0, 0, 0.72); }
+
+/* The others, when there are others. Lighter than the pair name — it is a
+   count, not the thing the bar is about. */
+.more { font-weight: 700; opacity: 0.75; }
