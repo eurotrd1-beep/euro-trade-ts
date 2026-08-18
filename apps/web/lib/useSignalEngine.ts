@@ -632,8 +632,26 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    */
   const rangeRef = useRef(new Map<string, { candle: number; high: number; low: number }>());
 
-  /** The start of the candle now running, as epoch ms. */
-  const currentCandleStart = useCallback((): number => {
+  /**
+   * When the candle now running started, per pair, taken from the FEED.
+   *
+   * Not from the device clock, and that distinction is the whole point. The
+   * range that decides a touch is accumulated within one candle and reset at
+   * its boundary, and the strategy will judge the touch against the feed's
+   * candle. A clock a few seconds fast puts prices from the end of one candle
+   * into the start of the next, so the range spans two candles and reports
+   * containment the real candle never had — a touch that shows 100% and then
+   * produces no trade, which is exactly what was happening.
+   *
+   * The feed's newest candle IS the one now forming, so its timestamp is the
+   * boundary, whatever the device believes the time is.
+   */
+  const candleStartRef = useRef(new Map<string, number>());
+
+  const currentCandleStart = useCallback((symbol: string): number => {
+    const known = candleStartRef.current.get(symbol);
+    if (known !== undefined) return known;
+    // Only before the first sweep has been seen for this pair.
     const cs = timeframeSeconds(argsRef.current.timeframe) * 1000;
     return Math.floor(Date.now() / cs) * cs;
   }, []);
@@ -654,7 +672,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         return false;
       }
 
-      const candle = currentCandleStart();
+      const candle = currentCandleStart(symbol);
 
       // The range so far, restarted on a new candle.
       const seen = rangeRef.current.get(symbol);
@@ -1015,6 +1033,9 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const percents: Record<string, SetupProgress> = {};
     for (const [symbol, candles] of bulk) {
       if (candles.length === 0) continue;
+      // The feed's newest candle is the one now forming: its timestamp is the
+      // boundary the strategy will use, so it is the one the range resets on.
+      candleStartRef.current.set(symbol, candles[candles.length - 1]!.time);
       const held = programStatesRef.current.get(symbol);
       if (held === undefined) continue;
       const close = candles[candles.length - 1]!.close;
