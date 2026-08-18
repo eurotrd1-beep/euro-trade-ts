@@ -25,7 +25,12 @@
  */
 
 import { useState } from 'react';
-import { programForPlan, type Plan, type StrategyProgram } from '@euro/engine';
+import {
+  programForPlan,
+  SUPPORTED_TIMEFRAMES,
+  type Plan,
+  type StrategyProgram,
+} from '@euro/engine';
 import {
   backtest,
   confidence,
@@ -74,12 +79,16 @@ function stamp(ms: number): string {
 
 export default function StrategyView() {
   const [plan, setPlan] = useState<Plan>('free');
+  // The strategy runs on whichever candles it is handed, so the replay has to
+  // be able to ask the same question of each — "is 5m better here" is not
+  // answerable from a screen that can only test one.
+  const [timeframe, setTimeframe] = useState<string>(SUPPORTED_TIMEFRAMES[0]!);
   const [report, setReport] = useState<BacktestReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const program = programForPlan(plan);
+  const program = programForPlan(plan, timeframe);
 
   /**
    * Replays the plan's own program over the history the feed has.
@@ -169,8 +178,25 @@ export default function StrategyView() {
           ))}
         </div>
 
+        <p className={styles.label}>الإطار الزمني</p>
+        <div className={styles.filters} style={{ marginBottom: 12 }}>
+          {SUPPORTED_TIMEFRAMES.map((tf) => (
+            <button
+              key={tf}
+              type="button"
+              onClick={() => { setTimeframe(tf); setReport(null); }}
+              aria-pressed={timeframe === tf}
+              className={`${styles.chip} ${timeframe === tf ? styles.chipActive : ''}`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+
         <button type="button" onClick={() => void run()} disabled={busy} className={styles.primaryBtn}>
-          {busy ? (progress || 'جاري التشغيل...') : `▶️ شغّل على ${program.name}`}
+          {busy
+            ? (progress || 'جاري التشغيل...')
+            : `▶️ شغّل على ${program.name} · ${program.timeframe}`}
         </button>
 
         {error !== null && <p className={styles.error} style={{ marginTop: 12 }}>{error}</p>}

@@ -41,8 +41,58 @@ const BY_PLAN: Record<Plan, StrategyProgram> = {
   paid: fib236Touch,
 };
 
-export function programForPlan(plan: Plan): StrategyProgram {
-  return BY_PLAN[plan];
+/**
+ * The timeframes a program may be run on, and the trade length on each.
+ *
+ * One candle is one trade — that is the shape of the strategy, not a setting:
+ * it enters on the open of the candle after the touch and leaves on that same
+ * candle's close. So the trade length is not a separate choice, it IS the
+ * timeframe, and this map is the only place the two are tied together.
+ *
+ * `fib236Touch` itself never reads either value. Every decision in it comes
+ * from `ctx.timeframeMs`, which the caller supplies, so the strategy is the
+ * same strategy on 5m as on 1m — a swing between two confirmed pivots and a
+ * touch of the 0.236 retracement, measured on whatever candles it is handed.
+ * What changes is only how long a candle is.
+ */
+export const TIMEFRAME_MINUTES: Readonly<Record<string, number>> = {
+  '1m': 1,
+  '5m': 5,
+};
+
+/** The timeframes a user may pick, in the order they should be shown. */
+export const SUPPORTED_TIMEFRAMES: readonly string[] = ['1m', '5m'];
+
+/**
+ * The same program, declared on a different timeframe.
+ *
+ * A copy rather than a mutation: two pairs can be watched on two timeframes at
+ * once and neither may see the other's value. Safe to spread because nothing
+ * in a program's methods reads `this` — they are pure functions of the context
+ * and the state they are given, which is what makes this possible at all.
+ *
+ * An unknown timeframe returns the program unchanged rather than inventing a
+ * trade length for it. Guessing "probably a minute" would place real trades on
+ * a duration nobody chose.
+ */
+export function programOnTimeframe(
+  program: StrategyProgram,
+  timeframe: string,
+): StrategyProgram {
+  const minutes = TIMEFRAME_MINUTES[timeframe];
+  if (minutes === undefined || timeframe === program.timeframe) return program;
+  return { ...program, timeframe, durationMinutes: minutes };
+}
+
+/**
+ * Which program a plan runs, on the timeframe it is being run on.
+ *
+ * The timeframe is optional so every existing caller — the proxy generator,
+ * the admin screen — keeps the program's own declared value.
+ */
+export function programForPlan(plan: Plan, timeframe?: string): StrategyProgram {
+  const program = BY_PLAN[plan];
+  return timeframe === undefined ? program : programOnTimeframe(program, timeframe);
 }
 
 /** Every program, for an admin screen that has to list them. */

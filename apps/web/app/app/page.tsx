@@ -28,7 +28,7 @@ import {
   KEY_USER_BROKER,
   type PairRow,
 } from '@euro/shared';
-import { programForPlan } from '@euro/engine';
+import { programForPlan, SUPPORTED_TIMEFRAMES } from '@euro/engine';
 import { loadSession } from '@/lib/session';
 import { useAppConfig, usePairs, useLiveUser } from '@/lib/useAppConfig';
 import { useOtcStatus } from '@/lib/useOtcStatus';
@@ -47,7 +47,15 @@ import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
 import styles from './app.module.css';
 
-const TIMEFRAMES = ['1m', '5m', '15m', '1h'] as const;
+/*
+ * The timeframes the strategy can actually be run on, from the engine.
+ *
+ * This list used to be ['1m','5m','15m','1h'], written before programs
+ * existed and left behind a picker that had been disabled ever since. Only the
+ * timeframes the engine declares a trade length for belong here: a button
+ * offering 1h would be offering an hour-long trade nobody defined.
+ */
+const TIMEFRAMES = SUPPORTED_TIMEFRAMES;
 
 export default function MainScreen() {
   const router = useRouter();
@@ -97,8 +105,13 @@ export default function MainScreen() {
    * running, the timeframe and the trade length are ITS values and the pickers
    * stop being pickers.
    */
-  const planProgram = useMemo(() => programForPlan(isVip ? 'paid' : 'free'), [isVip]);
-  const program = planProgram;
+  const program = useMemo(
+    () => programForPlan(isVip ? 'paid' : 'free', chosenTimeframe),
+    [isVip, chosenTimeframe],
+  );
+  // The program is bound to the chosen timeframe, so this is that choice —
+  // read back from the program rather than kept beside it, so the chart, the
+  // engine and the trade length can never describe different candles.
   const timeframe = program.timeframe;
 
   const pairs: PairRow[] = useMemo(() => {
@@ -202,7 +215,7 @@ export default function MainScreen() {
     // The plan decides the strategy, and that is the whole of it. Which
     // program each plan runs lives in `programs/index.ts`, so the day the paid
     // plan gets its own, this line does not change.
-    programId: planProgram.id,
+    programId: program.id,
     // Every pair the user can see, not just the one on screen. A setup on a
     // pair nobody is looking at is worth exactly as much as one on this chart.
     watchSymbols,
@@ -220,8 +233,18 @@ export default function MainScreen() {
     marketClosed,
     // The watch already waited for the candle close, so it hands the candle
     // straight to the strategy instead of replaying the twelve analysis stages.
-    evaluate: () => engine.fireMonitoringSignal(selectedMinutes),
+    // The program's own trade length, not the picker's. One candle is one
+    // trade, so on 5m the trade is five minutes — and a forced signal, which
+    // is the one path that still reads this number, must expire with the
+    // strategy's trades rather than a minute into them.
+    evaluate: () => engine.fireMonitoringSignal(program.durationMinutes),
   });
+
+  // A trade is running, or the watch is on and may open one at any candle.
+  // Either way the timeframe is committed until it finishes — switching under
+  // an open card would leave a one-minute trade waiting for a five-minute
+  // close, and the countdown on screen would be measuring nothing.
+  const tradeOpen = engine.activeSignal?.status === 'ACTIVE' || monitoring.active;
 
   stopMonitoringRef.current = monitoring.stop;
 
@@ -246,9 +269,9 @@ export default function MainScreen() {
     unlockAudio();
     void requestNotificationPermission();
 
-    const outcome = await engine.requestSignal(selectedMinutes);
+    const outcome = await engine.requestSignal(program.durationMinutes);
     if (outcome !== 'unavailable') monitoring.start();
-  }, [engine, monitoring, selectedMinutes]);
+  }, [engine, monitoring, program.durationMinutes]);
 
   const socialPairs = useMemo(() => visiblePairs.map((p) => p.symbol), [visiblePairs]);
   const socialLogs = useSocialFeed({ pairs: socialPairs, marketClosed });
@@ -298,23 +321,36 @@ export default function MainScreen() {
                 role="group"
                 aria-label={tr('الإطار الزمني', 'Timeframe')}
               >
-                {program !== null ? (
-                  <span className={`${styles.tfBtn} ${styles.tfActive}`}>
-                    {program.timeframe}
-                  </span>
-                ) : (
-                  TIMEFRAMES.map((tf) => (
-                    <button
-                      key={tf}
-                      type="button"
-                      onClick={() => setChosenTimeframe(tf)}
-                      className={`${styles.tfBtn} ${timeframe === tf ? styles.tfActive : ''}`}
-                      aria-pressed={timeframe === tf}
-                    >
-                      {tf}
-                    </button>
-                  ))
-                )}
+                {/*
+                  A real picker again. It was frozen to a label when strategies
+                  became programs, because the program declared its own
+                  timeframe and offering a choice the engine would ignore is
+                  worse than offering none. The engine now takes the timeframe
+                  as an argument — same strategy, same rules, measured on
+                  whichever candles are chosen — so the choice means something
+                  and is handed straight to it.
+
+                  Disabled mid-trade: the open card counts down in the candles
+                  it was placed on, and changing the timeframe under it would
+                  leave a one-minute trade waiting for a five-minute close.
+                */}
+                {TIMEFRAMES.map((tf) => (
+                  <button
+                    key={tf}
+                    type="button"
+                    onClick={() => setChosenTimeframe(tf)}
+                    disabled={tradeOpen}
+                    title={
+                      tradeOpen
+                        ? tr('فيه صفقة شغالة دلوقتي', 'A trade is running')
+                        : undefined
+                    }
+                    className={`${styles.tfBtn} ${timeframe === tf ? styles.tfActive : ''}`}
+                    aria-pressed={timeframe === tf}
+                  >
+                    {tf}
+                  </button>
+                ))}
               </div>
             </div>
 
