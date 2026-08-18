@@ -70,6 +70,10 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
   // kept out of `decidedCount`, because a trade with no result cannot move a
   // win rate in either direction.
   const openCount = filtered.filter((s) => s.status === 'ACTIVE' || s.status === 'PENDING').length;
+  // Finished, but with no price to judge it by — the candle it ran on never
+  // reached the app. Its own count, because folding it into ties would make
+  // ties look commoner than they are and hide a feed problem as a market one.
+  const unresolvedCount = filtered.filter((s) => s.status === 'UNRESOLVED').length;
   const decidedCount = winsCount + lossesCount;
   const winRate = decidedCount > 0 ? (winsCount / decidedCount) * 100 : 0;
 
@@ -147,12 +151,22 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
         <div className={styles.stat}>
           <span className={styles.statLabel}>{tr('إجمالي الصفقات', 'Total trades')}</span>
           <span className={styles.statValue}>
-            {tiesCount > 0
-              ? tr(
-                  `${winsCount} رابحة / ${lossesCount} خاسرة / ${tiesCount} تعادل`,
-                  `${winsCount} won / ${lossesCount} lost / ${tiesCount} tie`,
-                )
-              : tr(`${winsCount} رابحة / ${lossesCount} خاسرة`, `${winsCount} won / ${lossesCount} lost`)}
+            {tr(
+              [
+                `${winsCount} رابحة`,
+                `${lossesCount} خاسرة`,
+                ...(tiesCount > 0 ? [`${tiesCount} تعادل`] : []),
+                // Shown only when it happened. A permanent "0 بدون سعر" would
+                // train the eye to skip the one line that means the feed broke.
+                ...(unresolvedCount > 0 ? [`${unresolvedCount} بدون سعر`] : []),
+              ].join(' / '),
+              [
+                `${winsCount} won`,
+                `${lossesCount} lost`,
+                ...(tiesCount > 0 ? [`${tiesCount} tie`] : []),
+                ...(unresolvedCount > 0 ? [`${unresolvedCount} no price`] : []),
+              ].join(' / '),
+            )}
           </span>
           <span className={styles.statSub}>
             {openCount > 0
@@ -181,7 +195,7 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
             const isWin = sig.status === 'WIN';
             const isTie = sig.status === 'TIE';
             const isRunning = sig.status === 'ACTIVE';
-            const isUnknown = sig.status === 'PENDING';
+            const isUnknown = sig.status === 'PENDING' || sig.status === 'UNRESOLVED';
             const outcome = isRunning || isUnknown ? 'open' : isTie ? 'tie' : isWin ? 'win' : 'loss';
             const isCall = sig.direction === 'CALL';
             const isMon = sig.origin === 'monitoring';

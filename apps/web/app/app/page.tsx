@@ -130,8 +130,18 @@ export default function MainScreen() {
   const market = useOtcStatus(chartSymbol, config.priceSystem !== 'simulator');
 
   // main_screen.dart:2717
-  const effectivePriceSystem =
-    config.priceSystem ?? (config.chartMode === 'sim' ? 'simulator' : 'scraping');
+  //
+  // The simulator is opt-in, and only ever from a value that actually arrived.
+  // This used to read `priceSystem ?? (chartMode === 'sim' ? …)`, and both of
+  // those start unset — so between mount and the first config reply the app
+  // resolved to 'simulator', switched the chart to synthetic candles and told
+  // `useSignalEngine` to skip the real feed entirely. On a slow connection
+  // that window is seconds, on every open, with the database saying
+  // 'scraping' the whole time. Now nothing selects the simulator until the
+  // rows are in and one of them says so.
+  const effectivePriceSystem = !config.loaded
+    ? 'scraping'
+    : (config.priceSystem ?? (config.chartMode === 'sim' ? 'simulator' : 'scraping'));
 
   // main_screen.dart:4537
   const activePairData = visiblePairs.find((p) => p.symbol === activePair);

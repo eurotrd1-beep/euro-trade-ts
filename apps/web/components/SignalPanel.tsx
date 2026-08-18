@@ -383,7 +383,8 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
   }
 
   const result = signal.status;
-  const cls = result === 'WIN' ? styles.win : result === 'LOSS' ? styles.loss : styles.tie;
+  const cls =
+    result === 'WIN' ? styles.win : result === 'LOSS' ? styles.loss : styles.tie;
   const resultLabel =
     result === 'WIN'
       ? isMartingale
@@ -393,7 +394,12 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
         ? isMartingale
           ? tr('خسارة نهائية — الدورة انتهت ❌', 'Final loss — the cycle is over ❌')
           : tr('صفقة خاسرة ❌', 'Losing trade ❌')
-        : tr('تعادل — تم رد الرهان', 'Tie — stake refunded');
+        : result === 'UNRESOLVED'
+          // Said plainly rather than dressed as a tie: the trade ran, and the
+          // candle it ran on never arrived, so there is no price to judge it
+          // by. A card that claimed a draw here would be inventing one.
+          ? tr('الشمعة مجاش سعرها — النتيجة مش محسومة', 'No price for the candle — result undecided')
+          : tr('تعادل — تم رد الرهان', 'Tie — stake refunded');
 
   return (
     <section className={styles.panel}>

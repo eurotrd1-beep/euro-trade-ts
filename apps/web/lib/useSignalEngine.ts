@@ -89,6 +89,15 @@ const CANDLE_POLL_MS = 15_000;
 const PROGRAM_SETTLE_MS = 200;
 
 /**
+ * How long past expiry to keep waiting for the trade's candle before giving up.
+ *
+ * The candle poll runs every 15s and the scraper is a few seconds behind the
+ * close, so a minute is several chances to see it. Past that it is not late,
+ * it is missing, and a card that waits for ever is worse than one that says so.
+ */
+const STRANDED_AFTER_MS = 60_000;
+
+/**
  * How often the live price of every pair is read while the watch runs.
  *
  * One request for all of them — the proxy publishes the whole map. Four
@@ -480,6 +489,83 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     [],
   );
 
+  /**
+   * Reconciles the open card against the candle the trade actually ran on.
+   *
+   * Two things were wrong, and both come from the card never seeing that
+   * candle.
+   *
+   * **The entry price was the wrong number.** A signal fires when candle N
+   * closes, for a trade on candle N+1, and the card was opened with
+   * `close[N]` because that is all there is at the time. But the engine
+   * settles from `open[N+1]` — the price the trade is actually taken at. On
+   * this feed those differ on 87% of candles, and in 3–5 candles out of a
+   * hundred they differ enough to flip the verdict: the user watches price
+   * finish above the entry on their screen, and the engine records a LOSS and
+   * fires the martingale. So the entry is corrected the moment that candle
+   * exists, before the trade settles rather than after.
+   *
+   * **The card could hang open for ever.** `onCandleClose` reads only the
+   * newest closed candle, so if a tick misses one — a slow poll, a pair later
+   * in the scan order after another opened a trade — the next call sees a
+   * candle PAST the entry and returns `ABORTED` with nothing settled. The
+   * countdown had already handed the verdict to the program and stepped
+   * aside, so the card sat at zero with no result, for ever. Here the trade is
+   * settled from its own candle instead, with `outcomeFor` on `open` and
+   * `close`: the same call on the same two numbers the engine uses, so this
+   * cannot disagree with it — it is the same arithmetic, not a second opinion.
+   *
+   * And if that candle never arrives at all, the card is closed as unresolved
+   * rather than left spinning. "No price" is a real fourth state.
+   */
+  const reconcileOpenTrade = useCallback((candles: readonly Candle[]) => {
+    const open = stateRef.current.activeSignal;
+    if (open === null || open.status !== 'ACTIVE') return;
+
+    const bar = candles.find((c) => c.time === open.entryTime);
+
+    if (bar === undefined) {
+      // Still fine while the trade is running or the candle is in flight.
+      if (Date.now() < open.expiryTime + STRANDED_AFTER_MS) return;
+
+      const stale: TradingSignal = {
+        ...open,
+        status: 'UNRESOLVED',
+        exitPrice: null,
+        candlesSnapshot: stateRef.current.candles.slice(),
+      };
+      const history = mergeHistories([stale], stateRef.current.history);
+      const accountId = argsRef.current.accountId;
+      if (accountId) {
+        saveHistory(accountId, history);
+        void pushRemoteHistory(accountId, history);
+      }
+      setState((s) => ({ ...s, activeSignal: stale, secondsRemaining: 0, history }));
+      return;
+    }
+
+    // The candle exists. Show its open as the entry — that is the price the
+    // trade was taken at, whatever the card was opened with.
+    if (bar.open !== open.entryPrice) {
+      setState((s) =>
+        s.activeSignal === null || s.activeSignal.status !== 'ACTIVE'
+          ? s
+          : { ...s, activeSignal: { ...s.activeSignal, entryPrice: bar.open } },
+      );
+    }
+
+    // Settle only once the candle is closed. A candle still forming has a
+    // `close` that is just the current price, and judging on it is the
+    // live-tick settlement this deliberately does not do.
+    const closed = Date.now() >= open.expiryTime;
+    if (!closed) return;
+
+    const result = argsRef.current.guaranteedWin
+      ? 'WIN'
+      : outcomeFor(open.direction, bar.open, bar.close);
+    settleTo(open, result, bar.open, bar.close);
+  }, [settleTo]);
+
   const setLivePriceGetter = useCallback((getter: () => number) => {
     livePriceRef.current = getter;
   }, []);
@@ -741,6 +827,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         candles,
         currentPrice: candles[candles.length - 1]!.close,
       }));
+      reconcileOpenTrade(candles);
     }
 
     void sync();

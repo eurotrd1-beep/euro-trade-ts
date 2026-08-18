@@ -17,6 +17,18 @@ export interface AppConfig {
   chartMode: 'sim' | 'scraping';
   /** Raw `price_system` value; null until the row arrives. */
   priceSystem: string | null;
+  /**
+   * Whether the rows have actually arrived.
+   *
+   * Every field above has a starting value, and a starting value is
+   * indistinguishable from a loaded one to anybody reading the object. That
+   * cost the app its price feed on every single open: `priceSystem` starts
+   * null, the caller fell back to `chartMode`, `chartMode` started at 'sim',
+   * and so the app ran the SIMULATOR for the length of one round-trip while
+   * the database sat there saying 'scraping'. Ask this before treating a
+   * default as an answer.
+   */
+  loaded: boolean;
   /** 'po' | 'all' — which data source users may see. */
   displaySource: string;
   maintenance: { isActive: boolean; message: string; endsAt: string | null };
@@ -24,8 +36,13 @@ export interface AppConfig {
 }
 
 const INITIAL: AppConfig = {
-  chartMode: 'sim',
+  // Starts on the real feed, not the simulator. A default is a guess, and the
+  // guess should be the mode that shows real prices — the simulator is a
+  // deliberate choice an operator makes, never somewhere the app drifts into
+  // while it waits for a network reply.
+  chartMode: 'scraping',
   priceSystem: null,
+  loaded: false,
   displaySource: 'all',
   maintenance: { isActive: false, message: '', endsAt: null },
   social: { telegram: '', whatsapp: '', youtube: '' },
@@ -47,7 +64,10 @@ export function useAppConfig(): AppConfig {
       ),
 
       watchConfig('price_system', (d) =>
-        patch({ priceSystem: typeof d['value'] === 'string' ? d['value'] : null }),
+        patch({
+          priceSystem: typeof d['value'] === 'string' ? d['value'] : null,
+          loaded: true,
+        }),
       ),
 
       watchConfig('display_source', (d) => patch({ displaySource: str(d['value'], 'all') })),

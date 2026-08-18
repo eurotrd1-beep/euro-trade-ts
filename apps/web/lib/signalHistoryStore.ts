@@ -139,9 +139,15 @@ export function saveHistory(accountId: string, history: readonly TradingSignal[]
  */
 const identityOf = (s: TradingSignal): string => `${s.entryTime}|${s.pair}|${s.direction}`;
 
-/** A settled row is worth more than the same row still marked open. */
+/**
+ * A settled row is worth more than the same row still marked open.
+ *
+ * `UNRESOLVED` counts as settled. It is a finished trade with no price, not a
+ * running one — leaving it out would let a stale ACTIVE copy from another
+ * device win the merge and put the card back on screen for ever.
+ */
 const isSettled = (s: TradingSignal): boolean =>
-  s.status === 'WIN' || s.status === 'LOSS' || s.status === 'TIE';
+  s.status === 'WIN' || s.status === 'LOSS' || s.status === 'TIE' || s.status === 'UNRESOLVED';
 
 /**
  * Unions two copies of the history, newest first, capped.

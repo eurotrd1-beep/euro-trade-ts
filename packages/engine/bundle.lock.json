@@ -1,6 +1,6 @@
 {
   "_doc": "فحص إن engine.bundle.js في euro-trade-proxy لسه متوافق مع المحرك. مولَّد من scripts/build-engine-bundle.mjs — لا يُحرَّر يدويًا.",
-  "sourceHash": "f1e448cc7e885dfe6a1b1956f8404b596ffd4e9f4b186a6eda0ee5b405948e1f",
-  "bundleHash": "0671ceac1ad9601361a20a2cbeab235d79ea39c0a53b8506442ad5038c26dbac",
+  "sourceHash": "da1ee04e89037312e339408a456721a938ed2765f6725bd86b51a80c1ca4f9de",
+  "bundleHash": "984c06ab53f72e9adf7ba29bf994030265ec22bccebd4765b83045efaffe2f72",
   "bundleBytes": 56780
 }

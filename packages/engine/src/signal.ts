@@ -9,7 +9,16 @@
 import type { Candle } from './types.js';
 
 export type Direction = 'CALL' | 'PUT';
-export type SignalStatus = 'ACTIVE' | 'PENDING' | 'WIN' | 'LOSS' | 'TIE';
+/**
+ * A trade's state. `UNRESOLVED` is the fourth outcome, not a kind of tie.
+ *
+ * It means the candle the trade ran on never reached the app, so there is no
+ * price to judge it by. Recording that as a TIE would quietly inflate ties and
+ * nobody would ever find out why — the same reason the proxy generator and the
+ * settlement SQL both keep it separate. It is excluded from win rates, exactly
+ * as a tie is, but it is not the same event and does not read as one.
+ */
+export type SignalStatus = 'ACTIVE' | 'PENDING' | 'WIN' | 'LOSS' | 'TIE' | 'UNRESOLVED';
 
 export interface TradingSignal {
   pair: string;

@@ -25,7 +25,10 @@ interface ControlState {
 const EMPTY: ControlState = {
   priceSystem: 'scraping',
   displaySource: 'all',
-  chartMode: 'sim',
+  // 'scraping', to match `price_system` beside it. The two describe the same
+  // choice and a screen that shows them disagreeing before it has loaded
+  // anything invites an operator to "fix" a setting that was never wrong.
+  chartMode: 'scraping',
   proxyUrl: '',
   maintenanceActive: false,
   maintenanceMessage: '',
