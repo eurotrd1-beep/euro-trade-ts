@@ -132,6 +132,18 @@ export function WatchSettings({
           </button>
         </header>
 
+        {/*
+          Said before the choice, not after it. "Choose your pairs" does not on
+          its own tell anybody what the choice DOES, and the two things it does
+          are the two things the user is here for.
+        */}
+        <p className={styles.lead}>
+          {tr(
+            'الأزواج اللي تختارها هنا هي اللي الاستراتيجية هتحللها على كل شمعة، وهي نفسها اللي هتوصلك منها إشعارات.',
+            'The pairs you choose here are the ones the strategy analyses on every candle — and the same ones you get alerts from.',
+          )}
+        </p>
+
         {/* ── 1. The pairs ── */}
         <button type="button" onClick={() => setPicking(true)} className={styles.pairsBtn}>
           <span aria-hidden="true">📊</span>
@@ -146,7 +158,7 @@ export function WatchSettings({
             <em>
               {count === 0
                 ? tr('زرار التوليد مش هيشتغل من غير ده', 'The generate button will not work without this')
-                : tr('المراقبة والإشعارات على دول', 'Watched and alerted on these')}
+                : tr('بتتحلل كل شمعة، وبتوصل منها إشعارات', 'Analysed every candle, and alerted on')}
             </em>
           </span>
           <span className={styles.chev} aria-hidden="true">›</span>

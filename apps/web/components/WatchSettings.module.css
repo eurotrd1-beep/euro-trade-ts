@@ -156,3 +156,11 @@
   background: linear-gradient(180deg, #34d399, #10b981);
   border: 1px solid rgba(16, 185, 129, 0.5);
 }
+
+/* What the choice actually does, before the choice is offered. */
+.lead {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #9ca3af;
+}

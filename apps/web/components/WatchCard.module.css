@@ -42,7 +42,27 @@
 
 .section:first-of-type { margin-top: 0; }
 
-.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+/* Five rows, then it scrolls.
+   A watch list of eighty-nine would push the history and everything under it
+   off the page entirely — the card is meant to be glanced at, and the pairs
+   worth glancing at are the ones at the top, since it is sorted by how close
+   each is to firing. Sized in `em` so it still shows five rows if the user has
+   scaled their text up. */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 15.5em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.list::-webkit-scrollbar { width: 5px; }
+.list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255, 255, 255, 0.18); }
+.list::-webkit-scrollbar-track { background: transparent; }
 
 .row {
   display: flex;

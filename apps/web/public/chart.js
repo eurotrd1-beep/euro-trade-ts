@@ -351,6 +351,12 @@ window.CandleChart = (function () {
   }
 
   /* ── Chart Instance ──────────────────────────────────────────── */
+  /* Same normalisation the proxy uses when it decides who a tick goes to, so
+     the two agree on what counts as the same symbol. */
+  function bareOf(sym) {
+    return String(sym).replace(/^[A-Z]+:/, '').replace(/_/g, '').toUpperCase();
+  }
+
   function Chart(container, symbol, interval, mode) {
     this.container  = container;
     this.symbol     = symbol;
@@ -476,6 +482,18 @@ window.CandleChart = (function () {
           var d     = JSON.parse(e.data);
           var price = d.price;
           if (!isFinite(price) || !price) return;
+
+          /* The tick has to be for THIS chart.
+             The server sends `sym` with every price and only to subscribers,
+             but the subscription is sent once on open and never withdrawn —
+             there is no `unsub` anywhere — so a socket that outlives a pair
+             switch, or a server that matches loosely, delivers another market's
+             price here. The chart then drew it: a tick near 1.85 landed on
+             AUD/CAD at 0.87 and stretched the candle's high to twice the
+             market, flattening every real candle into a line.
+             Checking the symbol costs one comparison and removes the whole
+             class. */
+          if (d.sym && bareOf(d.sym) !== bareOf(toOtcSym(self.symbol))) return;
 
           /* OTC: route WS ticks through the SAME price pipeline as the status
              poll (_feedOtcPrice → _animTarget → eased anim loop). Otherwise the
@@ -713,6 +731,24 @@ window.CandleChart = (function () {
      close (continuous — no price gap between candles). */
   Chart.prototype._feedOtcPrice = function(price, noDraw) {
     if (!isFinite(price) || !price) return;
+
+    /* A price that is nowhere near this market is not this market's price.
+       The symbol check on the socket covers the case we know about; this covers
+       the rest — a malformed tick from the feed, a decimal point in the wrong
+       place — and it is the single point every path goes through.
+       It matters beyond the drawing. This same value is what the app reads as
+       the live price, and the strategy compares it against the level it is
+       waiting for: one tick at twice the market instantly satisfies "price has
+       reached the level" and fires an alert for a touch that never happened.
+       The window is deliberately wide. Half to double covers any real move on
+       any pair in the catalogue — a market does not double between two ticks —
+       while still catching a value from a different instrument, which is what
+       this is for. */
+    var ref = this.candles && this.candles.length
+      ? this.candles[this.candles.length - 1].c
+      : 0;
+    if (ref > 0 && (price > ref * 2 || price < ref * 0.5)) return;
+
     price = gwinAdjust(this, price);
     var cs    = candleSec(this.interval);
     var now   = Math.floor(Date.now() / 1000);   // UTC epoch

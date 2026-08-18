@@ -76,43 +76,13 @@ export interface SignalPanelProps {
 export function SignalPanel(props: SignalPanelProps) {
   const { signal, analysing, monitoring } = props;
 
-  if (analysing) return <AnalysisView {...props} />;
-  if (monitoring.active && signal === null) return <MonitoringView {...props} />;
+  // No analysing view any more. Pressing the button starts the watch, and the
+  // watch panel is what it starts — a narrated pass over one pair, followed by
+  // a countdown, described work the app had stopped doing: the strategy runs
+  // over every chosen pair, on every candle, until something fires.
+  if (analysing || (monitoring.active && signal === null)) return <MonitoringView {...props} />;
   if (signal === null) return <IdleView {...props} />;
   return <TradeView {...props} />;
-}
-
-/* ── Analysing ─────────────────────────────────────────────────────────────── */
-
-function AnalysisView({ analysisStage, candleSecondsLeft }: SignalPanelProps) {
-  return (
-    <section className={styles.panel}>
-      <div className={styles.analysing}>
-        <div className={styles.spinner} aria-hidden="true" />
-
-        {/* Answered from the first press: the trade opens with the NEXT
-            candle, so this is when the signal actually arrives. */}
-        <div className={styles.candleBox}>
-          <p className={styles.candleLabel}>
-            {tr(
-              'الإشارة هتيجي بعد إغلاق الشمعة الحالية',
-              'The signal arrives after the current candle closes',
-            )}
-          </p>
-          <p className={styles.candleCountdown} dir="ltr">
-            {mmss(candleSecondsLeft)}
-          </p>
-          <p className={styles.candleHint}>
-            {tr('متبقي على إغلاق الشمعة', 'left until the candle closes')}
-          </p>
-        </div>
-
-        <p className={styles.stageText} aria-live="polite">
-          {analysisStage}
-        </p>
-      </div>
-    </section>
-  );
 }
 
 /* ── Monitoring ────────────────────────────────────────────────────────────── */

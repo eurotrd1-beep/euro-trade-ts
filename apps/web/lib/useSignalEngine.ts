@@ -1275,61 +1275,22 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       };
       sample();
 
-      // The candle boundary is fixed the moment the button is pressed, so the
-      // countdown shown during the stages is the same one the wait phase uses —
-      // the user sees one number that only goes down.
-      const cs = timeframeSeconds(argsRef.current.timeframe);
-      const startSec = Math.floor(Date.now() / 1000);
-      const currentCandleEnd = (Math.floor(startSec / cs) + 1) * cs;
-      const secondsLeft = () => Math.max(0, currentCandleEnd - Math.floor(Date.now() / 1000));
-
-      // Tick it every second for the whole analysis, not just the wait phase,
-      // so "when do I get my signal?" is answered from the first press.
-      setState((s) => ({ ...s, candleSecondsLeft: secondsLeft() }));
-      const countdownTimer = setInterval(() => {
-        setState((s) => ({ ...s, candleSecondsLeft: secondsLeft() }));
-      }, 1000);
-
-      // ── 12 analysis stages ────────────────────────────────────────────────
-      const stages = buildStages({
-        candles: current.candles,
-        currentPrice: current.currentPrice,
-        pair: argsRef.current.pair,
-      });
-
-      for (const text of stages) {
-        setState((s) => ({ ...s, analysisStage: text }));
-        await sleep(STAGE_DELAY_MS);
-        sample();
-      }
-
-      // ── Wait for the current candle to close ──────────────────────────────
-      // The trade opens with the NEXT candle. Display formula matches the
-      // chart.js badge exactly: currentCandleEnd - now.
-      {
-        let lastRem = -1;
-        for (;;) {
-          const rem = currentCandleEnd - Math.floor(Date.now() / 1000);
-          if (rem <= 0) break;
-          if (rem !== lastRem) {
-            lastRem = rem;
-            setState((s) => ({ ...s, analysisStage: waitingText(rem) }));
-            sample();
-          }
-          await sleep(WAIT_TICK_MS);
-        }
-      }
+      // ── The staged analysis and the wait screen are gone ────────────────
+      //
+      // Pressing the button used to open a five-second sequence of narrated
+      // stages and then a countdown to the candle close, and only then start
+      // watching. Both described work on ONE pair, which is no longer what
+      // happens: the strategy runs across every pair the user chose, and it
+      // runs again on every candle until something fires.
+      //
+      // So the watch panel comes up immediately and is the only thing shown.
+      // It says what is actually true — live on each candle, across these pairs
+      // — instead of narrating a single pass that was over before the user had
+      // finished reading about it.
 
       const finish = (patch: Partial<EngineState>) => {
-        clearInterval(countdownTimer);
         analysingRef.current = false;
-        setState((s) => ({
-          ...s,
-          analysing: false,
-          analysisStage: '',
-          candleSecondsLeft: 0,
-          ...patch,
-        }));
+        setState((s) => ({ ...s, analysing: false, ...patch }));
       };
 
       // ── Market closed: weekend, forex only ────────────────────────────────
@@ -1347,14 +1308,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       }
 
       // ── The program's turn ────────────────────────────────────────────────
-      // The candle has just closed. The feed needs a moment to publish it —
-      // the same 200 ms the watch waits — and then the program reads it.
+      // Straight to it. The strategy reads the last CLOSED candle and that one
+      // already exists, so waiting for the next close would only be a minute of
+      // nothing on screen before the watch does exactly this by itself.
       if (programRef.current !== null) {
-        await sleep(PROGRAM_SETTLE_MS);
         const result = await tickProgram();
-        clearInterval(countdownTimer);
         analysingRef.current = false;
-        setState((s) => ({ ...s, analysing: false, analysisStage: '', candleSecondsLeft: 0 }));
+        setState((st) => ({ ...st, analysing: false }));
         return result === 'none' ? 'no_match' : 'signal';
       }
 
