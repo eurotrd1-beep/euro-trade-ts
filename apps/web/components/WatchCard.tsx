@@ -166,7 +166,12 @@ export function WatchCard({
       ) : (
         <ul className={styles.list}>
           {forming.map((f) => {
-            const pct = Math.round(f.percent);
+            // FLOOR, never round. The approach caps at 99.9 by design, and
+            // `Math.round` turned that into a displayed 100 — a bar claiming a
+            // touch that had not happened, beside text correctly saying the
+            // level was still 35 pips away. 100 is a promise; only a real touch
+            // may print it, and only exact equality gets there.
+            const pct = f.percent >= 100 ? 100 : Math.floor(f.percent);
             // The pair has everything it needs and the trade opens on the next
             // candle. Said in words rather than as another percentage: at that
             // point the number has stopped being the useful thing about it.

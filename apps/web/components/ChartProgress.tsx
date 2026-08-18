@@ -52,7 +52,10 @@ export function ChartProgress({ progress, tradeHere, price, candleSeconds }: Cha
     );
   }
 
-  const pct = Math.round(progress.percent);
+  // FLOOR, never round. The approach caps at 99.9 by design, and rounding
+  // turned that into a displayed 100 — a bar claiming a touch that had not
+  // happened. 100 is a promise; only a real touch may print it.
+  const pct = progress.percent >= 100 ? 100 : Math.floor(progress.percent);
 
   return (
     <div className={styles.strip} role="status">
