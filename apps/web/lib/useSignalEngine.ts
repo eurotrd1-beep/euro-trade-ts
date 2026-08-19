@@ -506,26 +506,36 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   // whatever chart is showing, so restoring a EUR/USD trade onto a GBP/JPY
   // chart would judge it against the wrong market.
   useEffect(() => {
-    if (Object.keys(state.openTrades).length > 0 || state.history.length === 0) return;
-    const resumable = state.history.find(
-      (s) => s.status === 'ACTIVE' && s.expiryTime > Date.now(),
-    );
-    if (resumable === undefined) return;
+    if (state.history.length === 0) return;
 
-    if (resumable.symbol === undefined) return;
-    const sym = resumable.symbol;
-    setState((s) => ({ ...s, openTrades: { ...s.openTrades, [sym]: resumable } }));
-
-    // Whatever pair it was opened on — it used to require the chart to already
-    // be showing that pair, and after a reload the chart is on whatever it
-    // defaults to. So a trade running on any other market was never picked back
-    // up: no card, no countdown, and nothing to settle it against, leaving a
-    // row that sat ACTIVE until it aged into PENDING and stayed there.
+    // EVERY trade still inside its window, not the first one found.
     //
-    // The chart follows it, which is also the rule everywhere else now: what is
-    // on screen and what is being traded are the same pair.
-    if (resumable.symbol !== undefined && resumable.symbol !== args.chartSymbol) {
-      argsRef.current.onPairSwitch?.(resumable.symbol);
+    // Pairs run their own cycles, so a reload can land with several running.
+    // Restoring one and stopping left the others with a live cycle in the
+    // program and no card anywhere: the watch card showed them as "the trade
+    // enters next candle" while listing them under conditions still forming,
+    // and they only appeared as trades once the user happened to open them.
+    const now = Date.now();
+    const resumable = state.history.filter(
+      (h) =>
+        h.status === 'ACTIVE' &&
+        h.expiryTime > now &&
+        h.symbol !== undefined &&
+        state.openTrades[h.symbol] === undefined,
+    );
+    if (resumable.length === 0) return;
+
+    setState((st) => {
+      const open = { ...st.openTrades };
+      for (const t of resumable) if (t.symbol !== undefined) open[t.symbol] = t;
+      return { ...st, openTrades: open };
+    });
+
+    // The chart follows the one finishing soonest — it is the one whose result
+    // arrives first, and a chart has to show one pair.
+    const soonest = [...resumable].sort((x, y) => x.expiryTime - y.expiryTime)[0];
+    if (soonest?.symbol !== undefined && soonest.symbol !== args.chartSymbol) {
+      argsRef.current.onPairSwitch?.(soonest.symbol);
     }
   }, [state.history, state.openTrades, args.chartSymbol]);
   // ── One tab runs the strategy ─────────────────────────────────────────────

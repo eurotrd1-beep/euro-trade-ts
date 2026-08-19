@@ -52,8 +52,17 @@ export interface WatchCardProps {
    * has a real position on it rather than being missing.
    */
   completions: Readonly<Record<string, SetupProgress>>;
-  /** The open trade, whichever pair it is on. */
-  activeSignal: TradingSignal | null;
+  /**
+   * Every running trade, by symbol.
+   *
+   * All of them, not the one on the chart. The card used to take a single
+   * `activeSignal`, which is derived from whichever pair is being displayed —
+   * so with four trades running, three of them sat in "conditions forming"
+   * wearing a badge that said the trade was already coming, and only moved to
+   * the right section when the user opened them. Opening a pair is not what
+   * starts its trade.
+   */
+  openTrades: Readonly<Record<string, TradingSignal>>;
   /** The chart on screen, so the row for it can be marked rather than moved. */
   chartSymbol: string;
   /** Live prices by symbol, for saying how much distance is left on each. */
@@ -76,7 +85,7 @@ export function WatchCard({
   watched,
   pairs,
   completions,
-  activeSignal,
+  openTrades,
   chartSymbol,
   closedPairs,
   prices,
@@ -90,13 +99,20 @@ export function WatchCard({
     return (sym: string): string => byChart.get(sym) ?? sym;
   }, [pairs]);
 
-  const tradingSymbol =
-    activeSignal !== null && activeSignal.status === 'ACTIVE' ? (activeSignal.symbol ?? null) : null;
+  /** Every pair with a trade on it, nearest to finishing first. */
+  const trading = useMemo(
+    () =>
+      Object.entries(openTrades)
+        .filter(([, t]) => t.status === 'ACTIVE')
+        .sort((a, b) => a[1].expiryTime - b[1].expiryTime),
+    [openTrades],
+  );
+  const tradingSet = useMemo(() => new Set(trading.map(([sym]) => sym)), [trading]);
 
   const forming = useMemo(() => {
     return (
       watched
-        .filter((sym) => sym !== tradingSymbol)
+        .filter((sym) => !tradingSet.has(sym))
         // EVERY chosen pair, not only the ones a sweep has reached. A pair the
         // user picked and cannot find in their own list looks like the app
         // dropped it; the honest answer for one with no reading yet is a row at
@@ -118,11 +134,11 @@ export function WatchCard({
             a.symbol.localeCompare(b.symbol),
         )
     );
-  }, [watched, completions, tradingSymbol, closedPairs]);
+  }, [watched, completions, tradingSet, closedPairs]);
 
   if (watched.length === 0) return null;
 
-  const quiet = tradingSymbol === null && forming.length === 0;
+  const quiet = trading.length === 0 && forming.length === 0;
 
   return (
     <section className={styles.card}>
@@ -132,26 +148,32 @@ export function WatchCard({
         <span className={styles.total}>{watched.length}</span>
       </header>
 
-      {tradingSymbol !== null && activeSignal !== null && (
+      {trading.length > 0 && (
         <>
-          <p className={styles.section}>{tr('بدأت فيها إشارة', 'Signal started')}</p>
-          <button
-            type="button"
-            onClick={() => onSelect(tradingSymbol)}
-            className={`${styles.row} ${styles.trading} ${
-              tradingSymbol === chartSymbol ? styles.onChart : ''
-            }`}
-          >
-            <span className={styles.dot} aria-hidden="true">
-              {activeSignal.direction === 'CALL' ? '▲' : '▼'}
-            </span>
-            <span className={styles.name}>{nameOf(tradingSymbol)}</span>
-            <span className={styles.badge}>
-              {activeSignal.stage === 'martingale'
-                ? tr('مضاعفة', 'Recovery')
-                : tr('صفقة شغالة', 'Trading')}
-            </span>
-          </button>
+          <p className={styles.section}>
+            {tr(`بدأت فيها إشارة (${trading.length})`, `Signal started (${trading.length})`)}
+          </p>
+          <ul className={styles.list}>
+            {trading.map(([sym, t]) => (
+              <li key={sym}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(sym)}
+                  className={`${styles.row} ${styles.trading} ${
+                    sym === chartSymbol ? styles.onChart : ''
+                  }`}
+                >
+                  <span className={styles.dot} aria-hidden="true">
+                    {t.direction === 'CALL' ? '▲' : '▼'}
+                  </span>
+                  <span className={styles.name}>{nameOf(sym)}</span>
+                  <span className={styles.badge}>
+                    {t.stage === 'martingale' ? tr('مضاعفة', 'Recovery') : tr('صفقة شغالة', 'Trading')}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </>
       )}
 

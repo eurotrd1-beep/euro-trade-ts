@@ -587,7 +587,7 @@ export default function MainScreen() {
             watched={watchedPairs}
             pairs={visiblePairs}
             completions={engine.completions}
-            activeSignal={engine.activeSignal}
+            openTrades={engine.openTrades}
             chartSymbol={chartSymbol}
             closedPairs={market.closedPairs}
             prices={market.prices}
