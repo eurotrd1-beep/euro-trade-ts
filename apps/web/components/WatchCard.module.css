@@ -68,6 +68,7 @@
 .list::-webkit-scrollbar-track { background: transparent; }
 
 .row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -248,4 +249,45 @@
 
 @media (prefers-reduced-motion: reduce) {
   .fillNear { transition: none; }
+}
+
+/* ── The ember edge ────────────────────────────────────────────────────────
+   Every row at 96 or above, whichever of the two states it is in. Drawn on an
+   overlay rather than the row's own border so it composes with `.near`,
+   `.holding` and the `.best` rail instead of fighting them for `box-shadow`.
+
+   It is deliberately the only animated thing on the card. The list re-sorts on
+   every tick and most rows are still; a glow that is always somewhere means
+   nothing, and one that appears exactly when a pair crosses 96 is a thing the
+   eye catches without being told to look. It leaves the instant the reading
+   falls back under 96, which is what makes its arrival mean something. */
+.hot::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 11px;
+  pointer-events: none;
+  border: 1px solid rgba(251, 146, 60, 0.7);
+  animation: ember 1.7s ease-in-out infinite;
+}
+
+@keyframes ember {
+  0%,
+  100% {
+    border-color: rgba(251, 146, 60, 0.55);
+    box-shadow: 0 0 7px 0 rgba(249, 115, 22, 0.3), inset 0 0 6px 0 rgba(249, 115, 22, 0.16);
+  }
+  50% {
+    border-color: rgba(253, 186, 116, 0.95);
+    box-shadow: 0 0 16px 2px rgba(249, 115, 22, 0.55), inset 0 0 10px 0 rgba(249, 115, 22, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still marked, just not moving. */
+  .hot::before {
+    animation: none;
+    border-color: rgba(253, 186, 116, 0.85);
+    box-shadow: 0 0 10px 0 rgba(249, 115, 22, 0.4);
+  }
 }

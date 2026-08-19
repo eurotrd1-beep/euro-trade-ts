@@ -64,7 +64,13 @@ function oneCycle(): Candle[] {
 }
 
 vi.mock('../lib/candles', () => ({
-  fetchCandles: vi.fn(async () => oneCycle()),
+  // The backtest asks for every symbol in one call now, so the mock answers in
+  // the same shape rather than one symbol at a time.
+  fetchCandlesBulk: vi.fn(async (symbols: readonly string[]) => {
+    const out = new Map<string, ReturnType<typeof oneCycle>>();
+    for (const s of symbols) out.set(s, oneCycle());
+    return out;
+  }),
 }));
 
 const { backtest } = await import('../lib/backtest');

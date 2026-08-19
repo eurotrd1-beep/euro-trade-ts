@@ -214,6 +214,10 @@ export function WatchCard({
             // The single best opportunity on screen right now. The list is
             // already sorted by percentage, so it is the first row that has one.
             const best = !next && f.percent >= 96 && f.symbol === forming[0]?.symbol;
+            // The ember edge: on at 96, off the moment it falls back under.
+            // Both close states carry it, so what the eye tracks is the
+            // threshold rather than which of the two rungs a row is on.
+            const hot = !f.shut && !next && f.percent >= 96;
             return (
               <li key={f.symbol}>
                 <button
@@ -229,7 +233,7 @@ export function WatchCard({
                           : near
                             ? styles.near
                             : ''
-                  } ${best ? styles.best : ''}`}
+                  } ${hot ? styles.hot : ''} ${best ? styles.best : ''}`}
                 >
                   <span className={styles.nameCol}>
                     <span className={styles.name}>{nameOf(f.symbol)}</span>

@@ -61,7 +61,7 @@ import {
   type SetupDiagnostics,
   type StrategyProgram,
 } from '@euro/engine';
-import { fetchCandles } from './candles';
+import { fetchCandlesBulk } from './candles';
 
 /**
  * Bars fed to the program before its answers are counted.
@@ -385,15 +385,28 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   let oldest = Number.POSITIVE_INFINITY;
   let newest = Number.NEGATIVE_INFINITY;
 
+  // ── One request, not ninety ────────────────────────────────────────────
+  //
+  // This used to fetch each symbol on its own, which was fine for the eight
+  // pairs the screen was hard-coded to. Over the whole list that is ninety
+  // round trips run one after another, and the run took long enough that the
+  // obvious conclusion was that the page had hung. The bulk endpoint returns
+  // the same candles in one call.
+  //
+  // A pair the response omits is not an error: the feed only carries what the
+  // scraper has, and a closed market has nothing to give. Those land in
+  // `warnings` below with everything else that was skipped.
+  let bulk: Map<string, Candle[]>;
+  try {
+    onProgress?.(0, symbols.length);
+    bulk = await fetchCandlesBulk(symbols, interval);
+  } catch {
+    bulk = new Map();
+  }
+
   for (const [n, symbol] of symbols.entries()) {
     onProgress?.(n, symbols.length);
-
-    let candles: Candle[] | null = null;
-    try {
-      candles = await fetchCandles(symbol, interval);
-    } catch {
-      candles = null;
-    }
+    const candles: Candle[] | null = bulk.get(symbol) ?? null;
 
     if (!candles || candles.length < WARMUP + 5) {
       warnings.push(`${symbol}: تاريخ غير كافٍ (${candles?.length ?? 0} شمعة) — تم تخطّيه`);

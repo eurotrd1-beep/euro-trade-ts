@@ -25,6 +25,7 @@
  */
 
 import { useState } from 'react';
+import { supabase } from '@euro/shared';
 import {
   programForPlan,
   SUPPORTED_TIMEFRAMES,
@@ -43,16 +44,27 @@ import {
 import styles from '../admin.module.css';
 
 /**
- * The pairs the replay runs over.
+ * The pairs the replay runs over: every enabled pair, read from the same table
+ * the user app's picker reads.
  *
- * All eight the feed keeps history for. More pairs is the only way to grow the
- * sample — the scraper records every symbol in the same minutes, so adding
- * pairs adds trades while adding no new hours of the day.
+ * It used to be eight symbols written into this file. That was wrong in two
+ * ways at once. It measured a strategy on a tenth of the market it actually
+ * runs on — and because the scraper records every symbol in the SAME minutes,
+ * those eight added no hours of the day the other eighty-one would not have
+ * added, so the sample was small for no gain. And it silently went stale: a
+ * pair enabled or disabled in the admin changed what shipped and not what was
+ * measured.
  */
-const BACKTEST_PAIRS = [
-  'EURUSD_otc', 'GBPUSD_otc', 'USDJPY_otc', 'AUDUSD_otc',
-  'USDCAD_otc', 'EURJPY_otc', 'GBPJPY_otc', 'AUDCAD_otc',
-];
+async function backtestPairs(): Promise<string[]> {
+  const { data } = await supabase()
+    .from('pairs')
+    .select('chart_symbol,enabled')
+    .eq('enabled', true)
+    .order('order');
+  return (data ?? [])
+    .map((p: { chart_symbol: string }) => p.chart_symbol)
+    .filter((s): s is string => typeof s === 'string' && s.length > 0);
+}
 
 const PLANS: Array<{ id: Plan; label: string }> = [
   { id: 'free', label: 'الخطة المجانية' },
@@ -103,9 +115,15 @@ export default function StrategyView() {
     setReport(null);
     setError(null);
     try {
+      setProgress('بيجيب قائمة الأزواج…');
+      const symbols = await backtestPairs();
+      if (symbols.length === 0) {
+        setError('مفيش أزواج مفعّلة — فعّل أزواج من صفحة الأزواج الأول.');
+        return;
+      }
       const r = await backtest({
         program,
-        symbols: BACKTEST_PAIRS,
+        symbols,
         onProgress: (done, total) => setProgress(`${done}/${total} زوج`),
       });
       setReport(r);
@@ -158,7 +176,7 @@ export default function StrategyView() {
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>🧪 باك تست</h2>
         <p className={styles.switchHint} style={{ marginBottom: 12 }}>
-          بيشغّل استراتيجية الخطة على كل التاريخ المتاح من {BACKTEST_PAIRS.length} أزواج، شمعة
+          بيشغّل استراتيجية الخطة على كل التاريخ المتاح من كل الأزواج المفعّلة، شمعة
           بشمعة، بنفس الكود اللي بيشتغل في التطبيق — بنفس قواعد عدم الـrepainting، وبنفس التسوية،
           وبنفس المضاعفة.
         </p>
