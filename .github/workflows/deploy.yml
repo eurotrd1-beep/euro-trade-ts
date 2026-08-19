@@ -1,21 +1,28 @@
 name: Deploy to GitHub Pages
 
-# ⚠️ MANUAL TRIGGER ONLY, on purpose.
+# EVERY PUSH TO `main` PUBLISHES. That is now the intent, not an accident.
 #
-# The old Flutter workflow deployed on every push to master. This one does not,
-# because publishing here REPLACES the live site users are on right now. The
-# TypeScript app is verified where it matters — the signal engine is proven
-# identical to the Dart one by 405 parity tests — but a few presentation
-# sections of the main screen (AI analysis card, live feed, social cards) are
-# not ported yet, so going live is a decision, not a side effect of a commit.
+# It was manual-only while the port was catching up: publishing here REPLACES
+# the live site users are on, and a few presentation sections of the main
+# screen were still missing, so going live had to be a decision. That has been
+# turned around deliberately — the deploy is wanted on every commit now.
 #
-# To publish: Actions → "Deploy to GitHub Pages" → Run workflow.
-# To go back to push-on-commit later, uncomment the `push:` block below.
+# What did NOT change is the gate. `verify` still runs the engine parity suite
+# and all three typechecks, and `build` only runs if it passed, and `deploy`
+# only if the build did. A commit that would change the signals users receive
+# fails before anything is published — the site stays on the last good deploy.
+#
+# So the rule to work by: main is live. Push to a branch while a change is in
+# progress, and merge when it is meant to be seen.
+#
+# `workflow_dispatch` stays, for re-publishing the same commit without an
+# empty one — Actions → "Deploy to GitHub Pages" → Run workflow.
+# To go back to manual-only, comment the `push:` block out again.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-  # push:
-  #   branches: [main]
 
 permissions:
   contents: read
