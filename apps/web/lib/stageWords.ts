@@ -69,46 +69,22 @@ export function remainingText(
 }
 
 /**
- * How to order two pairs: by how many pips are left to the level.
+ * How to order two pairs: by the percentage, highest first.
  *
- * ── WHY PIPS AND NOT THE PERCENTAGE ────────────────────────────────────────
+ * The same number the row displays. Ordering by anything else — pips, stage,
+ * distance — puts a pair showing 96% above one showing 98%, and there is no
+ * explanation for that on screen: the reader can only see the two numbers and
+ * the order contradicting them.
  *
- * Every watched pair is on the same timeframe, so every candle closes at the
- * same instant and the time factor is identical for all of them. What is left
- * to separate them is distance — and the percentage does not rank by distance,
- * because it measures each pair's gap against its OWN leg. A pair with a long
- * leg and ten pips to go can read higher than one with a short leg and five,
- * and the second is the one about to fire.
+ * Pips and the percentage nearly agree, since the percentage falls as the gap
+ * grows, but not exactly: the gap is measured against each pair's own leg, so
+ * equal distances on unequal legs give different readings. When they disagree
+ * the visible number wins.
  *
- * So the order is the raw distance, in pips, so a JPY pair and a EUR pair are
- * measured on the same scale rather than by their unscaled price difference.
- *
- * ── NO QUANTISING ──────────────────────────────────────────────────────────
- *
- * The comparison used to be rounded so the list would hold still. It is not any
- * more: the order is meant to move, because the thing it describes moves. The
- * pair nearest to touching is the answer to a question that changes tick by
- * tick, and freezing the answer to keep the list calm is answering a different
- * question.
+ * Not rounded. The order is meant to move — "which pair is closest" changes
+ * tick by tick — and a tie falls to the symbol so equal readings hold a fixed
+ * order instead of an arbitrary one.
  */
 export function byNearest(a: SetupProgress, b: SetupProgress): number {
-  // Touched first, and nothing outranks it: that pair is not approaching a
-  // trade, it has one.
-  const touched = (p: SetupProgress): number => (p.percent >= 100 ? 1 : 0);
-  const byTouch = touched(b) - touched(a);
-  if (byTouch !== 0) return byTouch;
-
-  // Then distance, when both have one to measure.
-  if (a.gap !== undefined && b.gap !== undefined) {
-    // The level doubles as the scale: a price above 10 is quoted to two places,
-    // so its pip is a hundredth rather than a ten-thousandth.
-    const inPips = (p: SetupProgress): number =>
-      p.gap! / ((p.level ?? 1) >= 10 ? 0.01 : 0.0001);
-    const d = inPips(a) - inPips(b);
-    if (d !== 0) return d;
-  }
-
-  // A pair with no distance to measure has no setup, and sits below one that
-  // has: the percentage carries the stage, so it settles the rest.
   return b.percent - a.percent;
 }
