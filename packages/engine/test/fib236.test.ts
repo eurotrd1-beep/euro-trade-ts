@@ -96,9 +96,23 @@ function replay(candles: Candle[], state = fib236Touch.init()) {
   return { events, state };
 }
 
-/** A candle whose range contains `level`, at index `t`. */
-function touchAt(t: number, level: number, close = level): Candle {
-  return c(t, level + 0.0006, level + 0.0008, level - 0.0008, close);
+/**
+ * A candle whose range contains `level`, at index `t`.
+ *
+ * The default close sits about 4.5 basis points BEYOND the level, on the side
+ * the trade needs: ‹A10› requires the candle to close past the level and ‹A11›
+ * requires at least 3 bps of it. The old default closed exactly ON the level,
+ * which satisfies neither, so every fixture built on it stopped producing a
+ * signal the day those rules arrived.
+ */
+function touchAt(
+  t: number,
+  level: number,
+  close?: number,
+  dir: 'CALL' | 'PUT' = 'CALL',
+): Candle {
+  const beyond = dir === 'CALL' ? level - 0.0005 : level + 0.0005;
+  return c(t, level + 0.0006, level + 0.0008, level - 0.0008, close ?? beyond);
 }
 
 describe('the level', () => {
@@ -130,7 +144,7 @@ describe('direction comes from the swing, not the touch', () => {
   });
 
   it('fires PUT when a down-swing retraces up into the level', () => {
-    const candles = [...downSwing(), touchAt(12, DOWN_LEVEL)];
+    const candles = [...downSwing(), touchAt(12, DOWN_LEVEL, undefined, 'PUT')];
     const { events } = replay(candles);
 
     expect(events).toHaveLength(1);

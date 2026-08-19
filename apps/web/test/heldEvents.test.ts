@@ -18,20 +18,42 @@
  * React renders it.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { fib236Touch, type Candle, type ProgramState } from '@euro/engine';
-import golden from '../../../packages/engine/golden/engine-golden.json' with { type: 'json' };
 
 const MIN = 60_000;
 
-const recorded: Candle[] = golden.candles.map((c) => ({
-  open: c.open,
-  high: c.high,
-  low: c.low,
-  close: c.close,
-  volume: 1000,
-  time: Date.parse(c.time),
-}));
+/**
+ * Real candles from the pair that trades soonest in the gate-parity fixture.
+ *
+ * This used to read the 400-candle single-symbol golden. That file contains one
+ * touch in its whole length, and ‹A10› stopped that touch qualifying — so the
+ * fixture produced no signal and there was nothing to hold back. The guard at
+ * the top of this suite caught it, which is what it is for.
+ */
+const golden = JSON.parse(
+  readFileSync(
+    fileURLToPath(new URL('../../../packages/engine/golden/gate-parity.json', import.meta.url)),
+    'utf8',
+  ),
+) as { candles: Record<string, number[]>; shipped: Array<{ symbol: string; entry: number }> };
+
+function decode(flat: number[]): Candle[] {
+  const t0 = flat[0]!;
+  const out: Candle[] = [];
+  for (let i = 1; i < flat.length; i += 5) {
+    out.push({
+      open: flat[i]!, high: flat[i + 1]!, low: flat[i + 2]!, close: flat[i + 3]!,
+      volume: 1000, time: (t0 + flat[i + 4]! * 60) * 1000,
+    });
+  }
+  return out;
+}
+
+const earliest = [...golden.shipped].sort((a, b) => a.entry - b.entry)[0]!;
+const recorded: Candle[] = decode(golden.candles[earliest.symbol]!);
 
 /** The copy `holdOthers` makes: same shape, no shared array. */
 const copyOf = (s: ProgramState): ProgramState => ({

@@ -52,7 +52,9 @@ function oneCycle(): Candle[] {
     c(13, 1.0981, 1.0983, 1.0979, 1.0980),
     c(14, 1.0980, 1.0982, 1.0978, 1.0979),
     c(15, 1.0979, 1.0981, 1.0977, 1.0978),
-    c(16, 1.0978, 1.0980, 1.0972, 1.0974), // ← TOUCH: 1.09764 is inside [1.0972, 1.0980]
+    // ← TOUCH: 1.09764 is inside [1.0972, 1.0980], and the close sits ~5 bps
+    //   below it, which ‹A10› and ‹A11› both now require of a CALL.
+    c(16, 1.0978, 1.0980, 1.0972, 1.09710),
     c(17, 1.0970, 1.0972, 1.0958, 1.0960), // ← primary CALL: open 1.0970 → close 1.0960 = LOSS
     c(18, 1.0960, 1.0982, 1.0959, 1.0980), // ← martingale CALL: open → close up = WIN
     c(19, 1.0980, 1.0982, 1.0978, 1.0980),

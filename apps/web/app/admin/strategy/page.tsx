@@ -317,6 +317,12 @@ function BacktestPanel({ report, program }: { report: BacktestReport; program: S
             <tr><td>ماتت — الحركة خرجت من نافذة الـ100 شمعة</td><td>{report.search.retiredAged}</td></tr>
             <tr><td>اترفضت — الحركة دي اشتغلت قبل كده</td><td>{report.search.rejectedAlreadyFired}</td></tr>
             <tr><td>اترفضت — نفس النوع أو مدى صفر</td><td>{report.search.rejectedShape}</td></tr>
+            {/* منفصل عن اللي فوقيه عن قصد: دي ساق حقيقية اترفضت عشان
+                صغيرة، وهي الرقم الوحيد اللي بيقول الحد الأدنى بيكلف قد إيه. */}
+            <tr>
+              <td>اترفضت — الساق أصغر من الحد الأدنى (٠.٥ نقطة أساس)</td>
+              <td>{report.search.rejectedTooSmall}</td>
+            </tr>
           </tbody>
         </table>
       </div>

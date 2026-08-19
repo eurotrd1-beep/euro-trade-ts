@@ -43,11 +43,29 @@ export function remainingText(
       if (progress.level === undefined || progress.gap === undefined) {
         return tr('مستني السعر يلمس المستوى', 'Waiting for price to reach the level');
       }
-      // The touch is the last condition, and the candle's high and low record
-      // it whatever price does afterwards. So this is not a wait for
-      // confirmation — it IS the confirmation.
-      if (progress.percent >= 100) {
-        return tr('لمس المستوى — الصفقة الشمعة الجاية', 'Level touched — the trade enters next candle');
+      // Three things can be true once a setup is armed, and they are different
+      // enough that one sentence cannot carry all of them:
+      //   ≥ 98  the ‹A11› depth is already there — only the close is outstanding
+      //   ≥ 95  price is past the level but still short of the depth
+      //   ≥ 90  the level was touched and price came back off it
+      const left = secondsToClose(timeframeSeconds);
+      if (progress.percent >= 98) {
+        return tr(
+          `العمق اتحقق — لو قفلت كده فيه إشارة · باقي ${left}ث`,
+          `Depth met — a signal if it closes here · ${left}s left`,
+        );
+      }
+      if (progress.percent >= 95 && progress.needBps !== undefined) {
+        return tr(
+          `فاضل ${progress.needBps.toFixed(1)} نقطة أساس للعمق · باقي ${left}ث للإغلاق`,
+          `${progress.needBps.toFixed(1)} bps of depth to go · ${left}s to close`,
+        );
+      }
+      if (progress.percent >= 90) {
+        return tr(
+          `لمس المستوى ورجع — مستني يعديه تاني · باقي ${left}ث`,
+          `Touched and came back — waiting for it to cross again · ${left}s left`,
+        );
       }
       // Both numbers, because both are moving and each answers half of "will
       // this happen": how far price still has to travel, and how long it has.

@@ -5,7 +5,8 @@
  *
  * Find the most recent completed swing in the last 100 one-minute candles.
  * Draw the 23.6% retracement of it. When a later candle's range contains that
- * level, take the trade on the NEXT candle, in the direction the swing ran —
+ * level, closes at or past it ‹A10› and closes at least 3 basis points BEYOND
+ * it ‹A11›, take the trade on the NEXT candle, in the direction the swing ran —
  * up-swing → CALL, down-swing → PUT. One candle long. If it loses, take the
  * same direction once more, immediately. Then stop, whatever happens.
  *
@@ -28,9 +29,11 @@
  *   A4  one signal per setup, ever
  *   A5  a tie is not a loss, so it earns no martingale
  *   A6  entry is the signal candle's open, exit is its close
- *   A7  a zero-range swing is refused
+ *   A7  a swing narrower than 10 × tieEpsilon is refused
  *   A8  the swing is FROZEN once adopted, and only replaced when it dies
  *   A9  the setup dies if price passes the end of the swing before touching
+ *   A10 the touch candle must still be at or past the level when it CLOSES
+ *   A11 and it must close at least MIN_DEPTH_BPS past it
  *
  * ── NO REPAINTING, MECHANICALLY ────────────────────────────────────────────
  *
@@ -48,7 +51,7 @@
 
 import type { Candle } from '../types.js';
 import type { Direction } from '../signal.js';
-import { outcomeFor } from '../signal.js';
+import { outcomeFor, tieEpsilon } from '../signal.js';
 import {
   NO_EVENT,
   type ArmedSetup,
@@ -73,6 +76,40 @@ const CLOSENESS_CURVE = 5;
 /** The one level this strategy watches. Exact, never rounded to a nearby tick. */
 const FIB = 0.236;
 
+/**
+ * ‹A11› How far past the level the touch candle has to close, in basis points.
+ *
+ * Measured over 24,475 one-minute candles across 86 pairs: trades whose touch
+ * candle closed less than 2 bps beyond the level won 42.6%; those that closed
+ * further beyond won 74.6%. The gradient is monotone from 0.5 bps up to about
+ * 3 and then flat, so this is not one lucky threshold — but it is ONE DAY of
+ * one session, and 64.5% of the variance in depth is explained by which pair a
+ * trade is on rather than by the trade. Recorded here because the number was
+ * chosen from that study and its limits belong next to it.
+ *
+ * Basis points, not pips: the same relative standard for a pair quoted at
+ * 0.00001 and one quoted at 4402, which a fixed pip count cannot do.
+ */
+const MIN_DEPTH_BPS = 3;
+
+/**
+ * Slack for the comparison, in basis points — arithmetic, not a filter.
+ *
+ * A close that is exactly `MIN_DEPTH_BPS` away qualifies, and that has to
+ * survive the arithmetic: a price constructed to sit exactly 3 bps beyond the
+ * level computes as 2.9999999999997904, and a bare `>=` refuses it. Nine orders
+ * of magnitude below the threshold, so it can only ever absorb representation
+ * error — no real quote lands inside it. The same reasoning as the `1e-12`
+ * floor in `tieEpsilon`.
+ */
+const DEPTH_SLACK_BPS = 1e-9;
+
+/** How far beyond the level a price sits, in basis points. Negative = short. */
+function depthBps(direction: Direction, level: number, price: number): number {
+  const past = direction === 'CALL' ? level - price : price - level;
+  return price !== 0 ? (past / price) * 10_000 : 0;
+}
+
 /** How many past setups to remember for A4. Two an hour would be busy; 32 is weeks. */
 const FIRED_MEMORY = 32;
 
@@ -86,6 +123,7 @@ function blankDiagnostics(): SetupDiagnostics {
   return {
     pairsExamined: 0,
     rejectedShape: 0,
+    rejectedTooSmall: 0,
     rejectedSwingTouched: 0,
     rejectedBroken: 0,
     rejectedAlreadyFired: 0,
@@ -244,9 +282,36 @@ function findSetup(
       continue;
     }
 
+    // ‹A7› A leg has to be wider than the precision the trade is settled at.
+    //
+    // This used to refuse only `range <= 0`, which let through swings smaller
+    // than the draw band itself. Measured over 8,900 one-minute candles across
+    // 89 pairs: 14% of adopted setups had legs under one basis point, and the
+    // trades they produced were 41% draws — against 5% everywhere else. Price
+    // had not moved at all during the minute they were open. They were not
+    // losing trades; they were trades that never happened, occupying a cycle
+    // and sending a notification on the way.
+    //
+    // The floor is ten times `tieEpsilon`, measured on the END of the leg,
+    // which is the point the 23.6% level is stepped back from. That makes it
+    // 0.5 basis points of price — relative by construction, so a pair quoted
+    // at 0.00001 and one quoted at 4402 are held to the same standard, which a
+    // fixed number of pips could not do.
+    //
+    // `end.price` and not `origin.price` or `level`: the three differ by less
+    // than 0.05%, so the choice barely moves the number, but it has to be
+    // written down rather than left to be re-derived.
+    //
+    // This refuses a CANDIDATE, not the candle: the loop goes on to the next,
+    // older pair of pivots exactly as it does for every other rejection, so a
+    // rejected micro-swing can still be replaced by an older leg that passes.
     const range = Math.abs(end.price - origin.price);
-    if (range <= 0) { // ‹A7›
+    if (range <= 0) {
       diag.rejectedShape++;
+      continue;
+    }
+    if (range < 10 * tieEpsilon(end.price)) {
+      diag.rejectedTooSmall++;
       continue;
     }
 
@@ -472,6 +537,49 @@ export const fib236Touch: StrategyProgram = {
 
     remember(state, armed.key); // ‹A4›
     state.armed = null;
+
+    // ‹A10› The touch has to survive the close.
+    //
+    // `touches` above reads the candle's HIGH and LOW, so it answers "did price
+    // reach the level at any point in this minute". It says nothing about where
+    // the minute ended — a candle can spike through the level and be back where
+    // it started by the close, and that used to trade exactly like a candle
+    // that closed beyond it.
+    //
+    // Measured over 17,674 one-minute candles across 86 pairs: of the trades
+    // where the touch did NOT survive the close, 44.1% won; of the ones where
+    // it did, 57.7%. Same strategy, same candles, the two halves separated only
+    // by this line.
+    //
+    // The predicate is the one the engine already uses for "has price reached
+    // the level" — `setupCompletion` below reads the same comparison on the
+    // live price instead of the close. No tolerance and no threshold: there is
+    // none in the strategy to borrow, and inventing one here would be a filter
+    // nobody asked for.
+    //
+    // A refusal CONSUMES the setup. `remember` above has already run and
+    // `state.armed` is already cleared, so this swing produces no second
+    // attempt ‹A4›. Leaving it armed to fire on a later candle would be a
+    // different strategy — one that waits for a level to be met twice.
+    const heldToClose =
+      armed.direction === 'CALL' ? candle.close <= armed.level : candle.close >= armed.level;
+    if (!heldToClose) return { ...NO_EVENT, diagnostics };
+
+    // ‹A11› And it has to close a real distance beyond, not a hair past.
+    //
+    // Read from `candle.close` — the last price that exists at this moment. The
+    // candle the trade opens on has not happened, so nothing here can consult
+    // it. Price touching 3 bps mid-candle and coming back is not a signal: only
+    // where the candle ENDED counts, which is the same rule ‹A10› already sets.
+    //
+    // `>=` on purpose: a close at exactly the threshold qualifies.
+    //
+    // Refusal CONSUMES the setup, exactly as ‹A10› does — `remember` has run and
+    // `state.armed` is cleared above, so this swing gets no second attempt ‹A4›.
+    if (depthBps(armed.direction, armed.level, candle.close) < MIN_DEPTH_BPS - DEPTH_SLACK_BPS) {
+      return { ...NO_EVENT, diagnostics };
+    }
+
     state.cycle = {
       direction: armed.direction,
       stage: 'primary',
@@ -597,40 +705,59 @@ export interface SetupProgress {
    * leg".
    */
   gap?: number;
+  /**
+   * How far beyond the level price sits right now, in basis points.
+   *
+   * Negative while price is still short of it. Present with `level`, and for
+   * the same reason as `gap`: ‹A11› is stated in basis points, so this is the
+   * number the card has to show to explain what is still missing.
+   */
+  depthBps?: number;
+  /** Basis points still needed before ‹A11› would pass on a close here. */
+  needBps?: number;
 }
 
 /** Where each band starts. Named, because the numbers alone explain nothing. */
+/**
+ * Where each band starts. Named, because the numbers alone explain nothing.
+ *
+ * Six rungs, and each boundary is a condition of the strategy rather than a
+ * round number chosen to look tidy:
+ *
+ *    0–15   nothing to work with — no confirmed pivot pair on this candle
+ *   15–30   pivots exist, but no two of them form a usable leg
+ *   30–50   a leg was found and refused — touched, broken, or already traded
+ *   50–90   a setup is ARMED and price is approaching the level
+ *   90–95   the level was TOUCHED this candle, and price has come back off it
+ *   95–98   price is beyond the level, still short of the ‹A11› depth
+ *   98–99.99 the depth is already there; only the close is outstanding
+ *      100   the candle closed and all of ‹A7›‹A10›‹A11› held — the trade exists
+ *
+ * The last two rungs are what the card calls "very close" and they are not the
+ * same thing: 95–98 is still travelling, 98+ would fire if the minute ended
+ * now. Neither is a signal.
+ */
 const BAND = {
   pivots: 15,
   rejected: 30,
-  /**
-   * An adopted setup starts here, and the jump from 50 is deliberate.
-   *
-   * Four conditions have to pass before a setup is adopted, and once it is, the
-   * strategy is committed to it: no more searching, one thing left to wait for.
-   * The gap below this band is not wasted scale — it is the distance between
-   * "something might form here" and "this is the one".
-   */
-  armed: 90,
-  /**
-   * The ceilings of the two searching bands.
-   *
-   * Written down rather than taken from the band above, which is what they used
-   * to do — and when the armed band moved from 50 up to 90, both of these
-   * silently moved with it. A pair that had found a leg and refused it started
-   * reading 90: the same number as an adopted setup, for the opposite outcome.
-   * The bands are neighbours, not a formula.
-   */
   pivotsTop: 30,
   rejectedTop: 50,
+  /** A setup is adopted and price is on its way to the level. */
+  armed: 50,
+  /** The level has been touched on this candle. */
+  touched: 90,
+  /** Price is beyond the level — ‹A10› would hold if the candle closed now. */
+  beyond: 95,
+  /** The ‹A11› depth is met too; everything but the close is done. */
+  deep: 98,
   /**
-   * The top of the approach — everything below a touch.
+   * The top of the approach — everything below a confirmed close.
    *
-   * 99.9 rather than a round number, and deliberately never reached: the last
-   * tenth belongs to the touch, and a bar that shows 100 before one has
-   * happened would be claiming a trade the strategy has not been given.
+   * 99.99 rather than a round number, and deliberately never reached: the last
+   * hundredth belongs to the close, and a bar that shows 100 before the candle
+   * has closed would be claiming a trade the strategy has not been given.
    */
-  armedTop: 99.9,
+  armedTop: 99.99,
 } as const;
 
 
@@ -668,74 +795,106 @@ export function setupProgress(
   if (state.cycle !== null) return { stage: 'fired', percent: 100 };
 
   if (state.armed !== null) {
-    const gap = Math.abs(state.armed.level - price);
+    const armed = state.armed;
+    const gap = Math.abs(armed.level - price);
+    /** How far BEYOND the level price sits right now. Negative = still short. */
+    const depth = depthBps(armed.direction, armed.level, price);
+    /** Basis points still needed before ‹A11› would pass on a close here. */
+    const needBps = Math.max(0, MIN_DEPTH_BPS - DEPTH_SLACK_BPS - depth);
 
-    // ── The touch is the last condition, and it is not undone ─────────────
-    //
-    // `touches` reads the candle's HIGH and LOW, so a price that reaches the
-    // level and moves away has still touched it and the candle will say so when
-    // it closes. The trade is settled from that moment; nothing after it in the
-    // candle can take it back.
-    //
-    // Which is why this is 100 and why it is passed in rather than derived from
-    // the current price: the price has usually left the level by the time
-    // anybody looks, and a reading recomputed from where price is NOW would
-    // fall back down and un-promise a trade that is already certain.
-    if (touchedThisCandle) {
+    /**
+     * The approach shape, shared by the two bands that are still travelling.
+     *
+     * `closeness` says how much of the journey is done; on its own it would
+     * read the same at the start of a candle and a second before it closes,
+     * which are not the same prospect. `reach` is the correction — time
+     * remaining measured against distance remaining, capped at 1 because more
+     * time than the distance needs is still just enough. Running out of minute
+     * with ground left lowers it, which is the honest direction.
+     *
+     * The power curve spreads the top of the band out. Straight, a gap measured
+     * against a whole leg made 35 pips out and 84 pips out both read "nearly
+     * there"; the curve keeps the steep part for the last stretch.
+     */
+    const climb = (done: number): number => {
+      const closeness = Math.max(0, Math.min(1, done));
+      const need = Math.max(1 - closeness, 1e-9);
+      const reach = Math.min(1, Math.max(0, candleLeft) / need);
+      return Math.pow(closeness, CLOSENESS_CURVE) * reach;
+    };
+
+    // ── 50 → 90: the level has not been touched on this candle yet ────────
+    if (!touchedThisCandle) {
+      const legSize = Math.abs(armed.level - armed.endPrice) / FIB;
+      const travel = Math.max(0, -((depth / 10_000) * price));
+      const done = legSize > 0 ? 1 - travel / legSize : 0;
       return {
         stage: 'armed',
-        percent: 100,
-        level: state.armed.level,
-        direction: state.armed.direction,
-        gap: 0,
+        percent: BAND.armed + climb(done) * (BAND.touched - BAND.armed),
+        level: armed.level,
+        direction: armed.direction,
+        gap,
+        depthBps: depth,
+        needBps,
       };
     }
 
-    // ── How far, against how long is left to get there ────────────────────
+    // ── 90 → 95: touched, but price has come back off the level ───────────
     //
-    // `closeness` alone says how much of the approach is done. On its own it
-    // would read the same at the start of a candle and a second before it
-    // closes, which are not the same prospect at all.
-    //
-    // `reach` is the correction: the time remaining measured against the
-    // distance remaining. More time than the distance needs is still just
-    // enough, so it caps at 1 — a pair sitting on the level does not read
-    // higher for having a whole candle to do nothing in.
-    // ── Distance, both ways ────────────────────────────────────────────────
-    //
-    // NOT `setupCompletion`, which answers a different question: it treats
-    // price that has run past the level as fully arrived, because for its
-    // purpose reaching the level from the correct side is the whole event.
-    //
-    // Here that shortcut was reporting pairs six hundred pips beyond their
-    // level as 99% — the distance is on the other side, and it is still
-    // distance. Price has to come back across it before anything can happen, so
-    // it is measured plainly and the side does not matter.
-    const legSize = Math.abs(state.armed.level - state.armed.endPrice) / FIB;
-    const closeness = legSize > 0 ? Math.max(0, Math.min(1, 1 - gap / legSize)) : 0;
-    const need = Math.max(1 - closeness, 1e-9);
-    const reach = Math.min(1, Math.max(0, candleLeft) / need);
+    // ‹A10› is not met at this instant: a close here would produce nothing. The
+    // touch is real and permanent, which is why this sits above the approach —
+    // but price has to cross back before anything can happen.
+    if (depth < 0) {
+      const legSize = Math.abs(armed.level - armed.endPrice) / FIB;
+      const back = Math.max(0, -((depth / 10_000) * price));
+      const done = legSize > 0 ? 1 - back / legSize : 0;
+      return {
+        stage: 'armed',
+        percent: BAND.touched + climb(done) * (BAND.beyond - BAND.touched),
+        level: armed.level,
+        direction: armed.direction,
+        gap,
+        depthBps: depth,
+        needBps,
+      };
+    }
 
-    // ── Curved, because a straight line spends the band too early ──────────
+    // ── 95 → 98: beyond the level, still short of the ‹A11› depth ─────────
     //
-    // `closeness` is the gap measured against the leg, and a leg is the whole
-    // swing — often a couple of hundred pips. Straight, that made 35 pips out
-    // and 84 pips out read 98 and 96: both "nearly there", when one is more
-    // than twice as far as the other. Everything bunched at the top and the
-    // band said nothing.
-    //
-    // The power spreads it back out. The last stretch is where the difference
-    // matters — a pair two pips away and one twenty pips away are not in the
-    // same position — so the scale only climbs steeply once the gap is a small
-    // fraction of the leg, and the wide middle no longer all reads 99.
-    const curved = Math.pow(closeness, CLOSENESS_CURVE);
+    // Two things move this and they pull opposite ways, which is the whole
+    // point of combining them: the distance still to cover, and the time left
+    // to cover it in. Closing the distance raises it; the candle draining with
+    // distance still owed lowers it, because there is less minute to do it in.
+    if (needBps > 0) {
+      return {
+        stage: 'armed',
+        percent: BAND.beyond + climb(1 - needBps / MIN_DEPTH_BPS) * (BAND.deep - BAND.beyond),
+        level: armed.level,
+        direction: armed.direction,
+        gap,
+        depthBps: depth,
+        needBps,
+      };
+    }
 
+    // ── 98 → 99.99: the depth is there; only the close is outstanding ─────
+    //
+    // Here time reverses. Nothing is owed any more — ‹A10› and ‹A11› both hold
+    // at this instant — so the only risk left is price leaving again before the
+    // candle ends, and every second that passes is one less second for that to
+    // happen. So the reading climbs as the clock runs down.
+    //
+    // It stops at 99.99. A candle that has not closed has not earned 100,
+    // however good it looks with two seconds left.
+    const held = Math.max(0, Math.min(1, 1 - candleLeft));
     return {
       stage: 'armed',
-      percent: BAND.armed + curved * reach * (BAND.armedTop - BAND.armed),
-      level: state.armed.level,
-      direction: state.armed.direction,
+      percent: BAND.deep + held * (BAND.armedTop - BAND.deep),
+      level: armed.level,
+      direction: armed.direction,
       gap,
+      depthBps: depth,
+      needBps,
     };
   }
 

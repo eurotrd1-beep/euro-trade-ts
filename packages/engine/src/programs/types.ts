@@ -122,6 +122,16 @@ export interface SetupDiagnostics {
   pairsExamined: number;
   /** Refused: the two points were the same kind, or the leg had no range. */
   rejectedShape: number;
+  /**
+   * Refused: the leg was narrower than the minimum. ‹A7›
+   *
+   * Counted apart from `rejectedShape` on purpose. The two refusals look alike
+   * in a total and mean opposite things: a same-kind pair is the search walking
+   * past a shape that was never a leg, while this one is a real leg being
+   * turned down for being too small — the only number that says how much the
+   * minimum is actually costing.
+   */
+  rejectedTooSmall: number;
   /** Refused: a swing candle already contained the 23.6% level. */
   rejectedSwingTouched: number;
   /** Refused: price had already left the end of the leg behind. */

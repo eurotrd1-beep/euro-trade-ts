@@ -195,3 +195,57 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ≥ 96: past the level and closing on the ‹A11› depth. An early heads-up, so a
+   jump to 100 at the close is not the first the user hears of it. Quiet on
+   purpose — most of these do not become signals. */
+.near {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.pctNear { color: #cbd5e1; }
+
+.fillNear {
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+  transition: width 1s linear;
+}
+
+/* The line above the pips: what this row is, in three words. */
+.heads {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+.holding .heads { color: #6ee7b7; }
+
+/* The highest reading on screen. A rail rather than a fill, so it marks the row
+   without competing with the state colour already on it. */
+.best {
+  box-shadow: inset 3px 0 0 0 #34d399;
+}
+
+/* ≥ 98: the depth is met and the candle has not closed.
+   Between `.next` and an ordinary row on purpose: the trade is one close away,
+   not given. Amber says "about to"; this says "would, if it ended now". */
+.holding {
+  background: rgba(52, 211, 153, 0.13);
+  border-color: rgba(52, 211, 153, 0.5);
+}
+
+.pctHolding { color: #6ee7b7; }
+
+.fillHolding {
+  background: linear-gradient(90deg, #6ee7b7, #34d399);
+  /* Faster than the approach bar. In this state the number is driven by the
+     clock rather than by price, and the clock does not arrive in jumps. */
+  transition: width 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fillHolding { transition: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fillNear { transition: none; }
+}

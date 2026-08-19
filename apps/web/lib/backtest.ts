@@ -200,6 +200,8 @@ export interface SearchTally {
   pairsExamined: number;
   /** Refused: same kind, or no range. */
   rejectedShape: number;
+  /** Refused: the leg was narrower than the minimum swing size. ‹A7› */
+  rejectedTooSmall: number;
   /** Refused: a swing candle already contained its own 23.6% level. */
   rejectedSwingTouched: number;
   /** Refused at selection: price had already left the end of the leg. */
@@ -334,6 +336,7 @@ export function formatSpan(ms: number): string {
 function addDiagnostics(t: SearchTally, d: SetupDiagnostics): void {
   t.pairsExamined += d.pairsExamined;
   t.rejectedShape += d.rejectedShape;
+  t.rejectedTooSmall += d.rejectedTooSmall;
   t.rejectedSwingTouched += d.rejectedSwingTouched;
   t.rejectedBroken += d.rejectedBroken;
   t.rejectedAlreadyFired += d.rejectedAlreadyFired;
@@ -362,8 +365,8 @@ export async function backtest(args: BacktestArgs): Promise<BacktestReport> {
   const perPair: BacktestReport['perPair'] = [];
   const cycles: CycleTally = { total: 0, won: 0, recovered: 0, finalLoss: 0, tie: 0, aborted: 0 };
   const search: SearchTally = {
-    pairsExamined: 0, rejectedShape: 0, rejectedSwingTouched: 0, rejectedBroken: 0,
-    rejectedAlreadyFired: 0, armed: 0, retiredBroken: 0, retiredAged: 0,
+    pairsExamined: 0, rejectedShape: 0, rejectedTooSmall: 0, rejectedSwingTouched: 0,
+    rejectedBroken: 0, rejectedAlreadyFired: 0, armed: 0, retiredBroken: 0, retiredAged: 0,
   };
   let callSignals = 0;
   let putSignals = 0;

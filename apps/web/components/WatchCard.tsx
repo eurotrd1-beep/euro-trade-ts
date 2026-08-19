@@ -188,27 +188,58 @@ export function WatchCard({
       ) : (
         <ul className={styles.list}>
           {forming.map((f) => {
-            // FLOOR, never round. The approach caps at 99.9 by design, and
+            // FLOOR, never round. The approach caps at 99.99 by design, and
             // `Math.round` turned that into a displayed 100 — a bar claiming a
-            // touch that had not happened, beside text correctly saying the
-            // level was still 35 pips away. 100 is a promise; only a real touch
-            // may print it, and only exact equality gets there.
+            // trade that had not been given, beside text correctly saying the
+            // level was still 35 pips away. 100 is a promise; only a closed
+            // candle that met ‹A10› may print it.
             const pct = f.percent >= 100 ? 100 : Math.floor(f.percent);
             // The pair has everything it needs and the trade opens on the next
             // candle. Said in words rather than as another percentage: at that
             // point the number has stopped being the useful thing about it.
             const next = f.stage === 'fired';
+            // Two rungs below a signal, and they are shown differently because
+            // they mean different things:
+            //
+            //   near    ≥ 96  price is past the level and closing on the ‹A11›
+            //                 depth. Early warning, so a jump to 100 at the
+            //                 close does not arrive out of nowhere.
+            //   holding ≥ 98  the depth is already met; only the close is
+            //                 outstanding.
+            //
+            // NEITHER is a signal, and neither is styled like one — `.next` is
+            // amber and means a trade exists.
+            const holding = !next && f.stage === 'armed' && f.percent >= 98;
+            const near = !next && !holding && f.stage === 'armed' && f.percent >= 96;
+            // The single best opportunity on screen right now. The list is
+            // already sorted by percentage, so it is the first row that has one.
+            const best = !next && f.percent >= 96 && f.symbol === forming[0]?.symbol;
             return (
               <li key={f.symbol}>
                 <button
                   type="button"
                   onClick={() => onSelect(f.symbol)}
                   className={`${styles.row} ${f.symbol === chartSymbol ? styles.onChart : ''} ${
-                    f.shut ? styles.shutRow : next ? styles.next : ''
-                  }`}
+                    f.shut
+                      ? styles.shutRow
+                      : next
+                        ? styles.next
+                        : holding
+                          ? styles.holding
+                          : near
+                            ? styles.near
+                            : ''
+                  } ${best ? styles.best : ''}`}
                 >
                   <span className={styles.nameCol}>
                     <span className={styles.name}>{nameOf(f.symbol)}</span>
+                    {!f.shut && (near || holding) && (
+                      <span className={styles.heads}>
+                        {holding
+                          ? tr('قريب جدًا من إصدار إشارة', 'Very close to a signal')
+                          : tr('إشارة محتملة قريبًا', 'A signal may be coming')}
+                      </span>
+                    )}
                     {!f.shut && (
                       <span className={styles.left}>
                         {remainingText(f, prices[f.symbol] ?? 0, candleSeconds)}
@@ -223,9 +254,16 @@ export function WatchCard({
                     </span>
                   ) : (
                     <>
-                      <span className={styles.pct}>{pct}%</span>
+                      <span
+                        className={`${styles.pct} ${holding ? styles.pctHolding : near ? styles.pctNear : ''}`}
+                      >
+                        {pct}%
+                      </span>
                       <span className={styles.bar} aria-hidden="true">
-                        <span className={styles.fill} style={{ width: `${pct}%` }} />
+                        <span
+                          className={`${styles.fill} ${holding ? styles.fillHolding : near ? styles.fillNear : ''}`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </span>
                     </>
                   )}

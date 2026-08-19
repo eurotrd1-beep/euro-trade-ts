@@ -31,6 +31,18 @@ describe('the draw band', () => {
     expect(tieEpsilon(150.123)).toBeGreaterThan(tieEpsilon(1.097));
   });
 
+  it('calls a close that equals the entry a draw, in both directions', () => {
+    // The degenerate case, stated on its own because it is the one a reader
+    // assumes is obvious and a second implementation gets right by accident:
+    // a candle that opens and closes on the same number moved nowhere, so
+    // neither side won. It happens on the live feed — CAD/JPY settled exactly
+    // here on 2026-08-19 — and it must never come back as a win or a loss.
+    expect(outcomeFor('CALL', ENTRY, ENTRY)).toBe('TIE');
+    expect(outcomeFor('PUT', ENTRY, ENTRY)).toBe('TIE');
+    expect(outcomeFor('CALL', 114.717, 114.717)).toBe('TIE');
+    expect(outcomeFor('PUT', 0, 0)).toBe('TIE'); // the 1e-12 floor, not a divide
+  });
+
   it('calls a close inside it a draw, either side of the entry', () => {
     const eps = tieEpsilon(ENTRY);
     expect(outcomeFor('CALL', ENTRY, ENTRY + eps * 0.5)).toBe('TIE');
@@ -73,7 +85,7 @@ describe('the program settles through the same function', () => {
       c(10, 1.0988, 1.099, 1.0984, 1.0986), c(11, 1.0985, 1.0987, 1.0982, 1.0984),
       c(12, 1.0983, 1.0985, 1.098, 1.0982), c(13, 1.0981, 1.0983, 1.0979, 1.098),
       c(14, 1.098, 1.0982, 1.0978, 1.0979), c(15, 1.0979, 1.0981, 1.0977, 1.0978),
-      c(16, 1.0978, 1.098, 1.0972, 1.0974), //          the touch
+      c(16, 1.0978, 1.098, 1.0972, 1.09705), //  the touch, closing past the level ‹A10›‹A11›
       c(17, ENTRY, ENTRY + 0.0004, ENTRY - 0.0004, ENTRY + drift), // inside the band
       c(18, 1.097, 1.0974, 1.0966, 1.097),
     ];

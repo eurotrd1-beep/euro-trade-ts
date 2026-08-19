@@ -110,6 +110,7 @@ ORDER BY 1;
 -- المطلوب تشوفه في رسالة الخطأ:
 --
 --   ✅ داخل الهامش = tie   ·   ✅ بدون سعر = unresolved
+--   ✅ إغلاق = دخول = tie   ·   ✅ الدالة بتخزّن ومبتحسبش
 -- ════════════════════════════════════════════════════════════════════════════
 
 DO $$
@@ -118,8 +119,12 @@ DECLARE
   v_inside double precision;
   v_tie_id bigint;
   v_nul_id bigint;
+  v_eq_id  bigint;
+  v_raw_id bigint;
   v_tie    text;
   v_nul    text;
+  v_eq     text;
+  v_raw    text;
 BEGIN
   -- نص الهامش فوق سعر الدخول: مش مساوي للدخول، وجوّه هامش المحرك
   -- (|إغلاق − دخول| ≤ |دخول| × 0.000005). التعريف القديم كان هيسجّلها WIN.
@@ -135,19 +140,50 @@ BEGIN
   VALUES ('__VERIFY_NULL__', '1m', 'PUT', now(), 'instant_free', v_entry, 60, 'pending')
   RETURNING id INTO v_nul_id;
 
+  -- إغلاق = دخول بالظبط. المحرك بيقول tie، والدالة لازم تخزّنه زي ما هو.
+  INSERT INTO public.signals
+    (symbol, timeframe, direction, bar_time, slot, entry_price, expiry_seconds, outcome)
+  VALUES ('__VERIFY_EQ__', '1m', 'CALL', now(), 'instant_free', v_entry, 60, 'pending')
+  RETURNING id INTO v_eq_id;
+
+  -- والاختبار المعكوس، وهو الأهم: نفس السعرين بالظبط، بس المحرك باعت `win`.
+  -- لو الدالة رجّعت tie هنا يبقى هي **لسه بتحسب** — وده بالظبط العطل
+  -- اللي الترحيل قفله. النتيجة الصح إنها تخزّن اللي اتبعتلها.
+  INSERT INTO public.signals
+    (symbol, timeframe, direction, bar_time, slot, entry_price, expiry_seconds, outcome)
+  VALUES ('__VERIFY_RAW__', '1m', 'CALL', now(), 'instant_free', v_entry, 60, 'pending')
+  RETURNING id INTO v_raw_id;
+
   PERFORM public.resolve_signals(jsonb_build_array(
     jsonb_build_object('id', v_tie_id, 'price', v_inside, 'outcome', 'tie'),
-    jsonb_build_object('id', v_nul_id, 'price', NULL,     'outcome', NULL)
+    jsonb_build_object('id', v_nul_id, 'price', NULL,     'outcome', NULL),
+    jsonb_build_object('id', v_eq_id,  'price', v_entry,  'outcome', 'tie'),
+    jsonb_build_object('id', v_raw_id, 'price', v_entry,  'outcome', 'win')
   ));
 
   SELECT outcome INTO v_tie FROM public.signals WHERE id = v_tie_id;
   SELECT outcome INTO v_nul FROM public.signals WHERE id = v_nul_id;
+  SELECT outcome INTO v_eq  FROM public.signals WHERE id = v_eq_id;
+  SELECT outcome INTO v_raw FROM public.signals WHERE id = v_raw_id;
 
-  RAISE EXCEPTION E'\n\n%\n%\n\n(الخطأ ده مقصود — هو اللي بيلغي الصفوف التجريبية)',
+  RAISE EXCEPTION E'
+
+%
+%
+%
+%
+
+(الخطأ ده مقصود — هو اللي بيلغي الصفوف التجريبية)',
     CASE WHEN v_tie = 'tie'
       THEN '✅ ٢. إغلاق جوه الهامش اتسجّل tie · الفرق ' || (v_inside - v_entry)
       ELSE '❌ ٢. اتسجّل ' || coalesce(v_tie, 'NULL') || ' بدل tie' END,
     CASE WHEN v_nul = 'unresolved'
       THEN '✅ ٣. سعر مفقود اتسجّل unresolved مش tie'
-      ELSE '❌ ٣. اتسجّل ' || coalesce(v_nul, 'NULL') || ' بدل unresolved' END;
+      ELSE '❌ ٣. اتسجّل ' || coalesce(v_nul, 'NULL') || ' بدل unresolved' END,
+    CASE WHEN v_eq = 'tie'
+      THEN '✅ ٤. إغلاق = دخول بالظبط اتسجّل tie'
+      ELSE '❌ ٤. اتسجّل ' || coalesce(v_eq, 'NULL') || ' بدل tie' END,
+    CASE WHEN v_raw = 'win'
+      THEN '✅ ٥. الدالة بتخزّن قرار المحرك ومبتحسبش — نفس السعرين اتسجّلوا win'
+      ELSE '❌ ٥. اتسجّل ' || coalesce(v_raw, 'NULL') || ' بدل win — الدالة لسه بتحسب' END;
 END $$;

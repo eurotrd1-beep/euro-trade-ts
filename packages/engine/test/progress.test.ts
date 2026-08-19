@@ -22,6 +22,7 @@ const armed = { direction: 'CALL' as const, level: 1.09764, endPrice: 1.1, endTi
 const diag = (over: Partial<SetupDiagnostics> = {}): SetupDiagnostics => ({
   pairsExamined: 0,
   rejectedShape: 0,
+  rejectedTooSmall: 0,
   rejectedSwingTouched: 0,
   rejectedBroken: 0,
   rejectedAlreadyFired: 0,
