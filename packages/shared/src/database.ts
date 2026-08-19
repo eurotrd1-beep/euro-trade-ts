@@ -112,6 +112,28 @@ export interface PushSubscriptionRow {
   created_at: string;
 }
 
+/**
+ * `telegram_queue` — messages waiting on a human before they reach the channel.
+ *
+ * Only written by the generator (service key). The admin reads it and moves
+ * `status` from `pending` to `approved` or `rejected`; nothing else about a row
+ * is editable from a browser, and no browser can create one.
+ */
+export interface TelegramQueueRow {
+  /** Same key as `telegram_alerts` — `signal:{symbol}:{entryTime}:{stage}`. */
+  event_key: string;
+  kind: 'signal' | 'result' | 'daily';
+  symbol: string | null;
+  depth_bps: number | null;
+  /** The message exactly as it would be sent. */
+  body: string;
+  status: 'pending' | 'approved' | 'sent' | 'rejected';
+  /** Last instant the message is still worth sending; null = never stale. */
+  expires_at: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
 /** `captcha_stats` — 2captcha solve counters shown in the admin. */
 export interface CaptchaStatsRow {
   id: string;
@@ -134,6 +156,7 @@ export interface Database {
   candles: CandleRow;
   push_subscriptions: PushSubscriptionRow;
   captcha_stats: CaptchaStatsRow;
+  telegram_queue: TelegramQueueRow;
   repair_log: RepairLogRow;
 }
 

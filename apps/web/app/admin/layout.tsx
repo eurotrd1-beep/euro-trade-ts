@@ -15,11 +15,13 @@
  * file rather than nine.
  */
 
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AdminGate } from '@/components/AdminGate';
 import { signOutAdmin } from '@/lib/adminAuth';
 import { hardNavigate } from '@/lib/nav';
+import { countPending, watchQueue } from '@/lib/telegramQueue';
 import styles from './admin.module.css';
 
 const VIEWS: Array<{ href: string; label: string; icon: string }> = [
@@ -31,14 +33,45 @@ const VIEWS: Array<{ href: string; label: string; icon: string }> = [
   { href: '/admin/strategy', label: 'الاستراتيجيات', icon: '🧠' },
   { href: '/admin/signals', label: 'إحصائيات الإشارات', icon: '🎯' },
   { href: '/admin/control', label: 'تحكم التطبيق', icon: '⚙️' },
+  { href: '/admin/telegram', label: 'نشر تيليجرام', icon: '✈️' },
   { href: '/admin/promo', label: 'الإعلان', icon: '📣' },
   { href: '/admin/updates', label: 'إشعارات التحديث', icon: '🔔' },
   { href: '/admin/theme', label: 'ثيم التطبيق', icon: '🎨' },
   { href: '/admin/health', label: 'صحة النظام', icon: '🩺' },
 ];
 
+/**
+ * How many Telegram messages are waiting on a decision.
+ *
+ * It lives in the shell rather than on the review page, because the whole
+ * point of manual publishing is finding out that something arrived while you
+ * were looking at a different screen. Zero in automatic mode — nothing is
+ * queued — so the badge simply never appears.
+ *
+ * A failure here is silent on purpose: the count is a convenience, and an
+ * admin shell that refuses to render because a badge could not be counted
+ * would be a worse trade than a missing number.
+ */
+function usePendingCount(): number {
+  const [count, setCount] = useState(0);
+
+  const refresh = useCallback(() => {
+    countPending()
+      .then(setCount)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    return watchQueue(refresh);
+  }, [refresh]);
+
+  return count;
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const pending = usePendingCount();
 
   return (
     <AdminGate>
@@ -59,6 +92,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   >
                     <span aria-hidden="true">{v.icon}</span>
                     {v.label}
+                    {v.href === '/admin/telegram' && pending > 0 && (
+                      <span className={styles.navBadge} title="رسايل مستنية قرارك">
+                        {pending}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

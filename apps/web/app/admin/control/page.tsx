@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase, DEFAULT_PROXY_URL } from '@euro/shared';
 import styles from '../admin.module.css';
 
@@ -24,6 +25,8 @@ interface ControlState {
   telegramMinDepth: string;
   telegramDaily: boolean;
   telegramPublish: 'both' | 'signals' | 'results';
+  telegramMode: 'auto' | 'manual';
+  telegramOutcomes: 'all' | 'wins' | 'losses';
 }
 
 const EMPTY: ControlState = {
@@ -44,6 +47,13 @@ const EMPTY: ControlState = {
   telegramMinDepth: '0',
   telegramDaily: true,
   telegramPublish: 'both',
+  // Automatic, because that is what the service already does. A migration
+  // that quietly parks every message behind a button nobody knows to press
+  // reads exactly like Telegram breaking.
+  telegramMode: 'auto',
+  // Every result. This is the only switch in the whole feature that looks at
+  // how a trade ended, so its default is the one that hides nothing.
+  telegramOutcomes: 'all',
 };
 
 export default function AppControlView() {
@@ -78,6 +88,16 @@ export default function AppControlView() {
             : get('telegram')['publish'] === 'results'
               ? 'results'
               : 'both',
+        // Anything that is not the word `manual` is automatic — including the
+        // field being absent, which is how every config written before this
+        // switch existed reads.
+        telegramMode: get('telegram')['mode'] === 'manual' ? 'manual' : 'auto',
+        telegramOutcomes:
+          get('telegram')['outcomes'] === 'wins'
+            ? 'wins'
+            : get('telegram')['outcomes'] === 'losses'
+              ? 'losses'
+              : 'all',
       });
       setLoaded(true);
     } catch {
@@ -126,6 +146,8 @@ export default function AppControlView() {
       minDepthBps: Number.isFinite(depth) && depth > 0 ? depth : 0,
       daily: merged.telegramDaily,
       publish: merged.telegramPublish,
+      mode: merged.telegramMode,
+      outcomes: merged.telegramOutcomes,
     });
   }
 
@@ -179,6 +201,46 @@ export default function AppControlView() {
         </div>
 
         <div className={styles.field} style={{ marginTop: 14 }}>
+          <p className={styles.label}>طريقة النشر</p>
+          <div className={styles.actions}>
+            {(
+              [
+                ['auto', 'تلقائي'],
+                ['manual', 'يدوي — أنا اللي أنشر'],
+              ] as Array<[ControlState['telegramMode'], string]>
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                disabled={busy || !loaded}
+                onClick={() => void saveTelegram({ telegramMode: id })}
+                aria-pressed={state.telegramMode === id}
+                className={`${styles.chip} ${state.telegramMode === id ? styles.chipActive : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.switchHint} style={{ marginTop: 8 }}>
+            <strong>تلقائي</strong>: السيرفر بيبعت لوحده. <strong>يدوي</strong>: بدل
+            ما يبعت، بيحطّ الرسالة في{' '}
+            <Link href="/admin/telegram" className={styles.inlineLink}>
+              نشر تيليجرام
+            </Link>{' '}
+            وتفضل مستنية لحد ما تضغط «انشر». القرار بيتسجّل في السيرفر، فالرسالة
+            بتروح حتى لو قفلت الصفحة بعدها بثانية.
+          </p>
+          {state.telegramMode === 'manual' && (
+            <p className={styles.switchHint} style={{ marginTop: 6 }}>
+              اليدوي بيقلّل اللي بيتنشر ومبيزوّدوش: اللي بيوصلك للمراجعة هو نفسه
+              اللي كان هيتبعت تلقائي، بعد حد العمق واختيار النوع وسويتش الملخص.
+              وإشارة مالهاش قرار لحد ما صفقتها تخلص بتتقفل لوحدها — ماتنشرش إشارة
+              فات وقتها.
+            </p>
+          )}
+        </div>
+
+        <div className={styles.field} style={{ marginTop: 14 }}>
           <p className={styles.label}>اللي بيتنشر</p>
           <div className={styles.actions}>
             {(
@@ -205,6 +267,45 @@ export default function AppControlView() {
             بتتنشر زي ما التسوية قالتها — ربح أو خسارة أو تعادل. و«النتايج بس»
             بتنشر نتايج نفس الصفقات اللي كانت إشاراتها هتتنشر، مش أي صفقة.
           </p>
+        </div>
+
+        <div className={styles.field} style={{ marginTop: 14 }}>
+          <p className={styles.label}>نتايج الصفقات اللي بتتنشر</p>
+          <div className={styles.actions}>
+            {(
+              [
+                ['all', 'كل النتايج'],
+                ['wins', 'الفوز بس'],
+                ['losses', 'الخسارة بس'],
+              ] as Array<[ControlState['telegramOutcomes'], string]>
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                disabled={busy || !loaded}
+                onClick={() => void saveTelegram({ telegramOutcomes: id })}
+                aria-pressed={state.telegramOutcomes === id}
+                className={`${styles.chip} ${state.telegramOutcomes === id ? styles.chipActive : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.switchHint} style={{ marginTop: 8 }}>
+            بيتطبّق على <strong>رسالة النتيجة</strong> بس. التعادل و«بدون سعر»
+            بيتنشروا في «كل النتايج» بس — مش فوز ولا خسارة. رسالة فتح الإشارة
+            مالهاش دعوة بالاختيار ده: وقتها النتيجة لسه مش موجودة.
+          </p>
+          {state.telegramOutcomes !== 'all' && (
+            <div className={styles.warn} style={{ marginTop: 10, marginBottom: 0 }}>
+              دي الحاجة الوحيدة في الإعدادات دي اللي بتبص لنتيجة الصفقة. الإشارة
+              بتفضل تتنشر وهي مفتوحة — يعني التنبؤ حقيقي — لكن سجل النتايج على
+              القناة مابقاش سجل: {state.telegramOutcomes === 'wins' ? 'الخسارة' : 'الفوز'}{' '}
+              بيحصل وبيتسجّل عندك، بس القناة مش شايفاه. ملخص آخر اليوم بيفضل
+              بيحسب من كل الصفقات، فلو سايبه شغّال هيقول نسبة مختلفة عن اللي
+              الرسايل بتوحي بيه.
+            </div>
+          )}
         </div>
 
         <div className={styles.switchRow} style={{ marginTop: 12 }}>

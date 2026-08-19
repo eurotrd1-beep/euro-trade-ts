@@ -84,9 +84,15 @@ INSERT INTO public.configs (id, data)
 -- `publish` بيختار **نوع** الرسايل: both | signals | results. بيتطبّق على كل
 -- حدث من النوع ده بالتساوي، ومبيبصّش لنتيجة الصفقة — ولا يقدر: وقت الفتح
 -- النتيجة لسه مش موجودة، ووقت النتيجة الاختيار اتاخد من قبل.
+--
+-- `mode` بيختار مين بيضغط زر الإرسال: auto = المولّد لوحده، manual = الرسالة
+-- بتستنى في `telegram_queue` لحد ما الأدمن يقول انشر. غيابه معناه auto.
+--
+-- `outcomes` بيفلتر رسالة النتيجة بناتجها: all | wins | losses. ده الفلتر
+-- الوحيد اللي بيبص للنتيجة — التفاصيل والتحذير في ترحيل telegram_outcomes.
 VALUES (
   'telegram',
-  '{"enabled": false, "minDepthBps": 0, "daily": true, "publish": "both"}'::jsonb
+  '{"enabled": false, "minDepthBps": 0, "daily": true, "publish": "both", "mode": "auto", "outcomes": "all"}'::jsonb
 )
 ON CONFLICT (id) DO NOTHING;
 
