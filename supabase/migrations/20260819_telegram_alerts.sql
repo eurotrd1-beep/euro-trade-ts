@@ -90,6 +90,9 @@ INSERT INTO public.configs (id, data)
 --
 -- `outcomes` بيفلتر رسالة النتيجة بناتجها: all | wins | losses. ده الفلتر
 -- الوحيد اللي بيبص للنتيجة — التفاصيل والتحذير في ترحيل telegram_outcomes.
+--
+-- `summaryOffsetMinutes` مش هنا عن قصد: ترحيل telegram_summary_day هو اللي
+-- بيحطه، عشان قيمته قرار عن المكان مش قيمة أولية. غيابه معناه UTC.
 VALUES (
   'telegram',
   '{"enabled": false, "minDepthBps": 0, "daily": true, "publish": "both", "mode": "auto", "outcomes": "all"}'::jsonb

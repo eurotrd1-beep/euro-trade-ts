@@ -27,6 +27,8 @@ interface ControlState {
   telegramPublish: 'both' | 'signals' | 'results';
   telegramMode: 'auto' | 'manual';
   telegramOutcomes: 'all' | 'wins' | 'losses';
+  /** Hours ahead of UTC, as typed. Stored as minutes. */
+  telegramSummaryOffset: string;
 }
 
 const EMPTY: ControlState = {
@@ -54,6 +56,9 @@ const EMPTY: ControlState = {
   // Every result. This is the only switch in the whole feature that looks at
   // how a trade ended, so its default is the one that hides nothing.
   telegramOutcomes: 'all',
+  // UTC until the row says otherwise, which is what the summary did before
+  // this field existed.
+  telegramSummaryOffset: '0',
 };
 
 export default function AppControlView() {
@@ -98,6 +103,9 @@ export default function AppControlView() {
             : get('telegram')['outcomes'] === 'losses'
               ? 'losses'
               : 'all',
+        telegramSummaryOffset: String(
+          (Number(get('telegram')['summaryOffsetMinutes']) || 0) / 60,
+        ),
       });
       setLoaded(true);
     } catch {
@@ -148,6 +156,11 @@ export default function AppControlView() {
       publish: merged.telegramPublish,
       mode: merged.telegramMode,
       outcomes: merged.telegramOutcomes,
+      // Minutes, so a half-hour zone is expressible; the field asks for hours
+      // because that is how anybody says it out loud.
+      summaryOffsetMinutes: Math.round(
+        Math.max(-14, Math.min(14, Number(merged.telegramSummaryOffset) || 0)) * 60,
+      ),
     });
   }
 
@@ -312,8 +325,9 @@ export default function AppControlView() {
           <div>
             <div className={styles.switchLabel}>ملخص آخر اليوم</div>
             <div className={styles.switchHint}>
-              رسالة واحدة بعد منتصف الليل UTC فيها إجمالي الصفقات والنتايج ونسبة
-              الفوز. الإيقاف بيمنع الرسالة دي بس — الإشارات ونتايجها بتفضل تتنشر.
+              رسالة واحدة بعد نص الليل — بالتوقيت اللي تحت — فيها إجمالي الصفقات
+              والنتايج ونسبة الفوز. الإيقاف بيمنع الرسالة دي بس، والإشارات
+              ونتايجها بتفضل تتنشر.
             </div>
           </div>
           <button
@@ -326,6 +340,40 @@ export default function AppControlView() {
             {state.telegramDaily ? 'بيتنشر' : 'متوقف'}
           </button>
         </div>
+
+        {state.telegramDaily && (
+          <div className={styles.field} style={{ marginTop: 12 }}>
+            <label className={styles.label} htmlFor="tg-tz">
+              يومك بيقفل بفارق كام ساعة عن UTC؟
+            </label>
+            <input
+              id="tg-tz"
+              type="number"
+              min={-12}
+              max={14}
+              step={0.5}
+              dir="ltr"
+              className={styles.input}
+              value={state.telegramSummaryOffset}
+              onChange={(e) => setState({ ...state, telegramSummaryOffset: e.target.value })}
+              onBlur={() => void saveTelegram({})}
+              disabled={busy || !loaded}
+            />
+            <p className={styles.switchHint} style={{ marginTop: 8 }}>
+              مصر = <strong>3</strong>. صفر = توقيت UTC. الرقم ده بيحدد حاجتين مع
+              بعض: الساعة اللي الملخص بيتبعت فيها، والأربعة وعشرين ساعة اللي
+              بيعدّها — يعني على 3، الملخص بيوصل نص الليل بتوقيتك وبيغطّي يومك من
+              نص الليل لنص الليل.
+            </p>
+            {Math.round(Number(state.telegramSummaryOffset) || 0) !== 0 && (
+              <p className={styles.switchHint} style={{ marginTop: 6 }}>
+                باقي المنظومة بتعدّ بيوم UTC — صفحة إحصائيات الإشارات، والتجميع
+                اليومي. فأرقام الملخص هتفرق شوية عن «أمس» هناك، والرسالة نفسها
+                بتكتب التوقيت في عنوانها عشان الفرق يبان بدل ما يتفسّر غلط.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className={styles.field} style={{ marginTop: 14 }}>
           <label className={styles.label} htmlFor="tg-depth">
