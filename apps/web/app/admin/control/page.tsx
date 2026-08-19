@@ -21,6 +21,8 @@ interface ControlState {
   maintenanceMessage: string;
   maintenanceEndsAt: string;
   telegramEnabled: boolean;
+  telegramMinDepth: string;
+  telegramDaily: boolean;
 }
 
 const EMPTY: ControlState = {
@@ -37,6 +39,9 @@ const EMPTY: ControlState = {
   // Off by default. Something that posts to a public channel does not start
   // itself because a screen finished loading.
   telegramEnabled: false,
+  // 0 = publish every signal.
+  telegramMinDepth: '0',
+  telegramDaily: true,
 };
 
 export default function AppControlView() {
@@ -63,6 +68,8 @@ export default function AppControlView() {
         maintenanceMessage: (maintenance['message'] as string) ?? '',
         maintenanceEndsAt: (maintenance['endsAt'] as string) ?? '',
         telegramEnabled: get('telegram')['enabled'] === true,
+        telegramMinDepth: String(get('telegram')['minDepthBps'] ?? 0),
+        telegramDaily: get('telegram')['daily'] !== false,
       });
       setLoaded(true);
     } catch {
@@ -100,9 +107,17 @@ export default function AppControlView() {
    * OFF stops MESSAGES and nothing else. The strategy keeps running, signals
    * keep appearing, trades keep settling and the statistics keep recording.
    */
-  async function setTelegram(on: boolean): Promise<void> {
-    setState((s) => ({ ...s, telegramEnabled: on }));
-    await setConfig('telegram', { enabled: on });
+  async function saveTelegram(next: Partial<ControlState>): Promise<void> {
+    // Both fields go in every write. Sending only the one that changed would
+    // drop the other, because the row is replaced rather than merged.
+    const merged = { ...state, ...next };
+    setState(merged);
+    const depth = Number(merged.telegramMinDepth);
+    await setConfig('telegram', {
+      enabled: merged.telegramEnabled,
+      minDepthBps: Number.isFinite(depth) && depth > 0 ? depth : 0,
+      daily: merged.telegramDaily,
+    });
   }
 
   /** Pings the proxy the same way the Dart admin does before saving a new URL. */
@@ -146,12 +161,59 @@ export default function AppControlView() {
           <button
             type="button"
             disabled={busy || !loaded}
-            onClick={() => void setTelegram(!state.telegramEnabled)}
+            onClick={() => void saveTelegram({ telegramEnabled: !state.telegramEnabled })}
             aria-pressed={state.telegramEnabled}
             className={`${styles.chip} ${state.telegramEnabled ? styles.chipActive : ''}`}
           >
             {state.telegramEnabled ? 'شغّالة' : 'متوقفة'}
           </button>
+        </div>
+
+        <div className={styles.switchRow} style={{ marginTop: 12 }}>
+          <div>
+            <div className={styles.switchLabel}>ملخص آخر اليوم</div>
+            <div className={styles.switchHint}>
+              رسالة واحدة بعد منتصف الليل UTC فيها إجمالي الصفقات والنتايج ونسبة
+              الفوز. الإيقاف بيمنع الرسالة دي بس — الإشارات ونتايجها بتفضل تتنشر.
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={busy || !loaded}
+            onClick={() => void saveTelegram({ telegramDaily: !state.telegramDaily })}
+            aria-pressed={state.telegramDaily}
+            className={`${styles.chip} ${state.telegramDaily ? styles.chipActive : ''}`}
+          >
+            {state.telegramDaily ? 'بيتنشر' : 'متوقف'}
+          </button>
+        </div>
+
+        <div className={styles.field} style={{ marginTop: 14 }}>
+          <label className={styles.label} htmlFor="tg-depth">
+            انشر الإشارات اللي عمقها ≥ (نقطة أساس)
+          </label>
+          <input
+            id="tg-depth"
+            type="number"
+            min={0}
+            step={0.5}
+            dir="ltr"
+            className={styles.input}
+            value={state.telegramMinDepth}
+            onChange={(e) => setState({ ...state, telegramMinDepth: e.target.value })}
+            onBlur={() => void saveTelegram({})}
+            disabled={busy || !loaded}
+          />
+          <p className={styles.switchHint} style={{ marginTop: 8 }}>
+            الحد بيتقرر <strong>قبل</strong> ما نتيجة الصفقة تظهر، فكل إشارة بتتنشر
+            بتفضل تنبؤ حقيقي بيكسب أو يخسر قدام الناس — اللي بيقل هو عدد اللي
+            بيتنشر، مش نتيجته. الإشارة اللي ماتنشرتش، نتيجتها كمان مبتتنشرش.
+          </p>
+          <p className={styles.switchHint} style={{ marginTop: 6 }}>
+            قياس على ٨٦ زوج في يوم واحد — عيّنة صغيرة، والأرقام مش وعد:
+            <strong> ٠</strong> ≈ ٥٢٪ فوز (١٥٠ إشارة) · <strong>٢</strong> ≈ ٧٥٪ (٤٩) ·{' '}
+            <strong>٣</strong> ≈ ٧٩٪ (٣٤) · <strong>٥</strong> ≈ ٧٦٪ (١٦).
+          </p>
         </div>
       </div>
 

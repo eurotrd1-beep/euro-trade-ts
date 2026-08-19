@@ -71,7 +71,10 @@ GRANT EXECUTE ON FUNCTION public.prune_telegram_alerts() TO service_role;
 -- تظهر — فكل إشارة بتتنشر بتفضل تنبؤ حقيقي، واللي بيتغير هو عدد اللي بيتنشر
 -- مش نتيجته.
 INSERT INTO public.configs (id, data)
-VALUES ('telegram', '{"enabled": false, "minDepthBps": 0}'::jsonb)
+--
+-- `daily` بيتحكم في ملخص آخر اليوم لوحده. غيابه معناه مشغّل: الملخص أقدم من
+-- المفتاح ده، وحقل ناقص مايوقفش حاجة كانت شغالة.
+VALUES ('telegram', '{"enabled": false, "minDepthBps": 0, "daily": true}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;
