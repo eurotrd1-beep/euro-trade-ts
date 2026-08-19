@@ -576,7 +576,8 @@ export const fib236Touch: StrategyProgram = {
     //
     // Refusal CONSUMES the setup, exactly as ‹A10› does — `remember` has run and
     // `state.armed` is cleared above, so this swing gets no second attempt ‹A4›.
-    if (depthBps(armed.direction, armed.level, candle.close) < MIN_DEPTH_BPS - DEPTH_SLACK_BPS) {
+    const depth = depthBps(armed.direction, armed.level, candle.close);
+    if (depth < MIN_DEPTH_BPS - DEPTH_SLACK_BPS) {
       return { ...NO_EVENT, diagnostics };
     }
 
@@ -587,7 +588,13 @@ export const fib236Touch: StrategyProgram = {
     };
     return {
       settled: null,
-      signal: { direction: armed.direction, stage: 'primary', entryTime: nextCandleTime },
+      signal: {
+        direction: armed.direction,
+        stage: 'primary',
+        entryTime: nextCandleTime,
+        // Reported, not decided on. ‹A11› has already passed by this line.
+        depthBps: depth,
+      },
       cycleEnd: null,
       diagnostics,
     };

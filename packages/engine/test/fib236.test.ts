@@ -140,7 +140,11 @@ describe('direction comes from the swing, not the touch', () => {
       direction: 'CALL',
       stage: 'primary',
       entryTime: candles[12]!.time + MIN,
+      // Reported alongside, from ‹A11›. Above the minimum by construction:
+      // the signal exists, so the depth cleared it.
+      depthBps: expect.any(Number),
     });
+    expect(events[0]!.signal!.depthBps).toBeGreaterThanOrEqual(3);
   });
 
   it('fires PUT when a down-swing retraces up into the level', () => {

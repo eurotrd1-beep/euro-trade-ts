@@ -163,6 +163,17 @@ export interface ProgramEvent {
     stage: ProgramStage;
     /** Start time of the candle it opens on — always the one that just began. */
     entryTime: number;
+    /**
+     * How far past the level the touch candle closed, in basis points.
+     *
+     * The number ‹A11› already measured, reported rather than recomputed —
+     * anything downstream that wants to rank or filter signals by it reads the
+     * strategy's own figure instead of deriving a second one that will drift.
+     *
+     * Reporting only: nothing in the strategy reads it back, exactly like
+     * `diagnostics`. Absent on a martingale, which has no level of its own.
+     */
+    depthBps?: number;
   } | null;
   cycleEnd: CycleResult | null;
   /**

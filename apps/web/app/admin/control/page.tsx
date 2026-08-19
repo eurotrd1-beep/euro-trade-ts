@@ -20,6 +20,7 @@ interface ControlState {
   maintenanceActive: boolean;
   maintenanceMessage: string;
   maintenanceEndsAt: string;
+  telegramEnabled: boolean;
 }
 
 const EMPTY: ControlState = {
@@ -33,6 +34,9 @@ const EMPTY: ControlState = {
   maintenanceActive: false,
   maintenanceMessage: '',
   maintenanceEndsAt: '',
+  // Off by default. Something that posts to a public channel does not start
+  // itself because a screen finished loading.
+  telegramEnabled: false,
 };
 
 export default function AppControlView() {
@@ -58,6 +62,7 @@ export default function AppControlView() {
         maintenanceActive: maintenance['isActive'] === true,
         maintenanceMessage: (maintenance['message'] as string) ?? '',
         maintenanceEndsAt: (maintenance['endsAt'] as string) ?? '',
+        telegramEnabled: get('telegram')['enabled'] === true,
       });
       setLoaded(true);
     } catch {
@@ -85,6 +90,21 @@ export default function AppControlView() {
     }
   }
 
+  /**
+   * The Telegram switch.
+   *
+   * Stored in `configs`, not in the browser: the generator on Render reads it,
+   * so it has to survive this page being closed, the laptop being shut and the
+   * service restarting — and it has to read the same from another device.
+   *
+   * OFF stops MESSAGES and nothing else. The strategy keeps running, signals
+   * keep appearing, trades keep settling and the statistics keep recording.
+   */
+  async function setTelegram(on: boolean): Promise<void> {
+    setState((s) => ({ ...s, telegramEnabled: on }));
+    await setConfig('telegram', { enabled: on });
+  }
+
   /** Pings the proxy the same way the Dart admin does before saving a new URL. */
   async function testProxy(url: string): Promise<void> {
     setProxyStatus(null);
@@ -105,6 +125,35 @@ export default function AppControlView() {
       <h1 className={styles.title}>تحكم في حالة التطبيق</h1>
 
       {message && <p className={message.kind === 'ok' ? styles.ok : styles.error}>{message.text}</p>}
+
+      {/* ── Telegram ─────────────────────────────────────────────────── */}
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>📣 إشعارات تيليجرام</h2>
+        <p className={styles.switchHint} style={{ marginBottom: 12 }}>
+          بتتبعت من السيرفر مباشرة، مش من الصفحة دي — فقفل اللاب أو المتصفح
+          مش بيوقفها. تلات رسايل بس: فتح الإشارة، نتيجتها، وملخص اليوم بعد
+          منتصف الليل UTC.
+        </p>
+
+        <div className={styles.switchRow}>
+          <div>
+            <div className={styles.switchLabel}>إرسال الإشعارات للقناة</div>
+            <div className={styles.switchHint}>
+              الإيقاف بيوقف <strong>الرسايل بس</strong>. الاستراتيجية بتفضل شغالة،
+              والإشارات بتفضل تظهر، والصفقات والنتايج والإحصائيات بتتسجّل عادي.
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={busy || !loaded}
+            onClick={() => void setTelegram(!state.telegramEnabled)}
+            aria-pressed={state.telegramEnabled}
+            className={`${styles.chip} ${state.telegramEnabled ? styles.chipActive : ''}`}
+          >
+            {state.telegramEnabled ? 'شغّالة' : 'متوقفة'}
+          </button>
+        </div>
+      </div>
 
       {/* ── Price system ─────────────────────────────────────────────── */}
       <div className={styles.card}>
