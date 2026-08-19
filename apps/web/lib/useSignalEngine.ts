@@ -1192,18 +1192,17 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         // Reached: the retracement approaches from the side the leg ran, so
         // an up-swing's level is met from above and a down-swing's from below.
         const reached = armed.direction === 'CALL' ? price <= armed.level : price >= armed.level;
-        const stage = reached ? 'touched' : distance <= range * NEAR_FRACTION ? 'near' : null;
-        if (stage === null) continue;
+        if (!reached) continue;
 
-        const mark = `${armed.key}|${stage}`;
-        if (alertedRef.current.get(symbol) === mark) continue;
-        // Never step back down from `touched` to `near` on a wobble.
-        if (stage === 'near' && alertedRef.current.get(symbol)?.endsWith('|touched')) continue;
-        alertedRef.current.set(symbol, mark);
+        // Once per setup. The price sits on the level for a while, and the
+        // second telling of the same news is the one that gets the whole thing
+        // switched off.
+        if (alertedRef.current.get(symbol) === armed.key) continue;
+        alertedRef.current.set(symbol, armed.key);
 
         const name = displayNameFor(symbol);
         const arrow = armed.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط';
-        if (stage === 'touched') {
+        {
           // A promise, and a safe one. `touches` reads the candle's high and
           // low, so a price that reaches the level and moves away has still
           // touched it — the candle will report it at the close whatever
@@ -1212,12 +1211,13 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
             `الشروط اكتملت — ${name}`,
             `${arrow} · لمس ${formatLevel(armed.level)} · الصفقة هتفتح مع الشمعة الجاية`,
           );
-        } else {
-          notify(
-            `أغلب الشروط اتحققت — ${name}`,
-            `${arrow} · فاضل ${formatLevel(distance)} على ${formatLevel(armed.level)} · جهّز نفسك`,
-          );
         }
+        // There is no "nearly" notification any more. Being close is a
+        // possibility, it happens often, and it arrived in the same shade as
+        // the two messages that mean something — which is how a phone teaches
+        // its owner to ignore it, so that the certainty lands in a queue with
+        // the maybes. The card shows how close every pair is; a notification
+        // is for what has actually happened.
       }
 
       if (moved) setState((st) => ({ ...st, completions: fresh }));
