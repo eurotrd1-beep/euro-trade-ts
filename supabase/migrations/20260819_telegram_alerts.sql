@@ -8,9 +8,15 @@
 --
 -- شكل المفتاح — والسبب إنه مركّب كده:
 --
+--   elig:{symbol}:{entryTime}:{stage}     الصفقة عدّت حد النشر
 --   signal:{symbol}:{entryTime}:{stage}   فتح صفقة
 --   result:{symbol}:{entryTime}:{stage}   نتيجتها
 --   daily:{YYYY-MM-DD}                    ملخص اليوم
+--
+-- `elig` بيتكتب لحظة الإشارة لو عدّت حد العمق، بغض النظر عن إن الإشارة نفسها
+-- هتتنشر ولا لأ. النتيجة بتتنشر بس لو الصف ده موجود — وده اللي بيخلي القناة
+-- في وضع «النتايج بس» تنشر نتايج نفس الصفقات اللي كانت هتتنشر إشاراتها، مش
+-- أي صفقة. الأهلية بتتقرر وقت الفتح، قبل ما النتيجة توجد.
 --
 -- `entryTime` هو وقت الشمعة اللي الصفقة اشتغلت عليها، و`stage` بيفصل الصفقة
 -- الأساسية عن المضاعفة. يعني صفقتين مفتوحتين في نفس الثانية على زوجين
@@ -24,7 +30,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.telegram_alerts (
   event_key text        PRIMARY KEY,
-  kind      text        NOT NULL CHECK (kind IN ('signal', 'result', 'daily')),
+  kind      text        NOT NULL CHECK (kind IN ('eligible', 'signal', 'result', 'daily')),
   sent_at   timestamptz NOT NULL DEFAULT now()
 );
 
@@ -74,7 +80,14 @@ INSERT INTO public.configs (id, data)
 --
 -- `daily` بيتحكم في ملخص آخر اليوم لوحده. غيابه معناه مشغّل: الملخص أقدم من
 -- المفتاح ده، وحقل ناقص مايوقفش حاجة كانت شغالة.
-VALUES ('telegram', '{"enabled": false, "minDepthBps": 0, "daily": true}'::jsonb)
+--
+-- `publish` بيختار **نوع** الرسايل: both | signals | results. بيتطبّق على كل
+-- حدث من النوع ده بالتساوي، ومبيبصّش لنتيجة الصفقة — ولا يقدر: وقت الفتح
+-- النتيجة لسه مش موجودة، ووقت النتيجة الاختيار اتاخد من قبل.
+VALUES (
+  'telegram',
+  '{"enabled": false, "minDepthBps": 0, "daily": true, "publish": "both"}'::jsonb
+)
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

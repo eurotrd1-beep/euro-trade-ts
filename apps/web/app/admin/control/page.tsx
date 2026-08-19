@@ -23,6 +23,7 @@ interface ControlState {
   telegramEnabled: boolean;
   telegramMinDepth: string;
   telegramDaily: boolean;
+  telegramPublish: 'both' | 'signals' | 'results';
 }
 
 const EMPTY: ControlState = {
@@ -42,6 +43,7 @@ const EMPTY: ControlState = {
   // 0 = publish every signal.
   telegramMinDepth: '0',
   telegramDaily: true,
+  telegramPublish: 'both',
 };
 
 export default function AppControlView() {
@@ -70,6 +72,12 @@ export default function AppControlView() {
         telegramEnabled: get('telegram')['enabled'] === true,
         telegramMinDepth: String(get('telegram')['minDepthBps'] ?? 0),
         telegramDaily: get('telegram')['daily'] !== false,
+        telegramPublish:
+          get('telegram')['publish'] === 'signals'
+            ? 'signals'
+            : get('telegram')['publish'] === 'results'
+              ? 'results'
+              : 'both',
       });
       setLoaded(true);
     } catch {
@@ -117,6 +125,7 @@ export default function AppControlView() {
       enabled: merged.telegramEnabled,
       minDepthBps: Number.isFinite(depth) && depth > 0 ? depth : 0,
       daily: merged.telegramDaily,
+      publish: merged.telegramPublish,
     });
   }
 
@@ -167,6 +176,35 @@ export default function AppControlView() {
           >
             {state.telegramEnabled ? 'شغّالة' : 'متوقفة'}
           </button>
+        </div>
+
+        <div className={styles.field} style={{ marginTop: 14 }}>
+          <p className={styles.label}>اللي بيتنشر</p>
+          <div className={styles.actions}>
+            {(
+              [
+                ['both', 'الإشارات والنتايج'],
+                ['signals', 'الإشارات بس'],
+                ['results', 'النتايج بس'],
+              ] as Array<[ControlState['telegramPublish'], string]>
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                disabled={busy || !loaded}
+                onClick={() => void saveTelegram({ telegramPublish: id })}
+                aria-pressed={state.telegramPublish === id}
+                className={`${styles.chip} ${state.telegramPublish === id ? styles.chipActive : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.switchHint} style={{ marginTop: 8 }}>
+            ده بيختار <strong>نوع</strong> الرسايل، مش نتيجتها. أي نتيجة بتتنشر
+            بتتنشر زي ما التسوية قالتها — ربح أو خسارة أو تعادل. و«النتايج بس»
+            بتنشر نتايج نفس الصفقات اللي كانت إشاراتها هتتنشر، مش أي صفقة.
+          </p>
         </div>
 
         <div className={styles.switchRow} style={{ marginTop: 12 }}>
