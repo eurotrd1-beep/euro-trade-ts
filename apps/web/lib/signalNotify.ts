@@ -147,3 +147,122 @@ export function notify(title: string, body: string): void {
     // Some browsers throw for constructor use outside a service worker.
   }
 }
+
+
+// ── The notification ladder ─────────────────────────────────────────────────
+//
+// The same three rungs the proxy sends over Web Push, for the notifications
+// this app raises locally. Both have to agree: a phone gets the browser's
+// notification and the pushed one, and two different accounts of the same
+// moment is worse than either alone.
+//
+//   ⚠️ The other implementation is `push-alerts.js` in euro-trade-proxy. The
+//   rule is small enough to state in one line — a rung is sent only if it is
+//   HIGHER than the highest already sent for that setup — and that line has to
+//   read the same in both places.
+//
+// What it replaces: a message when a setup was ADOPTED, which is halfway up
+// the scale and usually comes to nothing, and one when price REACHED the level
+// saying the trade would open on the next candle. The second stopped being
+// true when ‹A10› and ‹A11› arrived — reaching the level is no longer a
+// promise, the candle also has to close past it, and most do not.
+
+export const ALERT_NEAR = 96;
+export const ALERT_VERY_CLOSE = 98;
+export const ALERT_FIRED = 100;
+
+const LADDER_KEY = 'alert_ladder';
+
+/** symbol → { key: the setup, highest: the top rung already sent }. */
+type Ladder = Record<string, { key: string; highest: number }>;
+
+/**
+ * Persisted, so a reload does not re-announce an opportunity in progress.
+ *
+ * The proxy's copy of this is a table with a primary key, because it has to
+ * survive a redeploy. Here the equivalent hazard is the user refreshing the
+ * page mid-candle, and `localStorage` is the same idea at the right size.
+ */
+function readLadder(): Ladder {
+  try {
+    const raw = localStorage.getItem(LADDER_KEY);
+    return raw ? (JSON.parse(raw) as Ladder) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLadder(l: Ladder): void {
+  try {
+    localStorage.setItem(LADDER_KEY, JSON.stringify(l));
+  } catch {
+    /* private mode: the ladder falls back to per-session, which still stops
+       the ordinary repeats */
+  }
+}
+
+/** The message a rung puts on a lock screen. Short, and never overstated. */
+function messageFor(stage: number, name: string, percent: number): [string, string] {
+  if (stage === ALERT_FIRED) {
+    return [`إشارة بدأت — ${name}`, `🚨 اتفتحت إشارة الآن — ${name}`];
+  }
+  const pct = percent.toFixed(1);
+  return stage === ALERT_VERY_CLOSE
+    ? [`فرصة بتقرب — ${name}`, `قريب جدًا من إصدار إشارة — ${name} — ${pct}%`]
+    : [`فرصة بتقرب — ${name}`, `إشارة محتملة قريبًا — ${name} — ${pct}%`];
+}
+
+/**
+ * One pair, one moment. Returns the rung it sent, or null.
+ *
+ * `fired` is not derived from the percentage. 100 belongs to the program
+ * returning a signal — a closed candle that satisfied every rule — and a card
+ * sitting at 100 because a cycle is open is not that event.
+ */
+export function notifyStage(args: {
+  symbol: string;
+  name: string;
+  setupKey: string | null;
+  percent: number;
+  fired?: boolean;
+}): number | null {
+  const { symbol, name, setupKey, percent, fired = false } = args;
+  const ladder = readLadder();
+
+  if (!setupKey) {
+    if (ladder[symbol] !== undefined) {
+      delete ladder[symbol];
+      writeLadder(ladder);
+    }
+    return null;
+  }
+
+  const stage = fired
+    ? ALERT_FIRED
+    : percent >= ALERT_VERY_CLOSE
+      ? ALERT_VERY_CLOSE
+      : percent >= ALERT_NEAR
+        ? ALERT_NEAR
+        : 0;
+  if (stage === 0) return null;
+
+  const held = ladder[symbol];
+  const highest = held !== undefined && held.key === setupKey ? held.highest : 0;
+  if (stage <= highest) return null;
+
+  ladder[symbol] = { key: setupKey, highest: stage };
+  writeLadder(ladder);
+
+  const [title, body] = messageFor(stage, name, percent);
+  notify(title, body);
+  return stage;
+}
+
+/** Forgets every ladder — for a sign-out, or a change of account. */
+export function resetLadders(): void {
+  try {
+    localStorage.removeItem(LADDER_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}

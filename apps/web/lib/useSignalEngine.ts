@@ -61,7 +61,10 @@ import {
   resolveOpenTrades,
   saveHistory,
 } from './signalHistoryStore';
-import { notify } from './signalNotify';
+import { notify,
+  notifyStage,
+  resetLadders,
+} from './signalNotify';
 import { acquireWatchLease, type WatchLease } from './watchLease';
 import {
   playCallSound,
@@ -392,6 +395,23 @@ function formatLevel(price: number): string {
   return price.toFixed(price >= 50 ? 3 : 5);
 }
 
+/**
+ * The sound a placed trade makes. It no longer raises a notification.
+ *
+ * It used to raise two: "إشارة جديدة" for a primary and "مضاعفة" for a
+ * recovery. Both are now duplicates — the ladder in `signalNotify` sends the
+ * 100 rung the moment the program returns a signal, which is the same instant
+ * this runs, so a user was getting two messages about one event and the pushed
+ * one made three.
+ *
+ * The martingale message went with them rather than being kept as a fourth
+ * kind. The proxy has never pushed one either: `push-alerts.js` only climbs
+ * for a primary, and a recovery trade opening is the same opportunity
+ * continuing, not a new one.
+ *
+ * The sounds stay. They are instant, they cost nothing, and they are the part
+ * that was never repeating.
+ */
 function announceSignal(signal: TradingSignal): void {
   if (signal.origin === 'monitoring') {
     if (signal.direction === 'CALL') playCallSound();
@@ -399,25 +419,6 @@ function announceSignal(signal: TradingSignal): void {
   } else {
     playNewSignalSound();
   }
-
-  const arrow = signal.direction === 'CALL' ? '🟢 صعود CALL' : '🔴 هبوط PUT';
-  const pair = signal.pair.replaceAll(' (OTC)', '');
-
-  // A martingale is entered at a doubled stake off the back of a loss. It is
-  // the only trade the app opens that costs more than the last one, so it says
-  // so in the notification rather than arriving as another green arrow.
-  if (signal.stage === 'martingale') {
-    notify(
-      `مضاعفة — ${pair}`,
-      `${arrow} · تعويض الصفقة الخاسرة · ${signal.durationMinutes} دقيقة · مرة واحدة فقط`,
-    );
-    return;
-  }
-
-  notify(
-    `إشارة جديدة — ${pair}`,
-    `${arrow} · الثقة ${signal.confidence.toFixed(1)}% · ${signal.durationMinutes} دقيقة`,
-  );
 }
 
 export function useSignalEngine(args: UseSignalEngineArgs) {
@@ -588,8 +589,6 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   /** The pair holding the open cycle, or null. Nothing else is ticked while set. */
   const cycleSymbolRef = useRef<string | null>(null);
 
-  /** The loudest alert already sent for a pair's current setup, keyed by setup. */
-  const alertedRef = useRef(new Map<string, string>());
   /**
    * The last candle's search diagnostics, per pair.
    *
@@ -741,7 +740,10 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   useEffect(() => {
     programStatesRef.current = new Map();
     cycleSymbolRef.current = null;
-    alertedRef.current = new Map();
+    // The notification ladder is cleared too: a different account or timeframe
+    // is a different set of opportunities, and one carried over would suppress
+    // the first real alert on the new one.
+    resetLadders();
   }, [program, args.accountId, args.timeframe]);
 
   /**
@@ -858,11 +860,51 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       });
     }
 
-    // Settle only once the candle is closed. A candle still forming has a
-    // `close` that is just the current price, and judging on it is the
-    // live-tick settlement this deliberately does not do.
-    const closed = Date.now() >= open.expiryTime;
-    if (!closed) return;
+    // ── Settle only once the candle is actually FINISHED ──────────────────
+    //
+    // This used to ask the clock: `Date.now() >= open.expiryTime`. The clock
+    // says the minute is over; it says nothing about whether the feed has
+    // finished building that minute's candle. At the instant the countdown
+    // hits zero the buffer still holds the trade's candle mid-flight, and its
+    // `close` is simply the last tick — so the trade was being judged on a
+    // price from the middle of its own candle.
+    //
+    // Measured on AUD/NZD OTC at 16:24 UTC on 2026-08-19: the candle opened at
+    // 1.17391, ran up to 1.17470 and closed at 1.17230. A PUT taken at the open
+    // WON. The card settled it against 1.17420 — a price from partway up that
+    // run — and recorded a LOSS, then showed the user a close that no candle
+    // ever had. The generator, reading the finished candle, recorded the win.
+    // Same trade, two verdicts, and the wrong one was the one on screen.
+    //
+    // A candle is finished when a LATER one exists. That is the feed's own
+    // statement that it has moved on, and it is the same discipline
+    // `lastClosedIndex` applies inside the engine — never read the bar that is
+    // still being written.
+    const finished = candles.some((c) => c.time > open.entryTime);
+    if (!finished) {
+      // Not stuck: the next candle is seconds away. But if it never comes the
+      // card must not spin for ever, and settling on a half-built close is
+      // exactly what this is here to stop — so it ends as unresolved instead.
+      if (Date.now() < open.expiryTime + STRANDED_AFTER_MS) return;
+      const stale: TradingSignal = {
+        ...open,
+        status: 'UNRESOLVED',
+        exitPrice: null,
+        candlesSnapshot: stateRef.current.candles.slice(),
+      };
+      const history = mergeHistories([stale], stateRef.current.history);
+      const accountId = argsRef.current.accountId;
+      if (accountId) {
+        saveHistory(accountId, history);
+        void pushRemoteHistory(accountId, history);
+      }
+      setState((s) => {
+        const rest = { ...s.openTrades };
+        delete rest[symbol];
+        return { ...s, openTrades: rest, history };
+      });
+      return;
+    }
 
     const result = argsRef.current.guaranteedWin
       ? 'WIN'
@@ -928,17 +970,28 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         saveProgramState(prog, a.accountId, symbol, a.timeframe, progState);
       }
 
-      // A newly adopted setup is the first thing worth telling the user about:
-      // the swing is found and validated, and only the touch is outstanding.
+      // A newly adopted setup used to be announced here. It sits halfway up
+      // the scale — the swing is found, and price may be most of a leg away
+      // and may never come back — and since ‹A10› and ‹A11› most of them come
+      // to nothing at all. The ladder in `signalNotify` starts at 96 instead;
+      // everything below that is the card's job.
       const armedNow = progState.armed;
-      if (armedNow !== null && armedNow.key !== armedBefore) {
-        alertedRef.current.set(symbol, `${armedNow.key}|armed`);
-        notify(
-          `فرصة بتتكوّن — ${displayNameFor(symbol)}`,
-          `${armedNow.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط'} · مستنيين السعر يوصل ${formatLevel(armedNow.level)}`,
-        );
+      if (armedNow === null && armedBefore !== null) {
+        notifyStage({ symbol, name: displayNameFor(symbol), setupKey: null, percent: 0 });
       }
-      if (armedNow === null && armedBefore !== null) alertedRef.current.delete(symbol);
+
+      // 100. Tied to the program RETURNING a signal — a closed candle that
+      // satisfied every rule — and to nothing else. The identity comes from
+      // `armedBefore` because firing has already cleared `progState.armed`.
+      if (event.signal !== null && event.signal.stage === 'primary' && armedBefore !== null) {
+        notifyStage({
+          symbol,
+          name: displayNameFor(symbol),
+          setupKey: armedBefore,
+          percent: 100,
+          fired: true,
+        });
+      }
 
       if (event.settled !== null) {
         // The card, or — when there is no card — the trade's own row in the
@@ -1204,30 +1257,16 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         const reached = armed.direction === 'CALL' ? price <= armed.level : price >= armed.level;
         if (!reached) continue;
 
-        // Once per setup. The price sits on the level for a while, and the
-        // second telling of the same news is the one that gets the whole thing
-        // switched off.
-        if (alertedRef.current.get(symbol) === armed.key) continue;
-        alertedRef.current.set(symbol, armed.key);
-
-        const name = displayNameFor(symbol);
-        const arrow = armed.direction === 'CALL' ? '🟢 صعود' : '🔴 هبوط';
-        {
-          // A promise, and a safe one. `touches` reads the candle's high and
-          // low, so a price that reaches the level and moves away has still
-          // touched it — the candle will report it at the close whatever
-          // happens in between, and the trade is owed from this moment.
-          notify(
-            `الشروط اكتملت — ${name}`,
-            `${arrow} · لمس ${formatLevel(armed.level)} · الصفقة هتفتح مع الشمعة الجاية`,
-          );
-        }
-        // There is no "nearly" notification any more. Being close is a
-        // possibility, it happens often, and it arrived in the same shade as
-        // the two messages that mean something — which is how a phone teaches
-        // its owner to ignore it, so that the certainty lands in a queue with
-        // the maybes. The card shows how close every pair is; a notification
-        // is for what has actually happened.
+        // What used to be here: a message the moment price REACHED the level,
+        // saying the trade would open on the next candle. ‹A10› and ‹A11›
+        // ended that — reaching the level is not a promise any more, the
+        // candle has to close past it and three basis points beyond, and most
+        // do not. The message kept arriving and was wrong more often than
+        // right.
+        //
+        // Nothing replaces it here. The ladder is driven from the reading the
+        // card shows, in the one-second recompute below, so one place decides
+        // what a user is told and one number is behind it.
       }
 
       if (moved) setState((st) => ({ ...st, completions: fresh }));
@@ -1309,14 +1348,28 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
           symbol === argsRef.current.chartSymbol ? (livePriceRef.current?.() ?? 0) : 0;
         const price = live > 0 ? live : lastPricesRef.current[symbol];
         if (typeof price !== 'number' || price <= 0) continue;
-        next[symbol] = setupProgress(
+        const p = setupProgress(
           st,
           diagnosticsRef.current.get(symbol) ?? null,
           price,
           candleLeft(argsRef.current.timeframe),
           touchedNow(symbol, st.armed, price),
         );
+        next[symbol] = p;
         any = true;
+
+        // 96 and 98, from exactly the number the row is showing. Driven from
+        // here rather than from the poll because the reading moves with the
+        // clock as well as the price — a pair can cross 96 without a tick
+        // arriving, and the ladder should not have to wait four seconds to
+        // notice. `notifyStage` is idempotent per rung per setup, so being
+        // called every second costs nothing.
+        notifyStage({
+          symbol,
+          name: displayNameFor(symbol),
+          setupKey: st.armed?.key ?? null,
+          percent: p.percent,
+        });
       }
       if (any) setState((st) => ({ ...st, completions: next }));
     }, 1000);

@@ -36,7 +36,7 @@
 
 import { useMemo } from 'react';
 import { tr, type PairRow } from '@euro/shared';
-import type { SetupProgress, TradingSignal } from '@euro/engine';
+import { outcomeFor, type SetupProgress, type TradingSignal } from '@euro/engine';
 import { byNearest, remainingText } from '@/lib/stageWords';
 import styles from './WatchCard.module.css';
 
@@ -109,6 +109,28 @@ export function WatchCard({
   );
   const tradingSet = useMemo(() => new Set(trading.map(([sym]) => sym)), [trading]);
 
+  /**
+   * Where each running trade stands right now, by the engine's own rule.
+   *
+   * `outcomeFor` and not a comparison written here: the draw band is part of
+   * what makes a trade a win, and a row that turned green on a move smaller
+   * than the band would be promising a result the settlement will not give.
+   * A trade inside the band shows neither colour, which is the truth — it is
+   * currently going nowhere.
+   *
+   * Live, not settled: this is what the trade is doing, and it changes with
+   * every tick until the candle closes.
+   */
+  const standing = useMemo(() => {
+    const out: Record<string, 'WIN' | 'LOSS' | 'TIE'> = {};
+    for (const [sym, t] of trading) {
+      const price = prices[sym];
+      if (typeof price !== 'number' || price <= 0 || t.entryPrice <= 0) continue;
+      out[sym] = outcomeFor(t.direction, t.entryPrice, price);
+    }
+    return out;
+  }, [trading, prices]);
+
   const forming = useMemo(() => {
     return (
       watched
@@ -160,8 +182,12 @@ export function WatchCard({
                   type="button"
                   onClick={() => onSelect(sym)}
                   className={`${styles.row} ${styles.trading} ${
-                    sym === chartSymbol ? styles.onChart : ''
-                  }`}
+                    standing[sym] === 'WIN'
+                      ? styles.winning
+                      : standing[sym] === 'LOSS'
+                        ? styles.losing
+                        : ''
+                  } ${sym === chartSymbol ? styles.onChart : ''}`}
                 >
                   <span className={styles.dot} aria-hidden="true">
                     {t.direction === 'CALL' ? '▲' : '▼'}

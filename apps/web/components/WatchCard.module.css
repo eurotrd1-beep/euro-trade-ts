@@ -291,3 +291,62 @@
     box-shadow: 0 0 10px 0 rgba(249, 115, 22, 0.4);
   }
 }
+
+/* ── The trade burning ─────────────────────────────────────────────────────
+   A running trade is winning or losing right now, and the row says which.
+
+   Inward rather than outward: the ember on an approaching pair glows OUT from
+   its edges because it is a thing about to happen; this one burns IN, because
+   it is a thing already happening to the row. Same idea, opposite direction,
+   so the two never read as the same state.
+
+   The colour is the engine's verdict, draw band included, so a row is green
+   only when the trade would actually settle as a win. A trade inside the band
+   shows neither — it is going nowhere, and saying otherwise would be a promise
+   the settlement is about to break. */
+.winning::after,
+.losing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  animation: burn 1.5s ease-in-out infinite;
+}
+
+.winning { border-color: rgba(52, 211, 153, 0.55); }
+.losing {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.winning::after { --burn: 52, 211, 153; }
+.losing::after { --burn: 248, 113, 113; }
+
+@keyframes burn {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 9px 0 rgba(var(--burn), 0.35),
+      inset 0 0 0 1px rgba(var(--burn), 0.45);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 22px 4px rgba(var(--burn), 0.6),
+      inset 0 0 0 1px rgba(var(--burn), 0.85);
+  }
+}
+
+/* The badge and arrow follow the trade, not the section. */
+.losing .dot { color: #f87171; }
+.losing .badge { color: #3b0a0a; background: #f87171; }
+
+@media (prefers-reduced-motion: reduce) {
+  .winning::after,
+  .losing::after {
+    animation: none;
+    box-shadow:
+      inset 0 0 12px 0 rgba(var(--burn), 0.45),
+      inset 0 0 0 1px rgba(var(--burn), 0.7);
+  }
+}
