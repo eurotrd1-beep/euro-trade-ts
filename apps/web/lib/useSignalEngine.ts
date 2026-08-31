@@ -446,6 +446,67 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   const argsRef = useRef(args);
   argsRef.current = args;
 
+  // ── One writer for the history ────────────────────────────────────────────
+  //
+  // A losing trade that owes a martingale is settled and the martingale is
+  // opened in the SAME synchronous block: `applyEvent` calls `settleTo` and
+  // then `recordOpen`, one after the other, on one candle close. Both used to
+  // build their new list the same way:
+  //
+  //     mergeHistories([row], stateRef.current.history)
+  //
+  // `stateRef` is assigned during render, and React has not rendered between
+  // those two calls — so the second one read the list from BEFORE the first
+  // one. It merged the martingale into a list that still held the losing trade
+  // as ACTIVE, and then wrote that over the settled version. The loss stayed
+  // marked "running" for ever: on screen, in localStorage, and in the copy
+  // pushed to the server. The martingale closing did not fix it, because
+  // nothing ever looked at the first trade again.
+  //
+  // So the list has one owner now. `historyRef` is updated SYNCHRONOUSLY on
+  // every write, which is what makes two writes in one tick compose instead of
+  // race, and the React state follows it.
+  const historyRef = useRef<readonly TradingSignal[]>([]);
+
+  // The durable push is coalesced to once per tick. Two pushes racing is the
+  // lost-update `pushRemoteHistory` warns about — it reads, merges and writes,
+  // so two in flight together can each miss what the other is saving.
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistHistory = useCallback((rows: readonly TradingSignal[], push: boolean) => {
+    historyRef.current = rows;
+    setState((s) => ({ ...s, history: rows as TradingSignal[] }));
+
+    const id = argsRef.current.accountId;
+    if (!id) return;
+    saveHistory(id, rows);
+    if (!push) return;
+
+    if (pushTimerRef.current !== null) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      pushTimerRef.current = null;
+      const account = argsRef.current.accountId;
+      // `historyRef`, not the captured array: whatever else was written in the
+      // meantime belongs in the same push.
+      if (account) void pushRemoteHistory(account, historyRef.current);
+    }, 0);
+  }, []);
+
+  /** Folds rows into the list and saves it. The only way a trade is recorded. */
+  const commitHistory = useCallback(
+    (rows: readonly TradingSignal[]) => {
+      persistHistory(mergeHistories(rows, historyRef.current), true);
+    },
+    [persistHistory],
+  );
+
+  useEffect(
+    () => () => {
+      if (pushTimerRef.current !== null) clearTimeout(pushTimerRef.current);
+    },
+    [],
+  );
+
   // ── History, restored ─────────────────────────────────────────────────────
   // Held only in React state before, so every refresh emptied it and every
   // statistic drawn from it read zero. Loaded on the account, rewritten on each
@@ -461,12 +522,18 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     const id = args.accountId;
     if (!id) return;
 
+    // Both loads go through `persistHistory` so `historyRef` — which every
+    // write composes on top of — is never behind what is on screen.
     const cached = loadHistory(id);
     if (cached.length > 0) {
-      setState((s) => ({
-        ...s,
-        history: resolveOpenTrades(cached, args.pair, s.openTrades[args.chartSymbol] ?? null),
-      }));
+      persistHistory(
+        resolveOpenTrades(
+          cached,
+          args.pair,
+          stateRef.current.openTrades[argsRef.current.chartSymbol] ?? null,
+        ),
+        false,
+      );
     }
 
     let cancelled = false;
@@ -479,23 +546,19 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // Merged against the CURRENT list rather than against `cached`: a trade
       // can settle while this request is in flight, and it must not be dropped.
       const merged = resolveOpenTrades(
-        mergeHistories(stateRef.current.history, remote),
+        mergeHistories(historyRef.current, remote),
         argsRef.current.pair,
         stateRef.current.openTrades[argsRef.current.chartSymbol] ?? null,
       );
-      saveHistory(id, merged);
-      setState((s) => ({ ...s, history: merged }));
 
       // Only write back when this device is actually carrying something the
       // server has not seen, or when an abandoned trade was just marked. Left
       // unguarded, opening the app would be a write.
-      if (merged.length !== remote.length || differs(merged, remote)) {
-        void pushRemoteHistory(id, merged);
-      }
+      persistHistory(merged, merged.length !== remote.length || differs(merged, remote));
     })();
 
     return () => { cancelled = true; };
-  }, [args.accountId, args.pair]);
+  }, [args.accountId, args.pair, persistHistory]);
 
   // ── Resume a trade that was still running ─────────────────────────────────
   // The stored list can carry an ACTIVE trade whose expiry has NOT passed —
@@ -773,22 +836,17 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       if (result === 'WIN') playWinSound();
       else if (result === 'LOSS') playLossSound();
 
-      const history = mergeHistories([settled], stateRef.current.history);
-      const accountId = argsRef.current.accountId;
-      if (accountId) {
-        saveHistory(accountId, history);
-        void pushRemoteHistory(accountId, history);
-      }
+      commitHistory([settled]);
       setState((s) => {
         // The settled trade leaves the open set. Its result is in the history,
         // which is where a finished trade belongs; leaving it here would keep a
         // countdown on screen for something that has already happened.
         const open = { ...s.openTrades };
         if (settled.symbol !== undefined) delete open[settled.symbol];
-        return { ...s, openTrades: open, history };
+        return { ...s, openTrades: open };
       });
     },
-    [],
+    [commitHistory],
   );
 
   /**
@@ -836,16 +894,11 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         exitPrice: null,
         candlesSnapshot: stateRef.current.candles.slice(),
       };
-      const history = mergeHistories([stale], stateRef.current.history);
-      const accountId = argsRef.current.accountId;
-      if (accountId) {
-        saveHistory(accountId, history);
-        void pushRemoteHistory(accountId, history);
-      }
+      commitHistory([stale]);
       setState((s) => {
         const open = { ...s.openTrades };
         delete open[symbol];
-        return { ...s, openTrades: open, history };
+        return { ...s, openTrades: open };
       });
       return;
     }
@@ -892,16 +945,11 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         exitPrice: null,
         candlesSnapshot: stateRef.current.candles.slice(),
       };
-      const history = mergeHistories([stale], stateRef.current.history);
-      const accountId = argsRef.current.accountId;
-      if (accountId) {
-        saveHistory(accountId, history);
-        void pushRemoteHistory(accountId, history);
-      }
+      commitHistory([stale]);
       setState((s) => {
         const rest = { ...s.openTrades };
         delete rest[symbol];
-        return { ...s, openTrades: rest, history };
+        return { ...s, openTrades: rest };
       });
       return;
     }
@@ -920,7 +968,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       return;
     }
     settleTo(open, outcomeFor(open.direction, bar.open, bar.close), bar.open, bar.close);
-  }, [settleTo]);
+  }, [settleTo, commitHistory]);
 
   const setLivePriceGetter = useCallback((getter: () => number) => {
     livePriceRef.current = getter;
@@ -935,15 +983,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * settlement above replaces it in place, so the cost of a normal trade is one
    * extra write and the benefit is that no placed trade can vanish.
    */
-  const recordOpen = useCallback((signal: TradingSignal) => {
-    const history = mergeHistories([signal], stateRef.current.history);
-    setState((s) => ({ ...s, history }));
-    const id = argsRef.current.accountId;
-    if (id) {
-      saveHistory(id, history);
-      void pushRemoteHistory(id, history);
-    }
-  }, []);
+  const recordOpen = useCallback(
+    (signal: TradingSignal) => {
+      commitHistory([signal]);
+    },
+    [commitHistory],
+  );
 
   /**
    * One closed candle through the program — the whole of the strategy's
@@ -1014,7 +1059,10 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
         const target =
           open !== null && open.status === 'ACTIVE'
             ? open
-            : (stateRef.current.history.find(
+            : // `historyRef`, not the render's copy: a settlement earlier in
+              // this same tick has already been folded in there and would not
+              // be visible in state until React renders.
+              (historyRef.current.find(
                 (h) => h.status === 'ACTIVE' && sameTrade(h, symbol),
               ) ?? null);
 
