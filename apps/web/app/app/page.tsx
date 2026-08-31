@@ -298,11 +298,12 @@ export default function MainScreen() {
     marketClosed,
     // The watch already waited for the candle close, so it hands the candle
     // straight to the strategy instead of replaying the twelve analysis stages.
-    // The program's own trade length, not the picker's. One candle is one
-    // trade, so on 5m the trade is five minutes — and a forced signal, which
-    // is the one path that still reads this number, must expire with the
-    // strategy's trades rather than a minute into them.
-    evaluate: () => engine.fireMonitoringSignal(program.durationMinutes),
+    //
+    // No trade length is passed any more. One candle is one trade, so the
+    // engine takes it from the timeframe it was given — the forced path used to
+    // be handed this number separately and could therefore be told a length its
+    // own candle grid disagreed with.
+    evaluate: () => engine.fireMonitoringSignal(),
   });
 
   // A trade is running, or the watch is on and may open one at any candle.
@@ -397,9 +398,9 @@ export default function MainScreen() {
       if (best !== undefined) switchToPair(best);
     }
 
-    const outcome = await engine.requestSignal(program.durationMinutes);
+    const outcome = await engine.requestSignal();
     if (outcome !== 'unavailable') monitoring.start();
-  }, [engine, monitoring, program.durationMinutes, watchSymbols, chartSymbol, switchToPair]);
+  }, [engine, monitoring, watchSymbols, chartSymbol, switchToPair]);
 
   const socialPairs = useMemo(() => visiblePairs.map((p) => p.symbol), [visiblePairs]);
   const socialLogs = useSocialFeed({ pairs: socialPairs, marketClosed });

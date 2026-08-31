@@ -31,7 +31,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_PROGRAM_ID,
-  alignExpiry,
   confidenceFor,
   evaluateRules,
   programFor,
@@ -53,6 +52,7 @@ import {
 } from '@euro/engine';
 import { fetchCandles, fetchCandlesBulk, fetchOtcStatus } from './candles';
 import { loadProgramState, saveProgramState } from './programState';
+import { nextCandleWindow } from './tradeWindow';
 import {
   fetchRemoteHistory,
   loadHistory,
@@ -500,12 +500,12 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
   // ── Resume a trade that was still running ─────────────────────────────────
   // The stored list can carry an ACTIVE trade whose expiry has NOT passed —
   // the app was closed, or reloaded, mid-trade. Putting it back into
-  // `activeSignal` hands it to the countdown effect below, which settles it
-  // against the live price exactly as if it had never been interrupted.
+  // `openTrades` hands it to `reconcileOpenTrade`, which settles it from its
+  // own candle exactly as if it had never been interrupted.
   //
-  // Only for the pair it was opened on: settlement reads the live price of
-  // whatever chart is showing, so restoring a EUR/USD trade onto a GBP/JPY
-  // chart would judge it against the wrong market.
+  // Restored for every pair, not just the chart's. That is safe because
+  // settlement reads the trade's candle rather than whatever price the chart
+  // happens to be showing, and the off-chart sweep below fetches those candles.
   useEffect(() => {
     if (state.history.length === 0) return;
 
@@ -906,10 +906,20 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       return;
     }
 
-    const result = argsRef.current.guaranteedWin
-      ? 'WIN'
-      : outcomeFor(open.direction, bar.open, bar.close);
-    settleTo(open, result, bar.open, bar.close);
+    // ── The forced account's close has to agree with its verdict ──────────
+    //
+    // This used to stamp WIN on the candle's real close, which on a losing
+    // candle put a self-contradicting card on screen: a CALL entered at
+    // 1.17391, closed at 1.17230, marked WIN. `guaranteedWinExit` exists for
+    // exactly this and was imported here and never called. It keeps the real
+    // close whenever the real close already wins — so most cards show the true
+    // number — and only when it does not does it move the close a fraction to
+    // the winning side.
+    if (argsRef.current.guaranteedWin) {
+      settleTo(open, 'WIN', bar.open, guaranteedWinExit(open.direction, bar.open, bar.close));
+      return;
+    }
+    settleTo(open, outcomeFor(open.direction, bar.open, bar.close), bar.open, bar.close);
   }, [settleTo]);
 
   const setLivePriceGetter = useCallback((getter: () => number) => {
@@ -1305,6 +1315,50 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
     };
   }, [args.chartSymbol, args.timeframe, args.priceSystem]);
 
+  // ── Every open trade, not just the one on screen ──────────────────────────
+  //
+  // The feed above reconciles ONE pair: the one the chart is showing. With a
+  // program running that is enough by accident — the watch sweeps every watched
+  // pair each candle and `applyEvent` reconciles each of them on the way past.
+  //
+  // A forced account has no program. `tickProgram` never runs, so that sweep
+  // never happens, and the feed above is the only thing that ever looks at an
+  // open trade. Switch the chart to another pair while a forced trade is open
+  // and nothing looks at it again — not after its expiry, not after the
+  // stranded timeout, never. It stays ACTIVE for the life of the session, and
+  // because the "already trading" guard only checks the CURRENT pair, the watch
+  // opens another one on the new chart and strands that too.
+  //
+  // This closes the hole for both paths at once, which matters beyond the
+  // forced account: a program user who unwatches a pair mid-trade takes it out
+  // of the sweep and lands in the same place.
+  const openSymbols = Object.keys(state.openTrades).sort().join(',');
+  useEffect(() => {
+    if (args.priceSystem === 'simulator') return;
+    const strays = openSymbols.split(',').filter((s) => s !== '' && s !== args.chartSymbol);
+    if (strays.length === 0) return;
+
+    let cancelled = false;
+    async function sweep(): Promise<void> {
+      // One request for all of them. These pairs are off-screen, so nothing
+      // here touches `state.candles` — the buffer belongs to the chart.
+      const bulk = await fetchCandlesBulk(strays, args.timeframe);
+      if (cancelled) return;
+      // Every stray, including the ones the request had nothing for. An empty
+      // array is not a reason to skip: the stranded-trade timeout lives inside
+      // `reconcileOpenTrade`, so a pair the proxy has no history for would
+      // never time out either if it were passed over here.
+      for (const symbol of strays) reconcileOpenTrade(symbol, bulk.get(symbol) ?? []);
+    }
+
+    void sweep();
+    const id = setInterval(() => void sweep(), CANDLE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [openSymbols, args.chartSymbol, args.timeframe, args.priceSystem, reconcileOpenTrade]);
+
   // ── Countdown + settlement ────────────────────────────────────────────────
   /**
    * A once-a-second tick, so the countdowns move.
@@ -1394,37 +1448,55 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * engine is vendored into the proxy generator, whose whole job is writing
    * signals that statistics are computed from. A forced signal must never be
    * reachable from there.
+   *
+   * ── IT RUNS ON A CANDLE, LIKE EVERY OTHER TRADE ───────────────────────────
+   *
+   * The timing used to come from `alignExpiry`, which snaps to a ONE-MINUTE
+   * grid whatever the chart is on. Settlement finds a trade's candle by exact
+   * time — `candles.find(c => c.time === entryTime)` — and on a 5m chart the
+   * feed's candles are on five-minute boundaries, so a minute-aligned entry
+   * matched nothing four times out of five. No candle meant no settlement, and
+   * the card ran on past its own countdown until the stranded-trade timeout
+   * closed it as UNRESOLVED — the one account that is supposed to win every
+   * trade getting no result at all.
+   *
+   * So the window comes from the timeframe now, and the trade is the NEXT
+   * candle: the same shape as a program signal, which fires on a close and
+   * trades the candle after it. `durationMinutes` is derived from the same
+   * number rather than passed in, because one candle IS one trade and two
+   * sources for that could disagree.
    */
-  const forcedSignal = useCallback(
-    (selectedMinutes: number, forMonitoring = false): TradingSignal => {
-      const { currentPrice } = stateRef.current;
-      const a = argsRef.current;
-      const aligned = alignExpiry(Date.now(), selectedMinutes);
-      const live = livePriceRef.current?.() ?? 0;
-      const entry = live > 0 ? live : currentPrice;
+  const forcedSignal = useCallback((forMonitoring = false): TradingSignal => {
+    const { currentPrice } = stateRef.current;
+    const a = argsRef.current;
+    const candleMs = timeframeSeconds(a.timeframe) * 1000;
+    const window = nextCandleWindow(Date.now(), candleMs);
+    const live = livePriceRef.current?.() ?? 0;
+    const entry = live > 0 ? live : currentPrice;
 
-      return {
-        pair: a.pair,
-        symbol: a.chartSymbol,
-        direction: (Math.random() < 0.5 ? 'CALL' : 'PUT') as Direction,
-        durationMinutes: selectedMinutes,
-        entryPrice: entry,
-        currentPrice: entry,
-        // The band a scored signal used to land in, so the card is
-        // indistinguishable from a real one.
-        confidence: 92.5 + Math.random() * (98.9 - 92.5),
-        entryTime: aligned.entryTime,
-        expiryTime: aligned.expiryTime,
-        status: 'ACTIVE',
-        exitPrice: null,
-        candlesSnapshot: null,
-        marketCondition: '',
-        recommendation: '',
-        origin: forMonitoring ? 'monitoring' : 'instant',
-      };
-    },
-    [],
-  );
+    return {
+      pair: a.pair,
+      symbol: a.chartSymbol,
+      direction: (Math.random() < 0.5 ? 'CALL' : 'PUT') as Direction,
+      durationMinutes: candleMs / 60_000,
+      // Provisional, exactly as it is for a program signal: the candle this
+      // trade runs on does not exist yet, so the last price stands in until
+      // `reconcileOpenTrade` replaces it with that candle's open.
+      entryPrice: entry,
+      currentPrice: entry,
+      // The band a scored signal used to land in, so the card is
+      // indistinguishable from a real one.
+      confidence: 92.5 + Math.random() * (98.9 - 92.5),
+      entryTime: window.entryTime,
+      expiryTime: window.expiryTime,
+      status: 'ACTIVE',
+      exitPrice: null,
+      candlesSnapshot: null,
+      marketCondition: '',
+      recommendation: '',
+      origin: forMonitoring ? 'monitoring' : 'instant',
+    };
+  }, []);
 
   /**
    * The button. Runs the full sequence and says what it came to.
@@ -1435,7 +1507,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * belong to `useMonitoring`, not here.
    */
   const requestSignal = useCallback(
-    async (selectedMinutes: number): Promise<RequestOutcome> => {
+    async (): Promise<RequestOutcome> => {
       const current = stateRef.current;
 
       // Nothing to watch. The button is disabled in this state, so reaching
@@ -1534,25 +1606,28 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       // out of the program.
       let signal: TradingSignal | null = null;
       try {
-        signal = forcedSignal(selectedMinutes);
+        signal = forcedSignal();
       } catch {
         // Scoring threw — fall back to a direction from the last two candles,
         // exactly as Dart does rather than leaving the user with nothing.
         const c = stateRef.current.candles;
         const isCall = c.length >= 2 ? c[c.length - 1]!.close >= c[c.length - 2]!.close : true;
-        const aligned = alignExpiry(Date.now(), selectedMinutes);
+        // The same candle window as above. A fallback that lands off the grid
+        // would be unsettleable in precisely the way this whole path was.
+        const candleMs = timeframeSeconds(argsRef.current.timeframe) * 1000;
+        const window = nextCandleWindow(Date.now(), candleMs);
         const entry = livePriceRef.current?.() || stateRef.current.currentPrice;
 
         signal = {
           pair: argsRef.current.pair,
           symbol: argsRef.current.chartSymbol,
           direction: (isCall ? 'CALL' : 'PUT') as Direction,
-          durationMinutes: selectedMinutes,
+          durationMinutes: candleMs / 60_000,
           entryPrice: entry,
           currentPrice: entry,
           confidence: 75.0,
-          entryTime: aligned.entryTime,
-          expiryTime: aligned.expiryTime,
+          entryTime: window.entryTime,
+          expiryTime: window.expiryTime,
           status: 'ACTIVE',
           exitPrice: null,
           candlesSnapshot: null,
@@ -1594,7 +1669,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
    * what prevents a second setup being taken meanwhile.
    */
   const fireMonitoringSignal = useCallback(
-    async (selectedMinutes: number): Promise<TickResult> => {
+    async (): Promise<TickResult> => {
       if (analysingRef.current) return 'none';
 
       if (programRef.current !== null) return tickProgram();
@@ -1604,7 +1679,7 @@ export function useSignalEngine(args: UseSignalEngineArgs) {
       if (stateRef.current.openTrades[argsRef.current.chartSymbol] !== undefined) return 'none';
       if (stateRef.current.candles.length === 0) return 'none';
 
-      const signal = forcedSignal(selectedMinutes, true);
+      const signal = forcedSignal(true);
 
       announceSignal(signal);
       recordOpen(signal);
