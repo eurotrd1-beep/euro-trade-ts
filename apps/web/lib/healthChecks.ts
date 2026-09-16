@@ -8,6 +8,7 @@
  */
 
 import { CATALOGUE_SYMBOLS, supabase } from '@euro/shared';
+import { currentMode, hubStats } from './dataHub';
 
 // ── Fixed infra endpoints (Dart: _kWorker / _kOrigin / _kRef …) ────────────
 
@@ -305,6 +306,17 @@ export const CHECKS: RCheck[] = [
       whenRed: '$0 (ZERO_BALANCE).',
       quickFix: 'اشحن الحساب على 2captcha.com.',
       external: '2captcha.com',
+    },
+  },
+
+  // ── The migration's own vital sign ──
+  {
+    id: 'data_source',
+    section: 'gwin',
+    title: 'مصدر البيانات — D1 ولا Supabase',
+    help: {
+      measure: 'الوضع من configs.data_source، وعدّاد القراءات والرجوعات من الجلسة دي.',
+      why: 'الرجوع لـSupabase معناه إن D1 فشلت والتطبيق غطّى عليها. لازم يبقى صفر قبل نقل الكتابة.',
     },
   },
 
@@ -1094,6 +1106,37 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
           });
         }
         return res('ok', `$${bal.toFixed(2)} ✅`);
+      }
+
+      // ---- the migration ----
+      case 'data_source': {
+        const mode = currentMode();
+        const { reads, fallbacks, errors, lastError } = hubStats;
+
+        if (mode === 'supabase') {
+          return res('ok', 'Supabase — الوضع الأصلي');
+        }
+
+        // A fallback is the app covering for a hub that failed. In `mirror`
+        // both databases hold the same rows, so the user sees nothing — which
+        // is exactly why it has to be counted rather than felt. Moving to `d1`
+        // while this is above zero removes the cover without fixing the cause.
+        if (fallbacks > 0) {
+          return res('warn', `${mode} — ${fallbacks} رجوع لـSupabase من ${reads} قراءة`, {
+            cause: lastError || 'الـhub رجّع خطأ',
+            fix: 'شوف سبب الفشل قبل نقل الكتابة — الرجوع ده مش هيبقى موجود في وضع d1',
+          });
+        }
+
+        if (errors > 0) {
+          return res('fail', `${mode} — ${errors} قراءة فشلت`, {
+            cause: lastError || 'الـhub مش بيرد',
+            fix: 'رجّع configs.data_source لـsupabase',
+            danger: true,
+          });
+        }
+
+        return res('ok', `${mode} — ${reads} قراءة، مفيش رجوع ✅`);
       }
 
       // ---- gwin ----
