@@ -58,7 +58,7 @@
  */
 
 import { decide, type Caller } from './access.js';
-import { buildSelect, parseQuery } from './db.js';
+import { buildSelect, buildWrite, parseQuery, type Write } from './db.js';
 
 export interface Env {
   DB: D1Database;
@@ -188,6 +188,52 @@ export default {
         // caller describes the schema to whoever provoked it.
         console.error('read failed', read[1], e instanceof Error ? e.message : e);
         return json({ error: 'query failed' }, 500);
+      }
+    }
+
+    // ── The write path ──────────────────────────────────────────────────────
+    //
+    // POST /v1/<table>  { "op": "upsert", "values": {…}, "where": [{…}] }
+    //
+    // The body carries the operation because a write is not a URL: `values`
+    // holds a whole trade history in one field, and a query string is the
+    // wrong place for it. The gate is the same one.
+    if (read !== null && request.method === 'POST') {
+      const caller = identify(request, env);
+      if (caller === BAD_SECRET) return json({ error: 'bad credential' }, 401);
+
+      let body: Partial<Write>;
+      try {
+        body = (await request.json()) as Partial<Write>;
+      } catch {
+        return json({ error: 'body must be JSON' }, 400);
+      }
+
+      const op = body.op;
+      if (op !== 'insert' && op !== 'upsert' && op !== 'update' && op !== 'delete') {
+        return json({ error: "op must be insert, upsert, update or delete" }, 400);
+      }
+
+      const built = buildWrite({
+        table: read[1]!,
+        op,
+        values: body.values ?? {},
+        where: Array.isArray(body.where) ? body.where : [],
+      }, caller);
+      if (!built.ok) return json({ error: built.reason }, built.status);
+
+      try {
+        const result = await env.DB.prepare(built.statement.sql)
+          .bind(...built.statement.binds)
+          .run();
+        // The row count is returned because a write that matched nothing is
+        // not an error and not a success — an update whose WHERE found no row
+        // reports ok, and a caller that assumes otherwise is storing nothing
+        // and believing it stored something.
+        return json({ ok: true, rows: result.meta?.changes ?? 0 });
+      } catch (e) {
+        console.error('write failed', read[1], e instanceof Error ? e.message : e);
+        return json({ error: 'write failed' }, 500);
       }
     }
 

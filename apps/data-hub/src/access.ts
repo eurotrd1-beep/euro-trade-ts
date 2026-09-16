@@ -74,6 +74,28 @@ export interface TablePolicy {
    * `test/schema.test.ts` checks every name here against the real table.
    */
   columns: readonly string[];
+  /**
+   * The primary key, as the conflict target for an upsert.
+   *
+   * Required, and it is not bookkeeping: `ON CONFLICT (…) DO UPDATE` with the
+   * wrong target does not fail. It stops matching, so every upsert becomes an
+   * insert, and a table meant to hold one row per account quietly fills with
+   * duplicates — each write appearing to succeed. The app upserts a user's
+   * whole history on every settled trade, so the wrong target here is a table
+   * that grows without bound and a history that stops updating.
+   *
+   * `test/schema.test.ts` compares this against the real key.
+   */
+  primaryKey: readonly string[];
+  /**
+   * The `ON CONFLICT (…)` target as raw SQL, for the one table whose identity
+   * is an expression rather than a plain key.
+   *
+   * Set only where `primaryKey` cannot express it. It is not a hook for
+   * arbitrary SQL — nothing from a request reaches it, and the schema test
+   * checks it against the index the table actually has.
+   */
+  conflictTarget?: string;
 }
 
 /**
@@ -87,44 +109,72 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // ── Read by the browser, written by the feed ─────────────────────────────
   // Postgres: `CREATE POLICY "public read"`. Prices and pairs are public by
   // nature — they are what the app exists to show.
-  candles: { read: 'public', write: 'service', columns: ['key', 'data', 'updated_ms'] },
+  candles: {
+    read: 'public', write: 'service',
+    columns: ['key', 'data', 'updated_ms'],
+    primaryKey: ['key'],
+  },
   pairs: {
     read: 'public', write: 'admin',
-    columns: ['id', 'symbol', 'chart_symbol', 'category', 'type', 'source', 'is_otc',
-      'enabled', 'order', 'created_ms'],
+    columns: ['id', 'symbol', 'chart_symbol', 'category', 'type', 'source', 'is_otc', 'enabled',
+      'order', 'created_ms'],
+    primaryKey: ['id'],
   },
   otc_pairs: {
     read: 'public', write: 'service',
-    columns: ['id', 'platform', 'symbol', 'name', 'asset_type', 'subcategory', 'is_otc',
-      'enabled', 'order', 'updated_ms'],
+    columns: ['id', 'platform', 'symbol', 'name', 'asset_type', 'subcategory', 'is_otc', 'enabled',
+      'order', 'updated_ms'],
+    primaryKey: ['id'],
   },
-  brokers: { read: 'public', write: 'admin', columns: ['id', 'data', 'updated_ms'] },
-  configs: { read: 'public', write: 'admin', columns: ['id', 'data', 'updated_ms'] },
+  brokers: {
+    read: 'public', write: 'admin',
+    columns: ['id', 'data', 'updated_ms'],
+    primaryKey: ['id'],
+  },
+  configs: {
+    read: 'public', write: 'admin',
+    columns: ['id', 'data', 'updated_ms'],
+    primaryKey: ['id'],
+  },
 
   // Postgres: `CREATE POLICY "read" … USING (true)`. The published record the
   // statistics are computed from; readable so the app can show a win rate.
   signals: {
     read: 'public', write: 'service',
-    columns: ['id', 'symbol', 'timeframe', 'direction', 'bar_ms', 'strategy_version_id',
+    columns: ['id', 'created_ms', 'symbol', 'timeframe', 'direction', 'bar_ms', 'strategy_version_id',
       'slot', 'confidence', 'score', 'rules_matched', 'candle_snapshot', 'entry_price',
-      'exit_price', 'expiry_seconds', 'outcome', 'forced', 'created_ms', 'resolved_ms'],
+      'expiry_seconds', 'outcome', 'outcome_price', 'outcome_ms', 'forced'],
+    primaryKey: ['id'],
   },
+  // The one table whose identity is not a primary key. The version is
+  // legitimately NULL for versionless statistics, a primary key cannot hold
+  // NULL, and NULLs do not compare equal — so without the COALESCE every
+  // versionless row is distinct from every other one and they never merge.
+  // Postgres hit this first and this mirrors its fix exactly.
   signal_daily: {
     read: 'public', write: 'service',
-    columns: ['day', 'symbol', 'signals', 'wins', 'losses', 'ties', 'unresolved', 'pending',
-      'forced'],
+    columns: ['day', 'strategy_version_id', 'symbol', 'timeframe', 'slot', 'signals',
+      'wins', 'losses', 'ties', 'unresolved', 'pending', 'forced'],
+    primaryKey: ['day', 'strategy_version_id', 'symbol', 'timeframe', 'slot'],
+    conflictTarget:
+      `"day", COALESCE("strategy_version_id", '00000000-0000-0000-0000-000000000000'), ` +
+      `"symbol", "timeframe", "slot"`,
   },
   signal_write_budget: {
     read: 'public', write: 'service',
-    columns: ['day', 'written', 'max_rows'],
+    columns: ['day', 'written', 'capped', 'max_rows'],
+    primaryKey: ['day'],
   },
   strategy_versions: {
     read: 'public', write: 'admin',
-    columns: ['id', 'name', 'strategy_json', 'published', 'created_ms'],
+    columns: ['id', 'slot', 'version_number', 'uploaded_ms', 'uploaded_by', 'name', 'strategy_json',
+      'json_hash', 'is_active'],
+    primaryKey: ['id'],
   },
   strategy_version_stats: {
     read: 'public', write: 'service',
     columns: ['version_id', 'data', 'updated_ms'],
+    primaryKey: ['version_id'],
   },
 
   // ── Tightened on the way across ──────────────────────────────────────────
@@ -135,6 +185,7 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   signal_history: {
     read: 'owner', write: 'owner', ownerColumn: 'account_id',
     columns: ['account_id', 'signals', 'updated_ms'],
+    primaryKey: ['account_id'],
   },
 
   // Same story. The anon key can currently read every account row — role, VIP
@@ -143,18 +194,26 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
     read: 'owner', write: 'owner', ownerColumn: 'id',
     columns: ['id', 'broker', 'role', 'is_banned', 'ban_reason', 'device_id', 'fcm_token',
       'login_count', 'vip_expiry_ms', 'guaranteed_win', 'clicked_broker', 'created_ms'],
+    primaryKey: ['id'],
   },
 
   // ── Admin ────────────────────────────────────────────────────────────────
   telegram_queue: {
     read: 'admin', write: 'admin',
-    columns: ['id', 'event_key', 'kind', 'payload', 'state', 'created_ms', 'decided_ms'],
+    columns: ['event_key', 'kind', 'symbol', 'depth_bps', 'body', 'status', 'expires_ms', 'created_ms',
+      'decided_ms'],
+    primaryKey: ['event_key'],
   },
   repair_log: {
     read: 'admin', write: 'service',
     columns: ['id', 'stage', 'detail', 'created_ms'],
+    primaryKey: ['id'],
   },
-  captcha_stats: { read: 'admin', write: 'service', columns: ['id', 'data', 'updated_ms'] },
+  captcha_stats: {
+    read: 'admin', write: 'service',
+    columns: ['id', 'data', 'updated_ms'],
+    primaryKey: ['id'],
+  },
 
   // A click IS an anonymous write, but not an anonymous write to this table.
   // Postgres routes it through `increment_click`, a SECURITY DEFINER function
@@ -165,7 +224,11 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // one narrow, fixed mutation that runs as the service. A `write: 'public'`
   // here would be a widening dressed as a port: it would let anyone overwrite
   // every counter the analytics page reads.
-  clicks: { read: 'admin', write: 'service', columns: ['id', 'data'] },
+  clicks: {
+    read: 'admin', write: 'service',
+    columns: ['id', 'data'],
+    primaryKey: ['id'],
+  },
 
   // ── Never over HTTP ──────────────────────────────────────────────────────
   // Postgres: RLS on with NO policy at all — refused to anon and authenticated,
@@ -174,15 +237,25 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // on the internet who has any business with it.
   push_subscriptions: {
     read: 'never', write: 'service',
-    columns: ['endpoint', 'user_id', 'subscription', 'symbols', 'plan', 'failures',
-      'created_ms', 'updated_ms'],
+    columns: ['id', 'endpoint', 'user_id', 'subscription', 'symbols', 'plan', 'failures', 'created_ms',
+      'updated_ms'],
+    primaryKey: ['id'],
   },
-  push_alerts: { read: 'never', write: 'service', columns: ['event_key', 'sent_ms'] },
+  push_alerts: {
+    read: 'never', write: 'service',
+    columns: ['symbol', 'setup_key', 'stage', 'sent_ms'],
+    primaryKey: ['symbol', 'setup_key', 'stage'],
+  },
   telegram_alerts: {
     read: 'never', write: 'service',
     columns: ['event_key', 'kind', 'sent_ms'],
+    primaryKey: ['event_key'],
   },
-  price_snapshot: { read: 'never', write: 'service', columns: ['id', 'data', 'updated_ms'] },
+  price_snapshot: {
+    read: 'never', write: 'service',
+    columns: ['id', 'data', 'updated_ms'],
+    primaryKey: ['id'],
+  },
 };
 
 /** Ranked, so a service caller satisfies an `admin` rule and so on. */

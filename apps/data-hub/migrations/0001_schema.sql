@@ -133,24 +133,37 @@ CREATE TABLE IF NOT EXISTS signal_history (
 -- ── The published record ───────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS signals (
-  id                   TEXT PRIMARY KEY,
+  -- `bigint GENERATED ALWAYS AS IDENTITY` in Postgres. INTEGER PRIMARY KEY is
+  -- SQLite's rowid alias, the only form that auto-assigns, and the copied ids
+  -- keep the values they already have.
+  id                   INTEGER PRIMARY KEY,
+  created_ms           INTEGER NOT NULL,
   symbol               TEXT NOT NULL,
   timeframe            TEXT NOT NULL,
-  direction            TEXT NOT NULL,
+  direction            TEXT NOT NULL CHECK (direction IN ('CALL', 'PUT')),
+  -- The close of the candle the signal was generated on. Not decoration: it is
+  -- what stops a proxy restart re-evaluating the same candle into a second row.
   bar_ms               INTEGER NOT NULL,
   strategy_version_id  TEXT,
-  slot                 TEXT,
+  slot                 TEXT NOT NULL,
   confidence           REAL,
   score                REAL,
   rules_matched        TEXT CHECK (rules_matched IS NULL OR json_valid(rules_matched)),
+  -- `double precision[]` in Postgres — the last five candles as raw numbers.
+  -- SQLite has no array type, so it becomes a JSON array of the same numbers.
   candle_snapshot      TEXT CHECK (candle_snapshot IS NULL OR json_valid(candle_snapshot)),
-  entry_price          REAL,
-  exit_price           REAL,
-  expiry_seconds       INTEGER,
-  outcome              TEXT,                  -- win | loss | tie | unresolved
-  forced               INTEGER NOT NULL DEFAULT 0,
-  created_ms           INTEGER NOT NULL,
-  resolved_ms          INTEGER
+  entry_price          REAL NOT NULL,
+  expiry_seconds       INTEGER NOT NULL,
+  -- `unresolved` is not `tie`. "No price available" recorded as a tie inflates
+  -- the ties and nobody can tell why. Both are excluded from the win rate.
+  outcome              TEXT NOT NULL DEFAULT 'pending'
+                       CHECK (outcome IN ('pending', 'win', 'loss', 'tie', 'unresolved')),
+  outcome_price        REAL,
+  outcome_ms           INTEGER,
+  -- An admin-forced guaranteed_win signal. Excluded from every calculation and
+  -- shown in a column of its own — recorded without this flag, the published
+  -- rate is a fabrication.
+  forced               INTEGER NOT NULL DEFAULT 0
 );
 -- The uniqueness `record_signals` depends on. Its `ON CONFLICT DO NOTHING` is
 -- the whole race guard: the insert either takes the row or lands on the one
@@ -159,33 +172,61 @@ CREATE TABLE IF NOT EXISTS signals (
 CREATE UNIQUE INDEX IF NOT EXISTS signals_identity
   ON signals (strategy_version_id, symbol, timeframe, bar_ms);
 CREATE INDEX IF NOT EXISTS signals_created ON signals (created_ms);
-CREATE INDEX IF NOT EXISTS signals_open ON signals (outcome) WHERE outcome IS NULL;
+-- An open signal is `outcome = 'pending'`, never NULL: the column is NOT NULL
+-- with a default, so an `IS NULL` index here would match nothing, for ever,
+-- and in silence.
+CREATE INDEX IF NOT EXISTS signals_open ON signals (outcome) WHERE outcome = 'pending';
 
+-- One row per day, version, symbol, timeframe and slot.
+--
+-- The key is five columns and every one of them earns its place. This table was
+-- built once with a key that left the slot out, and the Postgres migration that
+-- fixed it had to DELETE every row, because three out of every four had
+-- overwritten each other. A key that is too short does not collide loudly — it
+-- merges rows that are not the same row, and the numbers stay plausible.
 CREATE TABLE IF NOT EXISTS signal_daily (
-  day          TEXT NOT NULL,                 -- 'YYYY-MM-DD', UTC
-  symbol       TEXT NOT NULL,
-  signals      INTEGER NOT NULL DEFAULT 0,
-  wins         INTEGER NOT NULL DEFAULT 0,
-  losses       INTEGER NOT NULL DEFAULT 0,
-  ties         INTEGER NOT NULL DEFAULT 0,
-  unresolved   INTEGER NOT NULL DEFAULT 0,
-  pending      INTEGER NOT NULL DEFAULT 0,
-  forced       INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (day, symbol)
+  day                  TEXT NOT NULL,              -- 'YYYY-MM-DD', UTC
+  strategy_version_id  TEXT,                       -- nullable: versionless stats
+  symbol               TEXT NOT NULL,
+  timeframe            TEXT NOT NULL,
+  slot                 TEXT NOT NULL,
+  signals              INTEGER NOT NULL DEFAULT 0,
+  wins                 INTEGER NOT NULL DEFAULT 0,
+  losses               INTEGER NOT NULL DEFAULT 0,
+  ties                 INTEGER NOT NULL DEFAULT 0,
+  unresolved           INTEGER NOT NULL DEFAULT 0,
+  pending              INTEGER NOT NULL DEFAULT 0,
+  forced               INTEGER NOT NULL DEFAULT 0
+);
+-- A UNIQUE INDEX rather than a PRIMARY KEY, and COALESCE for the same reason
+-- Postgres needed both: a primary key cannot hold NULL, and the version is
+-- legitimately NULL for versionless statistics. Without the COALESCE every
+-- versionless row is distinct from every other one and they stop merging at all.
+CREATE UNIQUE INDEX IF NOT EXISTS signal_daily_key ON signal_daily (
+  day,
+  COALESCE(strategy_version_id, '00000000-0000-0000-0000-000000000000'),
+  symbol, timeframe, slot
 );
 
 CREATE TABLE IF NOT EXISTS signal_write_budget (
   day        TEXT PRIMARY KEY,
   written    INTEGER NOT NULL DEFAULT 0,
-  max_rows   INTEGER NOT NULL
+  capped     INTEGER NOT NULL DEFAULT 0,
+  max_rows   INTEGER NOT NULL DEFAULT 20000
 );
 
 CREATE TABLE IF NOT EXISTS strategy_versions (
-  id             TEXT PRIMARY KEY,
-  name           TEXT,
-  strategy_json  TEXT NOT NULL CHECK (json_valid(strategy_json)),
-  published      INTEGER NOT NULL DEFAULT 0,
-  created_ms     INTEGER NOT NULL
+  id              TEXT PRIMARY KEY,              -- uuid
+  slot            TEXT NOT NULL CHECK (slot IN
+                    ('instant_free', 'instant_paid', 'monitoring_free', 'monitoring_paid')),
+  version_number  INTEGER NOT NULL,
+  uploaded_ms     INTEGER NOT NULL,
+  uploaded_by     TEXT,
+  name            TEXT NOT NULL,
+  strategy_json   TEXT NOT NULL CHECK (json_valid(strategy_json)),
+  json_hash       TEXT NOT NULL,
+  is_active       INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (slot, version_number)
 );
 
 CREATE TABLE IF NOT EXISTS strategy_version_stats (
@@ -201,7 +242,8 @@ CREATE TABLE IF NOT EXISTS strategy_version_stats (
 -- belong to. It is `never` readable over HTTP in access.ts, and that is not a
 -- precaution — it is the fix for something that actually happened.
 CREATE TABLE IF NOT EXISTS push_subscriptions (
-  endpoint      TEXT PRIMARY KEY,             -- the endpoint IS the device
+  id            TEXT PRIMARY KEY,             -- uuid
+  endpoint      TEXT NOT NULL,                -- the endpoint IS the device
   user_id       TEXT,
   subscription  TEXT NOT NULL CHECK (json_valid(subscription)),
   symbols       TEXT CHECK (symbols IS NULL OR json_valid(symbols)),
@@ -216,8 +258,11 @@ CREATE INDEX IF NOT EXISTS push_subscriptions_user ON push_subscriptions (user_i
 -- guard. An insert either takes the key or collides, and a collision means
 -- "already sent". No select-then-insert, so no race sends twice.
 CREATE TABLE IF NOT EXISTS push_alerts (
-  event_key  TEXT PRIMARY KEY,
-  sent_ms    INTEGER NOT NULL
+  symbol     TEXT NOT NULL,
+  setup_key  TEXT NOT NULL,
+  stage      INTEGER NOT NULL CHECK (stage IN (96, 98, 100)),
+  sent_ms    INTEGER NOT NULL,
+  PRIMARY KEY (symbol, setup_key, stage)
 );
 CREATE INDEX IF NOT EXISTS push_alerts_sent ON push_alerts (sent_ms);
 
@@ -229,15 +274,21 @@ CREATE TABLE IF NOT EXISTS telegram_alerts (
 CREATE INDEX IF NOT EXISTS telegram_alerts_sent ON telegram_alerts (sent_ms);
 
 CREATE TABLE IF NOT EXISTS telegram_queue (
-  id          TEXT PRIMARY KEY,
-  event_key   TEXT NOT NULL UNIQUE,
-  kind        TEXT NOT NULL,
-  payload     TEXT NOT NULL CHECK (json_valid(payload)),
-  state       TEXT NOT NULL DEFAULT 'pending',
+  event_key   TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('signal', 'result', 'daily')),
+  symbol      TEXT,
+  depth_bps   REAL,
+  -- The finished message, not a template. A queued message is held for a person
+  -- to approve, and approving something still to be rendered later approves
+  -- something nobody has read.
+  body        TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'approved', 'sent', 'rejected')),
+  expires_ms  INTEGER,
   created_ms  INTEGER NOT NULL,
   decided_ms  INTEGER
 );
-CREATE INDEX IF NOT EXISTS telegram_queue_state ON telegram_queue (state, created_ms);
+CREATE INDEX IF NOT EXISTS telegram_queue_state ON telegram_queue (status, created_ms);
 
 -- ── Housekeeping ───────────────────────────────────────────────────────────
 

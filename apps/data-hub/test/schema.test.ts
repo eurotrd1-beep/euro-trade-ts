@@ -141,20 +141,76 @@ describe('every column access.ts declares exists in the real table', () => {
   });
 });
 
+describe('every primary key access.ts declares is the real one', () => {
+  // The upsert conflict target comes from access.ts. A wrong one does not
+  // fail — `ON CONFLICT` simply never matches, every upsert becomes an insert,
+  // and a table meant to hold one row per account fills with duplicates while
+  // every write reports success. There is no symptom until someone notices the
+  // app is reading a stale row.
+  for (const [table, policy] of Object.entries(POLICY)) {
+    it(`${table}`, () => {
+      // `pk` in table_info is the 1-based position in the key, 0 for columns
+      // outside it — so this is the key in its declared order, which is what
+      // a composite conflict target needs.
+      const real = all(`PRAGMA table_info(${table})`)
+        .filter((r) => Number(r['pk']) > 0)
+        .sort((a, b) => Number(a['pk']) - Number(b['pk']))
+        .map((r) => String(r['name']));
+
+      if (real.length > 0) {
+        expect([...policy.primaryKey]).toEqual(real);
+        expect(policy.conflictTarget, `${table} has a real key and needs no expression`)
+          .toBeUndefined();
+        return;
+      }
+
+      // No declared primary key: the identity is a unique index instead, and
+      // for signal_daily it is an index on an EXPRESSION — PRAGMA index_info
+      // reports NULL for such a column, which is why conflictTarget exists.
+      // Check the raw target against the index SQL rather than against a
+      // column list it cannot be expressed as.
+      const indexes = all(
+        `SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='${table}'`,
+      ).filter((r) => String(r['sql'] ?? '').includes('UNIQUE'));
+      expect(indexes.length, `${table} has no primary key and no unique index`).toBeGreaterThan(0);
+
+      const target = policy.conflictTarget;
+      expect(target, `${table} has no primary key, so it needs a conflictTarget`).toBeTruthy();
+      // Every column of the declared key appears in the index, and the
+      // expression matches: an ON CONFLICT target that does not match an index
+      // exactly is not an error, it simply never fires.
+      const indexSql = String(indexes[0]!['sql']).replace(/\s+/g, ' ');
+      for (const column of policy.primaryKey) {
+        expect(indexSql, `${table} index is missing ${column}`).toContain(column);
+      }
+      const normalised = target!.replace(/"/g, '').replace(/\s+/g, ' ');
+      for (const piece of normalised.split(', ')) {
+        expect(indexSql.replace(/"/g, ''), `${table}: ${piece} not in the index`)
+          .toContain(piece);
+      }
+    });
+  }
+});
+
 describe('the duplicate guard the signal writer depends on', () => {
   it('rejects a second signal with the same identity', () => {
+    // `id` is an INTEGER PRIMARY KEY — Postgres had it as a bigint identity —
+    // so the two rows differ only in the id, which is exactly the case the
+    // identity index has to catch.
     const insert = `INSERT INTO signals (id, symbol, timeframe, direction, bar_ms,
-      strategy_version_id, created_ms) VALUES (?, 'EURUSD_otc', '1m', 'CALL', 100, 'v1', 1)`;
-    run(insert, 'sig-1');
+      strategy_version_id, slot, entry_price, expiry_seconds, created_ms)
+      VALUES (?, 'EURUSD_otc', '1m', 'CALL', 100, 'v1', 'instant_free', 1.1, 60, 1)`;
+    run(insert, 1);
     // `record_signals` writes with ON CONFLICT DO NOTHING and reads the
     // conflict as "already recorded". No index, no conflict, and the same
     // signal is written twice under load — with no error either time.
-    expect(() => run(insert, 'sig-2')).toThrow(/UNIQUE|constraint/i);
+    expect(() => run(insert, 2)).toThrow(/UNIQUE|constraint/i);
   });
 
   it('lets a different bar through', () => {
     expect(() => run(`INSERT INTO signals (id, symbol, timeframe, direction, bar_ms,
-      strategy_version_id, created_ms) VALUES ('sig-3', 'EURUSD_otc', '1m', 'CALL', 160, 'v1', 1)`,
+      strategy_version_id, slot, entry_price, expiry_seconds, created_ms)
+      VALUES (3, 'EURUSD_otc', '1m', 'CALL', 160, 'v1', 'instant_free', 1.1, 60, 1)`,
     )).not.toThrow();
   });
 });

@@ -33,6 +33,7 @@ import {
   columnsFor,
   decide,
   tableNamed,
+  POLICY,
   type Caller,
 } from './access.js';
 
@@ -165,6 +166,167 @@ export function buildSelect(query: Query, caller: Caller): Built {
       binds: [...binds, limit],
     },
   };
+}
+
+// ── Writing ─────────────────────────────────────────────────────────────────
+
+/**
+ * A write, as asked for. Every field comes from the request.
+ *
+ * Four operations and no more. There is no "run this statement" and no
+ * expression language, because every write the app and the scraper make is one
+ * of these four, and anything wider is a second way in.
+ */
+export interface Write {
+  table: string;
+  op: 'insert' | 'upsert' | 'update' | 'delete';
+  /** Column → value, for insert, upsert and update. */
+  values: Readonly<Record<string, unknown>>;
+  /** Which rows, for update and delete. */
+  where: ReadonlyArray<{ column: string; value: string }>;
+}
+
+/**
+ * Builds the write, or refuses.
+ *
+ * ── THE RULE THAT MATTERS MOST ─────────────────────────────────────────────
+ *
+ * An owner may not write outside themselves, and there are three separate ways
+ * to try:
+ *
+ *   1. UPDATE or DELETE without the scope — every account's rows at once. The
+ *      scope clause is ANDed in, exactly as for a read.
+ *   2. INSERT a row owned by somebody else — the owner column is OVERWRITTEN
+ *      with the caller's own id, whatever the body said. Not refused,
+ *      overwritten: refusing would break an honest client that sends its own
+ *      id anyway, and overwriting is the same answer for both.
+ *   3. UPDATE the owner column, moving a row to another account. Refused
+ *      outright, because there is no honest version of that request.
+ *
+ * Only the first has an analogue in the read path. The other two are why this
+ * is a separate function rather than a flag on the last one.
+ */
+export function buildWrite(write: Write, caller: Caller): Built {
+  const table = tableNamed(write.table);
+  if (table === null) {
+    return { ok: false, status: 404, reason: `no such table '${write.table}'` };
+  }
+
+  const decision = decide(table, 'write', caller);
+  if (!decision.allowed) {
+    return { ok: false, status: 403, reason: decision.reason };
+  }
+
+  const policy = POLICY[table]!;
+  const owner = decision.scope;
+
+  // ── The values, resolved to declared columns ────────────────────────────
+  const sets: Array<{ column: string; value: unknown }> = [];
+  for (const [rawColumn, value] of Object.entries(write.values)) {
+    const column = columnNamed(table, rawColumn);
+    if (column === null) {
+      return { ok: false, status: 400, reason: `unknown column '${rawColumn}' on '${table}'` };
+    }
+    // (3) Moving a row to another owner. No honest client does this.
+    if (owner && column === owner.column && write.op === 'update') {
+      return { ok: false, status: 403, reason: `'${column}' cannot be changed` };
+    }
+    sets.push({ column, value });
+  }
+
+  // (2) The owner column is set from the credential, never from the body.
+  if (owner && (write.op === 'insert' || write.op === 'upsert')) {
+    const existing = sets.findIndex((s) => s.column === owner.column);
+    if (existing >= 0) sets.splice(existing, 1);
+    sets.unshift({ column: owner.column, value: owner.value });
+  }
+
+  if (write.op !== 'delete' && sets.length === 0) {
+    return { ok: false, status: 400, reason: 'nothing to write' };
+  }
+
+  // ── The WHERE, for update and delete ────────────────────────────────────
+  const clauses: string[] = [];
+  const whereBinds: unknown[] = [];
+  if (owner) {
+    // (1) Same clause as the read path, same reason: without it the statement
+    // is valid, succeeds, and changes everybody's rows.
+    clauses.push(`${quote(owner.column)} = ?`);
+    whereBinds.push(owner.value);
+  }
+  for (const filter of write.where) {
+    const column = columnNamed(table, filter.column);
+    if (column === null) {
+      return { ok: false, status: 400, reason: `unknown filter column '${filter.column}'` };
+    }
+    clauses.push(`${quote(column)} = ?`);
+    whereBinds.push(filter.value);
+  }
+
+  if ((write.op === 'update' || write.op === 'delete') && clauses.length === 0) {
+    // An UPDATE or DELETE with no WHERE is the whole table. It is a legal
+    // statement, it reports success, and there is no undo. A service caller
+    // has to name the rows.
+    return { ok: false, status: 400, reason: `${write.op} needs at least one filter` };
+  }
+  const where = clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '';
+
+  const columns = sets.map((s) => s.column);
+  const valueBinds = sets.map((s) => s.value);
+
+  switch (write.op) {
+    case 'delete':
+      return {
+        ok: true, columns: [],
+        statement: { sql: `DELETE FROM ${quote(table)}${where}`, binds: whereBinds },
+      };
+
+    case 'update': {
+      const assign = columns.map((c) => `${quote(c)} = ?`).join(', ');
+      return {
+        ok: true, columns,
+        statement: {
+          sql: `UPDATE ${quote(table)} SET ${assign}${where}`,
+          binds: [...valueBinds, ...whereBinds],
+        },
+      };
+    }
+
+    case 'insert': {
+      const placeholders = columns.map(() => '?').join(', ');
+      return {
+        ok: true, columns,
+        statement: {
+          sql: `INSERT INTO ${quote(table)} (${columns.map(quote).join(', ')})` +
+            ` VALUES (${placeholders})`,
+          binds: valueBinds,
+        },
+      };
+    }
+
+    case 'upsert': {
+      // The conflict target is the declared primary key, never anything from
+      // the request. A wrong target does not fail — it stops matching, and
+      // every upsert silently becomes an insert.
+      const conflict = policy.conflictTarget ?? policy.primaryKey.map(quote).join(', ');
+      // A key column is not updated on conflict: it is what was matched on,
+      // and assigning it to itself is noise at best.
+      const updatable = columns.filter((c) => !policy.primaryKey.includes(c));
+      if (updatable.length === 0) {
+        return { ok: false, status: 400, reason: 'an upsert needs a column that is not the key' };
+      }
+      const assign = updatable.map((c) => `${quote(c)} = excluded.${quote(c)}`).join(', ');
+      const placeholders = columns.map(() => '?').join(', ');
+      return {
+        ok: true, columns,
+        statement: {
+          sql: `INSERT INTO ${quote(table)} (${columns.map(quote).join(', ')})` +
+            ` VALUES (${placeholders}) ON CONFLICT (${conflict}) DO UPDATE SET ${assign}`,
+          binds: valueBinds,
+        },
+      };
+    }
+  }
 }
 
 // ── Parsing a request into a Query ──────────────────────────────────────────
