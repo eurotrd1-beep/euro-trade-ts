@@ -101,63 +101,72 @@ function secretEquals(a: string, b: string): boolean {
 export const BAD_SECRET = Symbol('bad-secret');
 
 /**
- * Guesses per minute, per address, against the credential check.
+ * WRONG guesses per minute, per address.
  *
- * ── WHY THIS IS NOT THE RATE LIMITING BINDING ─────────────────────────────
+ * ── WHAT THIS COUNTS, AND WHAT IT USED TO COUNT ───────────────────────────
  *
- * It was, first. `ratelimits` in wrangler.jsonc, `env.AUTH_LIMITER.limit()`,
- * and wrangler listed it on deploy as "10 requests/60s". Then thirty guesses in
- * a row from one address all came back 401 rather than 429, so I logged the
- * verdict and tailed it: fifteen calls, one address, `{"success":true}` every
- * single time. The binding is configured, deployed and invoked, and it does not
- * enforce anything on this account.
+ * It counted every request that presented a secret, right or wrong. That
+ * throttled the thing it was supposed to protect: `scripts/compare.mjs` asks
+ * the hub for nineteen counts in a row with a valid service secret, and the
+ * eleventh came back 429. The scraper writing candles for twenty-two pairs
+ * would have hit the same wall, in production, as a data outage with no
+ * obvious cause.
  *
- * A protection that reports success while doing nothing is worse than none,
- * because it is the one you stop thinking about. So it is counted here instead,
- * in the cache, where it can be watched failing.
+ * So only FAILED credentials are counted now. A valid secret is never
+ * throttled, however fast it arrives, and a wrong one is — which is the only
+ * traffic brute force is made of. The check has to come after the comparison
+ * rather than before it, which is fine: the comparison is constant-time and
+ * reveals nothing on its own.
  *
- * ── HOW ───────────────────────────────────────────────────────────────────
+ * ── WHY NOT THE RATE LIMITING BINDING ─────────────────────────────────────
  *
- * One cache entry per address, holding a count, expiring after a minute. The
- * cache is per data centre and the increment is not atomic, so a determined
- * attacker racing many connections at once will get a few more guesses through
- * than the number below. That is fine: the purpose is to make a million guesses
- * take longer than an afternoon, not to count them exactly.
+ * It was, first. wrangler listed it on deploy as "10 requests/60s", and thirty
+ * wrong secrets in a row all came back 401 rather than 429. Logging the verdict
+ * and tailing the Worker showed fifteen calls, one address, {"success":true}
+ * every time: configured, deployed, invoked, enforcing nothing. A protection
+ * that reports success while doing nothing is worse than none, because it is
+ * the one you stop thinking about.
  *
- * Only requests that PRESENT a secret are counted. A browser reading candles
- * never touches this, so a burst of ordinary traffic cannot lock the admin out
- * — which is the failure that makes people switch rate limits off again.
+ * Counted in the cache instead — one entry per address, expiring after a
+ * minute. It is per data centre and the increment is not atomic, so a
+ * distributed attack gets more than ten a minute. It turns an afternoon into a
+ * campaign; it does not make a weak secret strong, and nothing can.
  */
-const AUTH_ATTEMPTS_PER_MINUTE = 10;
+const WRONG_GUESSES_PER_MINUTE = 10;
 
-async function overAuthLimit(request: Request): Promise<boolean> {
-  const presenting = request.headers.has('x-admin-secret') ||
-    request.headers.has('x-service-secret');
-  if (!presenting) return false;
-
+const limitKey = (request: Request): Request => {
   // Cloudflare sets this and a client cannot forge it. A header the request
   // chose, like x-forwarded-for, would let an attacker reset their own counter
   // by changing one line.
   const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-  const key = new Request(`https://auth-limit.invalid/${encodeURIComponent(ip)}`);
-  const cache = caches.default;
+  return new Request(`https://auth-limit.invalid/${encodeURIComponent(ip)}`);
+};
 
-  let count = 0;
+/** True when this address has already used up its wrong guesses. */
+async function overAuthLimit(request: Request): Promise<boolean> {
   try {
-    const seen = await cache.match(key);
-    if (seen) count = Number(await seen.text()) || 0;
+    const seen = await caches.default.match(limitKey(request));
+    if (!seen) return false;
+    return (Number(await seen.text()) || 0) >= WRONG_GUESSES_PER_MINUTE;
   } catch {
     // A cache that cannot be read must not lock anybody out. Failing open is
-    // the right way round here: this guards a secret, it is not the secret.
+    // the right way round: this guards a secret, it is not the secret.
     return false;
   }
+}
 
-  if (count >= AUTH_ATTEMPTS_PER_MINUTE) return true;
-
-  await cache.put(key, new Response(String(count + 1), {
-    headers: { 'Cache-Control': `max-age=60` },
-  }));
-  return false;
+/** Records one wrong guess. */
+async function countWrongGuess(request: Request): Promise<void> {
+  try {
+    const key = limitKey(request);
+    const seen = await caches.default.match(key);
+    const count = seen ? (Number(await seen.text()) || 0) : 0;
+    await caches.default.put(key, new Response(String(count + 1), {
+      headers: { 'Cache-Control': 'max-age=60' },
+    }));
+  } catch {
+    // Unwritable cache: the guess still gets its 401, it just is not counted.
+  }
 }
 
 export function identify(request: Request, env: Env): Caller | typeof BAD_SECRET {
@@ -195,11 +204,16 @@ export default {
 
     const url = new URL(request.url);
 
-    if (await overAuthLimit(request)) {
-      // 429 rather than 401: the credential was not checked at all, and saying
-      // "wrong" for a request nobody looked at would be a lie that also tells
-      // an attacker their guess was tried.
-      return json({ error: 'too many attempts' }, 429);
+    // Identified once, here, and passed down. Doing it per route invited a
+    // route that forgot to.
+    const caller = identify(request, env);
+    if (caller === BAD_SECRET) {
+      // Counted and refused. The 429 comes first for an address that has
+      // already spent its guesses, so a flood costs the attacker a cache read
+      // and nothing more.
+      if (await overAuthLimit(request)) return json({ error: 'too many attempts' }, 429);
+      await countWrongGuess(request);
+      return json({ error: 'bad credential' }, 401);
     }
 
     // Deliberately says nothing about the database — not the table names, not
@@ -214,10 +228,6 @@ export default {
     if (url.pathname === '/access-check') {
       const table = url.searchParams.get('table') ?? '';
       const op = url.searchParams.get('op') === 'write' ? 'write' : 'read';
-      const caller = identify(request, env);
-      if (caller === BAD_SECRET) {
-        return json({ error: 'bad credential' }, 401);
-      }
       const d = decide(table, op, caller);
       return json({
         table,
@@ -241,9 +251,6 @@ export default {
     // table is the DECISION, and that already lives in one place.
     const read = url.pathname.match(/^\/v1\/([a-z_]+)$/);
     if (read !== null && request.method === 'GET') {
-      const caller = identify(request, env);
-      if (caller === BAD_SECRET) return json({ error: 'bad credential' }, 401);
-
       const built = buildSelect(parseQuery(read[1]!, url.searchParams), caller);
       if (!built.ok) return json({ error: built.reason }, built.status);
 
@@ -268,9 +275,6 @@ export default {
     // holds a whole trade history in one field, and a query string is the
     // wrong place for it. The gate is the same one.
     if (read !== null && request.method === 'POST') {
-      const caller = identify(request, env);
-      if (caller === BAD_SECRET) return json({ error: 'bad credential' }, 401);
-
       let body: Partial<Write>;
       try {
         body = (await request.json()) as Partial<Write>;
