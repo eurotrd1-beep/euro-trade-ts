@@ -100,6 +100,66 @@ function secretEquals(a: string, b: string): boolean {
  */
 export const BAD_SECRET = Symbol('bad-secret');
 
+/**
+ * Guesses per minute, per address, against the credential check.
+ *
+ * ── WHY THIS IS NOT THE RATE LIMITING BINDING ─────────────────────────────
+ *
+ * It was, first. `ratelimits` in wrangler.jsonc, `env.AUTH_LIMITER.limit()`,
+ * and wrangler listed it on deploy as "10 requests/60s". Then thirty guesses in
+ * a row from one address all came back 401 rather than 429, so I logged the
+ * verdict and tailed it: fifteen calls, one address, `{"success":true}` every
+ * single time. The binding is configured, deployed and invoked, and it does not
+ * enforce anything on this account.
+ *
+ * A protection that reports success while doing nothing is worse than none,
+ * because it is the one you stop thinking about. So it is counted here instead,
+ * in the cache, where it can be watched failing.
+ *
+ * ── HOW ───────────────────────────────────────────────────────────────────
+ *
+ * One cache entry per address, holding a count, expiring after a minute. The
+ * cache is per data centre and the increment is not atomic, so a determined
+ * attacker racing many connections at once will get a few more guesses through
+ * than the number below. That is fine: the purpose is to make a million guesses
+ * take longer than an afternoon, not to count them exactly.
+ *
+ * Only requests that PRESENT a secret are counted. A browser reading candles
+ * never touches this, so a burst of ordinary traffic cannot lock the admin out
+ * — which is the failure that makes people switch rate limits off again.
+ */
+const AUTH_ATTEMPTS_PER_MINUTE = 10;
+
+async function overAuthLimit(request: Request): Promise<boolean> {
+  const presenting = request.headers.has('x-admin-secret') ||
+    request.headers.has('x-service-secret');
+  if (!presenting) return false;
+
+  // Cloudflare sets this and a client cannot forge it. A header the request
+  // chose, like x-forwarded-for, would let an attacker reset their own counter
+  // by changing one line.
+  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+  const key = new Request(`https://auth-limit.invalid/${encodeURIComponent(ip)}`);
+  const cache = caches.default;
+
+  let count = 0;
+  try {
+    const seen = await cache.match(key);
+    if (seen) count = Number(await seen.text()) || 0;
+  } catch {
+    // A cache that cannot be read must not lock anybody out. Failing open is
+    // the right way round here: this guards a secret, it is not the secret.
+    return false;
+  }
+
+  if (count >= AUTH_ATTEMPTS_PER_MINUTE) return true;
+
+  await cache.put(key, new Response(String(count + 1), {
+    headers: { 'Cache-Control': `max-age=60` },
+  }));
+  return false;
+}
+
 export function identify(request: Request, env: Env): Caller | typeof BAD_SECRET {
   const service = request.headers.get('x-service-secret');
   if (service) {
@@ -134,6 +194,13 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
     const url = new URL(request.url);
+
+    if (await overAuthLimit(request)) {
+      // 429 rather than 401: the credential was not checked at all, and saying
+      // "wrong" for a request nobody looked at would be a lie that also tells
+      // an attacker their guess was tried.
+      return json({ error: 'too many attempts' }, 429);
+    }
 
     // Deliberately says nothing about the database — not the table names, not
     // the row counts, not the migration stage. A health endpoint that reports
