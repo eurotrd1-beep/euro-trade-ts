@@ -26,6 +26,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { POLICY } from '../src/access.js';
 
 const SCHEMA = readFileSync(
   fileURLToPath(new URL('../migrations/0001_schema.sql', import.meta.url)),
@@ -108,6 +109,35 @@ describe('users carries every column the app and the admin read', () => {
     // The one that matters most: an account must never arrive with the
     // admin-only flag that makes every one of its trades close as a win.
     expect(row['guaranteed_win']).toBe(0);
+  });
+});
+
+describe('every column access.ts declares exists in the real table', () => {
+  // access.ts decides what may be selected, filtered and ordered by, and those
+  // names go into the SQL text. A name that is not a column there is a query
+  // that fails at request time for a caller who did nothing wrong — and it is
+  // invisible until someone asks for that exact field. This is the same check
+  // that turned up `banned` for `is_banned`, one layer up.
+  for (const [table, policy] of Object.entries(POLICY)) {
+    it(`${table}`, () => {
+      const real = columnsOf(table);
+      const phantom = policy.columns.filter((c) => !real.includes(c));
+      expect(phantom, `${table} declares columns it does not have: ${phantom.join(', ')}`)
+        .toEqual([]);
+    });
+  }
+
+  it('declares every column of every table, so nothing is unreachable by accident', () => {
+    // The other direction. A column in the schema that access.ts never lists
+    // cannot be read by anyone, which is safe but silent: the field is simply
+    // always absent. Better to have to decide about it.
+    const undeclared: string[] = [];
+    for (const [table, policy] of Object.entries(POLICY)) {
+      for (const c of columnsOf(table)) {
+        if (!policy.columns.includes(c)) undeclared.push(`${table}.${c}`);
+      }
+    }
+    expect(undeclared, `columns with no entry in access.ts: ${undeclared.join(', ')}`).toEqual([]);
   });
 });
 

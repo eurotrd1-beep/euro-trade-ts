@@ -57,6 +57,23 @@ export interface TablePolicy {
    * falling back to letting everything through.
    */
   ownerColumn?: string;
+  /**
+   * Every column a request may name — to select, to filter on, to order by.
+   *
+   * Required, and it is a second whitelist rather than a convenience. A table
+   * name and a column name cannot be sent to SQLite as bound parameters; they
+   * are the one part of a query that has to be written into the statement
+   * itself. So neither is ever taken from the request: the request names one,
+   * and what goes into the SQL is the matching entry from this file or
+   * nothing at all.
+   *
+   * It also means `*` has a definition. A column added to the schema later is
+   * not selected by anything until somebody adds it here — the same shape as
+   * the table rule, so a new column is a decision rather than a disclosure.
+   *
+   * `test/schema.test.ts` checks every name here against the real table.
+   */
+  columns: readonly string[];
 }
 
 /**
@@ -70,35 +87,74 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // ── Read by the browser, written by the feed ─────────────────────────────
   // Postgres: `CREATE POLICY "public read"`. Prices and pairs are public by
   // nature — they are what the app exists to show.
-  candles: { read: 'public', write: 'service' },
-  pairs: { read: 'public', write: 'admin' },
-  otc_pairs: { read: 'public', write: 'service' },
-  brokers: { read: 'public', write: 'admin' },
-  configs: { read: 'public', write: 'admin' },
+  candles: { read: 'public', write: 'service', columns: ['key', 'data', 'updated_ms'] },
+  pairs: {
+    read: 'public', write: 'admin',
+    columns: ['id', 'symbol', 'chart_symbol', 'category', 'type', 'source', 'is_otc',
+      'enabled', 'order', 'created_ms'],
+  },
+  otc_pairs: {
+    read: 'public', write: 'service',
+    columns: ['id', 'platform', 'symbol', 'name', 'asset_type', 'subcategory', 'is_otc',
+      'enabled', 'order', 'updated_ms'],
+  },
+  brokers: { read: 'public', write: 'admin', columns: ['id', 'data', 'updated_ms'] },
+  configs: { read: 'public', write: 'admin', columns: ['id', 'data', 'updated_ms'] },
 
   // Postgres: `CREATE POLICY "read" … USING (true)`. The published record the
   // statistics are computed from; readable so the app can show a win rate.
-  signals: { read: 'public', write: 'service' },
-  signal_daily: { read: 'public', write: 'service' },
-  signal_write_budget: { read: 'public', write: 'service' },
-  strategy_versions: { read: 'public', write: 'admin' },
-  strategy_version_stats: { read: 'public', write: 'service' },
+  signals: {
+    read: 'public', write: 'service',
+    columns: ['id', 'symbol', 'timeframe', 'direction', 'bar_ms', 'strategy_version_id',
+      'slot', 'confidence', 'score', 'rules_matched', 'candle_snapshot', 'entry_price',
+      'exit_price', 'expiry_seconds', 'outcome', 'forced', 'created_ms', 'resolved_ms'],
+  },
+  signal_daily: {
+    read: 'public', write: 'service',
+    columns: ['day', 'symbol', 'signals', 'wins', 'losses', 'ties', 'unresolved', 'pending',
+      'forced'],
+  },
+  signal_write_budget: {
+    read: 'public', write: 'service',
+    columns: ['day', 'written', 'max_rows'],
+  },
+  strategy_versions: {
+    read: 'public', write: 'admin',
+    columns: ['id', 'name', 'strategy_json', 'published', 'created_ms'],
+  },
+  strategy_version_stats: {
+    read: 'public', write: 'service',
+    columns: ['version_id', 'data', 'updated_ms'],
+  },
 
   // ── Tightened on the way across ──────────────────────────────────────────
   // Postgres has `CREATE POLICY "allow all" ON signal_history`, which lets any
   // holder of the anon key read AND OVERWRITE any account's trade history.
   // That is a carried-over default, not a decision, and the move is the moment
   // to end it: an account reaches its own row and no other.
-  signal_history: { read: 'owner', write: 'owner', ownerColumn: 'account_id' },
+  signal_history: {
+    read: 'owner', write: 'owner', ownerColumn: 'account_id',
+    columns: ['account_id', 'signals', 'updated_ms'],
+  },
 
   // Same story. The anon key can currently read every account row — role, VIP
   // expiry, device binding — for every user.
-  users: { read: 'owner', write: 'owner', ownerColumn: 'id' },
+  users: {
+    read: 'owner', write: 'owner', ownerColumn: 'id',
+    columns: ['id', 'broker', 'role', 'is_banned', 'ban_reason', 'device_id', 'fcm_token',
+      'login_count', 'vip_expiry_ms', 'guaranteed_win', 'clicked_broker', 'created_ms'],
+  },
 
   // ── Admin ────────────────────────────────────────────────────────────────
-  telegram_queue: { read: 'admin', write: 'admin' },
-  repair_log: { read: 'admin', write: 'service' },
-  captcha_stats: { read: 'admin', write: 'service' },
+  telegram_queue: {
+    read: 'admin', write: 'admin',
+    columns: ['id', 'event_key', 'kind', 'payload', 'state', 'created_ms', 'decided_ms'],
+  },
+  repair_log: {
+    read: 'admin', write: 'service',
+    columns: ['id', 'stage', 'detail', 'created_ms'],
+  },
+  captcha_stats: { read: 'admin', write: 'service', columns: ['id', 'data', 'updated_ms'] },
 
   // A click IS an anonymous write, but not an anonymous write to this table.
   // Postgres routes it through `increment_click`, a SECURITY DEFINER function
@@ -109,17 +165,24 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // one narrow, fixed mutation that runs as the service. A `write: 'public'`
   // here would be a widening dressed as a port: it would let anyone overwrite
   // every counter the analytics page reads.
-  clicks: { read: 'admin', write: 'service' },
+  clicks: { read: 'admin', write: 'service', columns: ['id', 'data'] },
 
   // ── Never over HTTP ──────────────────────────────────────────────────────
   // Postgres: RLS on with NO policy at all — refused to anon and authenticated,
   // reachable only by the service key. `push_subscriptions` is the one that was
   // exposed before; it holds per-device encryption keys and there is no caller
   // on the internet who has any business with it.
-  push_subscriptions: { read: 'never', write: 'service' },
-  push_alerts: { read: 'never', write: 'service' },
-  telegram_alerts: { read: 'never', write: 'service' },
-  price_snapshot: { read: 'never', write: 'service' },
+  push_subscriptions: {
+    read: 'never', write: 'service',
+    columns: ['endpoint', 'user_id', 'subscription', 'symbols', 'plan', 'failures',
+      'created_ms', 'updated_ms'],
+  },
+  push_alerts: { read: 'never', write: 'service', columns: ['event_key', 'sent_ms'] },
+  telegram_alerts: {
+    read: 'never', write: 'service',
+    columns: ['event_key', 'kind', 'sent_ms'],
+  },
+  price_snapshot: { read: 'never', write: 'service', columns: ['id', 'data', 'updated_ms'] },
 };
 
 /** Ranked, so a service caller satisfies an `admin` rule and so on. */
@@ -184,3 +247,68 @@ export function decide(table: string, op: 'read' | 'write', caller: Caller): Dec
 
 /** Every table this file has an opinion about — for the inventory test. */
 export const GOVERNED = Object.keys(POLICY).sort();
+
+// ── Identifiers ─────────────────────────────────────────────────────────────
+//
+// A table name and a column name are the one part of a SQL statement that
+// cannot be a bound parameter. Everything below exists so that the string that
+// ends up inside a statement comes from THIS FILE and not from a request.
+
+/**
+ * What a legal identifier looks like here.
+ *
+ * Not a defence against the request — the request never reaches the SQL. It is
+ * a check on the whitelist itself, so that a typo in POLICY (a space, a quote,
+ * a stray comma inside a name) is caught by the tests instead of becoming a
+ * broken statement, or worse a working one.
+ */
+const IDENTIFIER = /^[a-z_][a-z0-9_]*$/;
+
+/**
+ * The canonical table name, or null.
+ *
+ * Returns the string held in this file rather than the one that was asked for.
+ * They compare equal, and only one of them was written by us — which is the
+ * whole reason this returns anything at all instead of a boolean.
+ */
+export function tableNamed(requested: string): string | null {
+  return GOVERNED.find((t) => t === requested) ?? null;
+}
+
+/**
+ * The columns a request may have, resolved against the whitelist.
+ *
+ * `null` or `'*'` means every declared column — which is not the same as every
+ * column in the table. A column added to the schema and not added to POLICY is
+ * returned by nothing, so a new column cannot be disclosed by an old query.
+ *
+ * Returns null if ANY requested column is not declared. Not "the ones that
+ * matched": a partial answer to a query naming a column we refuse looks like a
+ * table that lost a column, and the caller would carry on with a row that is
+ * quietly missing a field.
+ */
+export function columnsFor(table: string, requested: readonly string[] | null): string[] | null {
+  const policy = POLICY[table];
+  if (policy === undefined) return null;
+  const declared = policy.columns;
+  if (requested === null || (requested.length === 1 && requested[0] === '*')) {
+    return [...declared];
+  }
+  const out: string[] = [];
+  for (const want of requested) {
+    // Pushing the DECLARED string, not the requested one.
+    const found = declared.find((c) => c === want);
+    if (found === undefined || !IDENTIFIER.test(found)) return null;
+    out.push(found);
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** One column name, resolved against the whitelist — for filters and ordering. */
+export function columnNamed(table: string, requested: string): string | null {
+  const found = POLICY[table]?.columns.find((c) => c === requested);
+  return found !== undefined && IDENTIFIER.test(found) ? found : null;
+}
+
+/** Exposed so the tests can hold the whitelist itself to the same rule. */
+export const isIdentifier = (s: string): boolean => IDENTIFIER.test(s);

@@ -58,6 +58,7 @@
  */
 
 import { decide, type Caller } from './access.js';
+import { buildSelect, parseQuery } from './db.js';
 
 export interface Env {
   DB: D1Database;
@@ -160,6 +161,34 @@ export default {
         // would make a scoped allow indistinguishable from an open one.
         scopedBy: d.scope?.column ?? null,
       }, d.allowed ? 200 : 403);
+    }
+
+    // ── The read path ───────────────────────────────────────────────────────
+    //
+    // GET /v1/<table>?cols=…&eq=col:value&order=col.desc&limit=n&count=1
+    //
+    // One route for every table, because the alternative is twenty routes and
+    // the twenty-first written in a hurry without the gate. What varies per
+    // table is the DECISION, and that already lives in one place.
+    const read = url.pathname.match(/^\/v1\/([a-z_]+)$/);
+    if (read !== null && request.method === 'GET') {
+      const caller = identify(request, env);
+      if (caller === BAD_SECRET) return json({ error: 'bad credential' }, 401);
+
+      const built = buildSelect(parseQuery(read[1]!, url.searchParams), caller);
+      if (!built.ok) return json({ error: built.reason }, built.status);
+
+      try {
+        const result = await env.DB.prepare(built.statement.sql)
+          .bind(...built.statement.binds)
+          .all();
+        return json({ rows: result.results ?? [] });
+      } catch (e) {
+        // The message is logged, not returned. A SQL error quoted back to the
+        // caller describes the schema to whoever provoked it.
+        console.error('read failed', read[1], e instanceof Error ? e.message : e);
+        return json({ error: 'query failed' }, 500);
+      }
     }
 
     return json({ error: 'not found' }, 404);
