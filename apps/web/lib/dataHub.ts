@@ -45,6 +45,33 @@ import { supabase } from '@euro/shared';
 
 export type DataMode = 'supabase' | 'mirror' | 'd1';
 
+/**
+ * Reads a boolean column from either database.
+ *
+ * ── WHY THIS IS NOT PARANOIA ───────────────────────────────────────────────
+ *
+ * SQLite has no boolean type, so every `true` in Postgres arrives from D1 as
+ * the number 1. `1 === true` is false in JavaScript, and the app had two
+ * checks written exactly that way:
+ *
+ *   isBanned:      row['is_banned'] === true
+ *   guaranteedWin: row['guaranteed_win'] === true
+ *
+ * The moment the mode flips, the first one lets every banned account back in
+ * and the second turns guaranteed-win off for everyone who has it. Nothing
+ * errors. Nothing is logged. The screens render, the values are simply false.
+ *
+ * So there is one function, it accepts both shapes, and it is the only way a
+ * boolean column should ever be read.
+ */
+export function dbBool(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  // Postgres over some paths, and anything hand-written into a config row.
+  if (typeof value === 'string') return value === 'true' || value === 't' || value === '1';
+  return false;
+}
+
 /** Where the hub lives. Overridden by `configs.data_source.url`. */
 let hubUrl = '';
 let mode: DataMode = 'supabase';

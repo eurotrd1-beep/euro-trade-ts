@@ -41,7 +41,7 @@ vi.mock('@euro/shared', () => {
 });
 
 const {
-  db, configureDataSource, currentMode, hubStats, setDataAccount,
+  db, configureDataSource, currentMode, hubStats, setDataAccount, dbBool,
 } = await import('../lib/dataHub.js');
 
 const HUB = 'https://data.example.com';
@@ -229,5 +229,48 @@ describe('the request the hub receives', () => {
     await db().from('candles').select('*');
     expect(String(fetchMock.mock.calls[0]![0])).toContain('/v1/candles');
     expect(String(fetchMock.mock.calls[0]![0])).not.toContain('//v1');
+  });
+});
+
+/**
+ * The boolean that would have unbanned everyone.
+ *
+ * SQLite has no boolean type, so `true` in Postgres comes back from D1 as the
+ * number 1 — and `1 === true` is false. Two checks in the app were written
+ * exactly that way, and the day the mode flipped they would have let every
+ * banned account back in and switched guaranteed-win off for everyone holding
+ * it. No error, no log line; the values would simply have been false.
+ */
+describe('dbBool reads a boolean from either database', () => {
+  it('accepts what Postgres sends', () => {
+    expect(dbBool(true)).toBe(true);
+    expect(dbBool(false)).toBe(false);
+  });
+
+  it('accepts what D1 sends', () => {
+    expect(dbBool(1)).toBe(true);
+    expect(dbBool(0)).toBe(false);
+  });
+
+  it('is the check `=== true` is not', () => {
+    // The whole point, stated as an assertion so it cannot quietly regress.
+    expect(1 === (true as unknown)).toBe(false);
+    expect(dbBool(1)).toBe(true);
+  });
+
+  it('treats anything unrecognised as false', () => {
+    // A ban flag that cannot be read must not read as "banned" — an outage
+    // would lock out every user at once. Guaranteed-win defaulting off is the
+    // safe direction too.
+    for (const v of [null, undefined, {}, [], 'yes', '']) {
+      expect(dbBool(v)).toBe(false);
+    }
+  });
+
+  it('accepts the string forms a config row might hold', () => {
+    expect(dbBool('true')).toBe(true);
+    expect(dbBool('t')).toBe(true);
+    expect(dbBool('1')).toBe(true);
+    expect(dbBool('false')).toBe(false);
   });
 });

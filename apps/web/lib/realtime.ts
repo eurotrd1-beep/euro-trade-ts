@@ -11,6 +11,23 @@
  *
  * So: never replace these with polling.
  *
+ * ── AND THE PART THAT DOES NOT MOVE TO D1 ─────────────────────────────────
+ *
+ * The migration splits this file in two. The INITIAL read of each row goes
+ * through `db()`, so it comes from D1 as soon as the mode says so. The
+ * subscriptions below stay on Supabase, because D1 has nothing like them:
+ * there is no way to be told that a row changed.
+ *
+ * That is not a gap left by accident, and the note above says why it cannot be
+ * closed by the obvious means. Realtime sends a snapshot and then deltas; a 30
+ * second poll re-downloaded everything for every user and burned 5.6 GB in two
+ * days. Replacing these with polling is how that bill comes back.
+ *
+ * So Supabase keeps this one job after everything else has moved, and the real
+ * replacement is a push from the Worker — the hub already holds a socket per
+ * client for prices, and a config change is the same shape of message. Until
+ * that exists, this file is the reason the Supabase project stays alive.
+ *
  * One difference from Dart, and it is a deliberate improvement rather than a
  * behaviour change: the Dart screen opens ~10 separate `.stream()` calls, one
  * per config row, and a transient DB blip made ALL of them re-subscribe and
@@ -19,7 +36,8 @@
  * The data each listener sees is identical.
  */
 
-import { supabase } from '@euro/shared';
+import { supabase, type UserRow } from '@euro/shared';
+import { db } from './dataHub';
 import type { ConfigRow, PairRow } from '@euro/shared';
 
 type ConfigListener = (data: Record<string, unknown>) => void;
@@ -117,12 +135,16 @@ export function watchConfig(id: string, onData: ConfigListener): () => void {
   } else {
     void (async () => {
       try {
-        const { data } = await supabase()
-          .from('configs')
+        // The FIRST read goes through the data layer, which is D1 once the
+        // mode says so. The live subscription above stays on Supabase
+        // Realtime, because D1 has no equivalent — see the note at the top of
+        // this file.
+        const { data } = await db()
+          .from<{ data: Record<string, unknown> }>('configs')
           .select('data')
           .eq('id', id)
           .maybeSingle();
-        const value = (data?.['data'] ?? {}) as Record<string, unknown>;
+        const value = (data?.[0]?.['data'] ?? {}) as Record<string, unknown>;
         configCache.set(id, value);
         onData(value);
       } catch {
@@ -142,7 +164,7 @@ export function watchPairs(onData: (pairs: PairRow[]) => void): () => void {
 
   void (async () => {
     try {
-      const { data } = await supabase().from('pairs').select('*').order('order');
+      const { data } = await db().from<PairRow>('pairs').select('*').order('order');
       if (!cancelled) onData((data as PairRow[] | null) ?? []);
     } catch {
       if (!cancelled) onData([]);
@@ -156,7 +178,7 @@ export function watchPairs(onData: (pairs: PairRow[]) => void): () => void {
       // are rare — re-reading keeps ordering and filtering trivially correct.
       void (async () => {
         try {
-          const { data } = await supabase().from('pairs').select('*').order('order');
+          const { data } = await db().from<PairRow>('pairs').select('*').order('order');
           if (!cancelled) onData((data as PairRow[] | null) ?? []);
         } catch {
           // Keep the previous list.
@@ -180,7 +202,7 @@ export function watchUser(
 
   async function read(): Promise<void> {
     try {
-      const { data } = await supabase().from('users').select('*').eq('id', accountId).maybeSingle();
+      const { data } = await db().from<UserRow>('users').select('*').eq('id', accountId).maybeSingle();
       if (!cancelled) onData((data as Record<string, unknown> | null) ?? null);
     } catch {
       // Keep the last known state rather than downgrading the user.

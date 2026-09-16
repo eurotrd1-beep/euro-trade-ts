@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { watchConfig, watchPairs, watchUser } from './realtime';
+import { dbBool } from './dataHub';
 import type { PairRow } from '@euro/shared';
 
 export interface AppConfig {
@@ -168,9 +169,9 @@ export function useLiveUser(accountId: string | null): LiveUser {
       setUser({
         role: typeof row['role'] === 'string' ? row['role'] : 'standard',
         vipExpiry: expiry && !Number.isNaN(expiry.getTime()) ? expiry : null,
-        isBanned: row['is_banned'] === true,
+        isBanned: dbBool(row['is_banned']),
         banReason: typeof row['ban_reason'] === 'string' ? row['ban_reason'] : '',
-        guaranteedWin: row['guaranteed_win'] === true,
+        guaranteedWin: dbBool(row['guaranteed_win']),
         loaded: true,
         deleted: false,
       });

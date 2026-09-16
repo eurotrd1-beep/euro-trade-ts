@@ -8,6 +8,7 @@
  */
 
 import { saveSession } from './session';
+import { db, setDataAccount } from './dataHub';
 import {
   supabase,
   getDeviceId,
@@ -89,10 +90,18 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
   const accountId = req.accountId.trim();
 
   try {
-    const { data } = await sb.from('users').select('*').eq('id', accountId).maybeSingle();
-    const row = data as UserRow | null;
+    const { data } = await db()
+      .from<UserRow>('users')
+      .select('*')
+      .eq('id', accountId)
+      .maybeSingle();
+    const row = (data?.[0] ?? null) as UserRow | null;
 
     if (row) {
+      // Every later read of this account's own rows is scoped by the hub to
+      // this id. Set before anything else asks for them.
+      setDataAccount(accountId);
+
       const role = row.role || 'standard';
       const vipExpiry = row.vip_expiry ? new Date(row.vip_expiry) : null;
       const storedDeviceId = row.device_id;
@@ -130,6 +139,7 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
     const lastClickedBroker = readLocal('last_clicked_broker');
     const grant = await globalVipGrant();
 
+    setDataAccount(accountId);
     await sb.from('users').upsert({
       id: accountId,
       broker: req.broker,

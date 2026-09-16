@@ -42,6 +42,7 @@
  */
 
 import { supabase } from '@euro/shared';
+import { db, currentMode } from './dataHub';
 import type { TradingSignal } from '@euro/engine';
 
 /** The Dart cap, kept: fifty settled signals per account. */
@@ -188,14 +189,27 @@ export function mergeHistories(
 export async function fetchRemoteHistory(accountId: string): Promise<TradingSignal[] | null> {
   if (!accountId) return null;
   try {
-    const { data, error } = await supabase()
-      .from(TABLE)
+    const { data, error } = await db()
+      .from<{ signals?: unknown }>(TABLE)
       .select('signals')
       .eq('account_id', accountId)
       .maybeSingle();
     if (error) return null;
-    const raw = (data as { signals?: unknown } | null)?.signals;
-    if (!Array.isArray(raw)) return data === null ? [] : null;
+    const row = data?.[0] ?? null;
+    // `signals` is jsonb in Postgres and TEXT in D1, so one arrives parsed and
+    // the other does not. Handing a string to the code below would find no
+    // array, return an empty history, and then OVERWRITE the real one on the
+    // next save — a data loss that looks like a user with no trades.
+    let raw: unknown = row?.signals;
+    if (typeof raw === 'string') {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        // Unreadable is not empty. Returning null keeps the local cache.
+        return null;
+      }
+    }
+    if (!Array.isArray(raw)) return row === null ? [] : null;
 
     const out: TradingSignal[] = [];
     for (const item of raw) {
@@ -240,7 +254,13 @@ export async function pushRemoteHistory(
     const trimmed = merged.slice(0, LIMIT).map((s) => ({ ...s, candlesSnapshot: null }));
     // `updated_at` is deliberately not sent: the trigger sets it from the
     // server clock, because a client's clock can be wrong or lied about.
-    await supabase().from(TABLE).upsert({ account_id: accountId, signals: trimmed });
+    // The same difference, on the way out. The hub's CHECK (json_valid)
+    // refuses anything that is not JSON text, and Postgres wants the array.
+    await db().from(TABLE).upsert(
+      currentMode() === 'd1'
+        ? { account_id: accountId, signals: JSON.stringify(trimmed), updated_ms: Date.now() }
+        : { account_id: accountId, signals: trimmed },
+    );
   } catch {
     // Offline, blocked, or the migration has not been run yet.
   }
