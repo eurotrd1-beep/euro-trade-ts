@@ -11,13 +11,30 @@ it keeps it read-only. Nothing here deletes a row from it, at any point.
 
 ## Before anything: the backup
 
-```bash
-# Supabase dashboard → Project Settings → Database → Connection string (session)
-export PGURL='...'                      # in the shell, never in a file
+No `pg_dump` is needed on the machine — Docker has one:
 
-pg_dump "$PGURL" --schema=public --no-owner --no-privileges -f backup.sql
-node apps/data-hub/scripts/verify-backup.mjs backup.sql
+```bash
+cd apps/data-hub                        # SUPABASE_DB_URL in .env.local
+PW=$(node -e "import('./scripts/env.mjs').then(()=>console.log(new URL(process.env.SUPABASE_DB_URL).password))")
+URL="postgresql://postgres.<ref>:$PW@aws-1-eu-central-1.pooler.supabase.com:6543/postgres"
+IMG=public.ecr.aws/supabase/postgres:17.6.1.167
+
+docker run --rm $IMG pg_dump "$URL" --schema=public --no-owner --no-privileges   --schema-only > backup/schema.sql
+docker run --rm $IMG pg_dump "$URL" --schema=public --no-owner --no-privileges   --data-only   > backup/data.sql
+cat backup/schema.sql backup/data.sql > backup/backup.sql
+
+node scripts/verify-backup.mjs backup/backup.sql
 ```
+
+**Port 6543, not the 5432 the dashboard shows.** Measured: :5432 on this
+project accepts the connection and then closes it — "server closed the
+connection unexpectedly", which reads like a network fault and is not one.
+:6543 works. The direct host `db.<ref>.supabase.co` does not resolve at all;
+it is IPv6-only on the free plan.
+
+And percent-encode the password. A `#` starts a URL fragment, so the password
+truncates at it silently and the failure looks like a wrong password rather
+than a malformed URL.
 
 `pg_dump` exits 0 for a dump that is missing tables, that came back empty
 because the role could not read one, and that was cut off mid-way. All three
