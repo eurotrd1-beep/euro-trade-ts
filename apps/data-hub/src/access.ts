@@ -99,7 +99,17 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   telegram_queue: { read: 'admin', write: 'admin' },
   repair_log: { read: 'admin', write: 'service' },
   captcha_stats: { read: 'admin', write: 'service' },
-  clicks: { read: 'admin', write: 'public' }, // a click is an anonymous write
+
+  // A click IS an anonymous write, but not an anonymous write to this table.
+  // Postgres routes it through `increment_click`, a SECURITY DEFINER function
+  // that adds one to a named counter and can do nothing else — so the public
+  // never holds write access to the row, only the right to make it larger by
+  // one. Carrying that over means the generic table write stays closed here,
+  // and the increment endpoint (with the write path, not in this stage) is the
+  // one narrow, fixed mutation that runs as the service. A `write: 'public'`
+  // here would be a widening dressed as a port: it would let anyone overwrite
+  // every counter the analytics page reads.
+  clicks: { read: 'admin', write: 'service' },
 
   // ── Never over HTTP ──────────────────────────────────────────────────────
   // Postgres: RLS on with NO policy at all — refused to anon and authenticated,

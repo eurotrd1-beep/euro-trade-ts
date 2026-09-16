@@ -93,17 +93,29 @@ CREATE TABLE IF NOT EXISTS brokers (
 
 -- ── Accounts ───────────────────────────────────────────────────────────────
 
+-- Column-for-column with the live Postgres table, checked against `UserRow` in
+-- packages/shared/src/database.ts and against every read in the app and the
+-- admin. An earlier draft of this file invented names — `banned` for
+-- `is_banned`, a `seen_ms` nothing writes — and dropped four columns that are
+-- read today. A rename here is not a rename: it is a column that arrives empty
+-- after the copy, and `is_banned` arriving empty unbans everyone.
 CREATE TABLE IF NOT EXISTS users (
   id              TEXT PRIMARY KEY,           -- the id typed into the box
-  role            TEXT NOT NULL DEFAULT 'standard',
-  vip_expiry_ms   INTEGER,
-  device_id       TEXT,                       -- VIP is bound to one device
-  guaranteed_win  INTEGER NOT NULL DEFAULT 0,
-  banned          INTEGER NOT NULL DEFAULT 0,
   broker          TEXT,
-  created_ms      INTEGER NOT NULL,
-  seen_ms         INTEGER
+  role            TEXT NOT NULL DEFAULT 'standard',
+  is_banned       INTEGER NOT NULL DEFAULT 0, -- SQLite has no boolean
+  ban_reason      TEXT,                       -- shown on the splash, boot.ts
+  device_id       TEXT,                       -- VIP is bound to one device
+  fcm_token       TEXT,
+  login_count     INTEGER NOT NULL DEFAULT 0,
+  vip_expiry_ms   INTEGER,                    -- was timestamptz `vip_expiry`
+  guaranteed_win  INTEGER NOT NULL DEFAULT 0,
+  clicked_broker  TEXT,                       -- set once, at first login
+  created_ms      INTEGER NOT NULL            -- was timestamptz `created_at`
 );
+-- The admin lists users newest first and filters by role.
+CREATE INDEX IF NOT EXISTS users_created ON users (created_ms);
+CREATE INDEX IF NOT EXISTS users_role ON users (role);
 
 -- One row per account, holding its trades as JSON. Postgres had `allow all` on
 -- this — any holder of the anon key could read or overwrite anyone's history.
@@ -111,7 +123,11 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS signal_history (
   account_id  TEXT PRIMARY KEY,
   signals     TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(signals)),
-  updated_ms  INTEGER NOT NULL
+  updated_ms  INTEGER NOT NULL,
+  -- Carried over from Postgres, and it is a safety cap, not the product's cap:
+  -- the app trims to fifty, and this stops a hostile client turning one row
+  -- into megabytes. If the app's limit ever rises, this has to rise first.
+  CHECK (json_array_length(signals) <= 200)
 );
 
 -- ── The published record ───────────────────────────────────────────────────

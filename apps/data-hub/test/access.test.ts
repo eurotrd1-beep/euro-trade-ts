@@ -34,7 +34,13 @@ const SCHEMA = readFileSync(
  * INTEGER"), so a check for the banned type against the raw file matches the
  * sentence saying it is banned. Assert against the SQL, not the commentary.
  */
-const SQL = SCHEMA.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+const SQL = SCHEMA
+  .split('\n')
+  // Trailing comments too, not just whole-comment lines: a column carrying
+  // `-- was timestamptz vip_expiry` is documentation of the conversion, and a
+  // check that reads it as the banned type is reading the note, not the column.
+  .map((l) => l.replace(/--.*$/, ''))
+  .join('\n');
 
 const pub: Caller = { kind: 'public' };
 const user = (id = 'acct-1'): Caller => ({ kind: 'user', accountId: id });
@@ -138,6 +144,97 @@ describe('owner-scoped data', () => {
     // anything, so neither may be allowed by an `owner` rule.
     expect(decide('users', 'read', pub).allowed).toBe(false);
     expect(decide('users', 'read', pub).reason).toContain('signed-in');
+  });
+});
+
+/**
+ * Every place the admin panel relies on reading or writing rows that are not
+ * its own, found by reading the panel rather than by guessing. Closing `users`
+ * to owner-only is the right fix for the public, and it would take the whole
+ * admin down with it unless the admin arrives as an admin.
+ *
+ * Each case names the file, so a future change to the panel can be checked
+ * against the rule instead of discovered in production.
+ */
+describe('what the admin panel actually does', () => {
+  it('lists every user — app/admin/page.tsx:38', () => {
+    const d = decide('users', 'read', admin);
+    expect(d.allowed).toBe(true);
+    // No scope. An admin list scoped to one account would render one row and
+    // look like an empty database rather than a refusal.
+    expect(d.scope).toBeUndefined();
+  });
+
+  it('patches any user by id — app/admin/page.tsx:57 (ban, role, guaranteed_win)', () => {
+    expect(decide('users', 'write', admin).allowed).toBe(true);
+    expect(decide('users', 'write', admin).scope).toBeUndefined();
+  });
+
+  it('grants and revokes VIP in bulk — app/admin/vip/page.tsx:78,102,133', () => {
+    // `.in('id', batch)` touches up to BATCH_SIZE rows at once, none of them
+    // the caller's own.
+    expect(decide('users', 'write', admin).allowed).toBe(true);
+    expect(decide('users', 'read', admin).allowed).toBe(true);
+  });
+
+  it('counts guaranteed-win accounts — lib/healthChecks.ts:1101', () => {
+    expect(decide('users', 'read', admin).allowed).toBe(true);
+  });
+
+  it('reads the analytics counters — clicks', () => {
+    expect(decide('clicks', 'read', admin).allowed).toBe(true);
+  });
+
+  it('keeps the public OUT of all of it', () => {
+    // The same five operations, from a browser with no admin credential. This
+    // is the hole being closed: today every one of them succeeds with the
+    // public anon key, so anyone can grant themselves VIP or ban an account.
+    expect(decide('users', 'read', pub).allowed).toBe(false);
+    expect(decide('users', 'write', pub).allowed).toBe(false);
+    expect(decide('clicks', 'read', pub).allowed).toBe(false);
+    expect(decide('clicks', 'write', pub).allowed).toBe(false);
+  });
+
+  it('keeps a signed-in USER out of it too', () => {
+    // An account id is typed, not proven. Whatever it buys must stop at that
+    // account's own rows — a user reaching the admin's view of `users` would
+    // be the same hole with an extra header.
+    const d = decide('users', 'read', user('acct-1'));
+    expect(d.allowed).toBe(true);
+    expect(d.scope).toEqual({ column: 'id', value: 'acct-1' });
+    expect(decide('clicks', 'read', user('acct-1')).allowed).toBe(false);
+    expect(decide('telegram_queue', 'read', user('acct-1')).allowed).toBe(false);
+  });
+});
+
+/**
+ * The user's own app, which must keep working unchanged after the close.
+ * Each of these is scoped by `.eq('id', accountId)` today, so `owner` is a
+ * match rather than a restriction — but that is worth a test, because if any
+ * of them broke, the symptom is a user who cannot sign in.
+ */
+describe('what the user app actually does', () => {
+  it('reads its own account row — lib/auth.ts:92, lib/boot.ts:50, lib/realtime.ts:183', () => {
+    expect(decide('users', 'read', user('acct-1')).scope?.value).toBe('acct-1');
+  });
+
+  it('writes its own device binding and broker — lib/auth.ts:123,133', () => {
+    const d = decide('users', 'write', user('acct-1'));
+    expect(d.allowed).toBe(true);
+    expect(d.scope).toEqual({ column: 'id', value: 'acct-1' });
+  });
+
+  it('reads and writes its own trade history — lib/signalHistoryStore.ts', () => {
+    expect(decide('signal_history', 'read', user('acct-1')).scope?.value).toBe('acct-1');
+    expect(decide('signal_history', 'write', user('acct-1')).scope?.value).toBe('acct-1');
+  });
+
+  it('still reads candles, pairs, configs and brokers with no credential', () => {
+    // The app reads these before anyone has signed in. Closing them would put
+    // a blank chart behind the login screen.
+    for (const t of ['candles', 'pairs', 'configs', 'brokers']) {
+      expect(decide(t, 'read', pub).allowed).toBe(true);
+    }
   });
 });
 
