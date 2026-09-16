@@ -35,6 +35,18 @@ const SCHEMA = readFileSync(
  * sentence saying it is banned. Assert against the SQL, not the commentary.
  */
 const SQL = SCHEMA
+  // Carriage returns go FIRST, and this line is not tidying.
+  //
+  // In JavaScript `\r` is a line terminator, so `.` does not match it. On a
+  // CRLF checkout every line ends `…\r`, `--.*$` therefore matches nothing —
+  // `.*` stops before the `\r` and `$` is past it — and the strip below
+  // silently does nothing at all. The tests then read the file's own prose
+  // ("`timestamptz` becomes INTEGER") as if it were a column definition and
+  // fail, on Windows only, with a message about a type that is not there.
+  //
+  // Found exactly that way: green on one checkout, red after git rewrote the
+  // endings on a branch switch, with no change to either file.
+  .replace(/\r/g, '')
   .split('\n')
   // Trailing comments too, not just whole-comment lines: a column carrying
   // `-- was timestamptz vip_expiry` is documentation of the conversion, and a
