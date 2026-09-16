@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    // Every lookup in POLICY is by a string that came off a request. Without
+    // this, `POLICY[table]` types as TablePolicy and the `undefined` branch —
+    // which is the whole default-deny — looks like dead code to the compiler.
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  // Tests are typechecked too. The inventory test is the guarantee this stage
+  // is built around; a type error that quietly stops it running would take the
+  // guarantee with it.
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
