@@ -14,11 +14,11 @@
     {
       "binding": "DB",
       "database_name": "euro-trade",
-      // Filled in by `wrangler d1 create euro-trade`, in stage one. Left empty
-      // on purpose so that a deploy from this stage FAILS: stage zero is the
-      // schema and the access model under review, and nothing should be able to
-      // reach a real database until that review has happened.
-      "database_id": ""
+      // Created 2026-09-17, region WEUR. The binding is DB rather than the
+      // euro_trade wrangler suggested: src/index.ts reads env.DB, and a binding
+      // named after the database would have to be renamed the first time there
+      // are two.
+      "database_id": "2b0dda98-d8ed-4c3a-89fc-62870df9916b"
     }
   ],
 

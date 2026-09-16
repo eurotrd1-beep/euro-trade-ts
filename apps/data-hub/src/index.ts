@@ -135,9 +135,11 @@ export default {
 
     const url = new URL(request.url);
 
-    // Deliberately says nothing about the database. A health endpoint that
-    // reports table names or row counts is a reconnaissance endpoint.
-    if (url.pathname === '/health') return json({ ok: true, stage: 0 });
+    // Deliberately says nothing about the database — not the table names, not
+    // the row counts, not the migration stage. A health endpoint that reports
+    // any of it is a reconnaissance endpoint, and the stage in particular tells
+    // an attacker exactly which half of a migration they have found.
+    if (url.pathname === '/health') return json({ ok: true });
 
     // Stage zero exposes ONE thing: what the gate would decide. It reads no
     // data and touches no table — it is here so the access model can be
