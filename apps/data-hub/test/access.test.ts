@@ -256,9 +256,16 @@ describe('rank', () => {
 });
 
 describe('the inventory — every table has a decision', () => {
-  /** Table names as the schema actually declares them. */
+  /**
+   * Every object the schema declares — tables AND the one view.
+   *
+   * The view counts. `strategy_version_stats` is readable over HTTP like any
+   * table, so it needs a decision like any table; matching only CREATE TABLE
+   * would have let it through ungoverned, which is the exact hole this test
+   * exists to close.
+   */
   const inSchema = (): string[] =>
-    [...SQL.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map((m) => m[1]!).sort();
+    [...SQL.matchAll(/CREATE (?:TABLE|VIEW) IF NOT EXISTS (\w+)/g)].map((m) => m[1]!).sort();
 
   it('governs every table in the schema', () => {
     const missing = inSchema().filter((t) => POLICY[t] === undefined);
@@ -273,9 +280,11 @@ describe('the inventory — every table has a decision', () => {
     expect(stale, `rules for tables that do not exist: ${stale.join(', ')}`).toEqual([]);
   });
 
-  it('covers all twenty', () => {
+  it('covers all twenty — nineteen tables and one view', () => {
     expect(inSchema()).toHaveLength(20);
     expect(GOVERNED).toHaveLength(20);
+    expect(SQL.match(/CREATE TABLE IF NOT EXISTS/g)).toHaveLength(19);
+    expect(SQL.match(/CREATE VIEW IF NOT EXISTS/g)).toHaveLength(1);
   });
 });
 
@@ -293,8 +302,11 @@ describe('the schema avoids the two types SQLite does not have', () => {
     // Without the CHECK, a failed serialisation writes "[object Object]" and
     // every later read returns it without complaint.
     expect(SQL).not.toMatch(/\bjsonb\b/i);
+    // Every TEXT column that holds JSON is checked. The count fell when the
+    // live schema turned out to have real columns where this file had guessed
+    // a `data` blob — brokers has sixteen columns, not one.
     const jsonCols = SQL.match(/json_valid\(/g) ?? [];
-    expect(jsonCols.length).toBeGreaterThanOrEqual(12);
+    expect(jsonCols.length).toBeGreaterThanOrEqual(10);
   });
 
   it('keeps the uniqueness the duplicate guards depend on', () => {

@@ -65,11 +65,17 @@ const columnsOf = (table: string): string[] =>
   all(`PRAGMA table_info(${table})`).map((r) => String(r['name']));
 
 describe('the schema runs', () => {
-  it('creates all twenty tables', () => {
+  it('creates nineteen tables and one view', () => {
     const tables = all(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     ).map((r) => String(r['name']));
-    expect(tables).toHaveLength(20);
+    expect(tables).toHaveLength(19);
+
+    // The view is not decoration. strategy_version_stats aggregates
+    // signal_daily per version, and copying it as a table would copy an
+    // answer that is right for one instant and wrong from the next write on.
+    const views = all("SELECT name FROM sqlite_master WHERE type='view'");
+    expect(views.map((r) => String(r['name']))).toEqual(['strategy_version_stats']);
   });
 
   it('is re-runnable, because every statement is IF NOT EXISTS', () => {
@@ -149,6 +155,13 @@ describe('every primary key access.ts declares is the real one', () => {
   // app is reading a stale row.
   for (const [table, policy] of Object.entries(POLICY)) {
     it(`${table}`, () => {
+      if (policy.view) {
+        // A view has no key and nothing writes it. Demanding one would fail
+        // for a reason that is not a fault.
+        expect(policy.primaryKey).toEqual([]);
+        expect(policy.write).toBe('never');
+        return;
+      }
       // `pk` in table_info is the 1-based position in the key, 0 for columns
       // outside it — so this is the key in its declared order, which is what
       // a composite conflict target needs.

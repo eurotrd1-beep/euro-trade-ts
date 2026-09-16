@@ -96,6 +96,14 @@ export interface TablePolicy {
    * checks it against the index the table actually has.
    */
   conflictTarget?: string;
+  /**
+   * True for a SQLite VIEW rather than a table.
+   *
+   * Recorded because the checks that hold this file to the schema have to know:
+   * a view has no primary key and no conflict target, and demanding one would
+   * fail for a reason that has nothing wrong with it.
+   */
+  view?: boolean;
 }
 
 /**
@@ -123,17 +131,19 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   otc_pairs: {
     read: 'public', write: 'service',
     columns: ['id', 'platform', 'symbol', 'name', 'asset_type', 'subcategory', 'is_otc', 'enabled',
-      'order', 'updated_ms'],
+      'order', 'created_ms', 'updated_ms'],
     primaryKey: ['id'],
   },
   brokers: {
     read: 'public', write: 'admin',
-    columns: ['id', 'data', 'updated_ms'],
+    columns: ['id', 'name', 'logo_url', 'chart_url', 'registration_link', 'desc', 'click_key',
+      'promo_code', 'bonus_percent', 'min_deposit', 'is_active', 'is_recommended', 'order',
+      'themeColor', 'created_ms', 'updated_ms'],
     primaryKey: ['id'],
   },
   configs: {
     read: 'public', write: 'admin',
-    columns: ['id', 'data', 'updated_ms'],
+    columns: ['id', 'data'],
     primaryKey: ['id'],
   },
 
@@ -153,12 +163,12 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // Postgres hit this first and this mirrors its fix exactly.
   signal_daily: {
     read: 'public', write: 'service',
-    columns: ['day', 'strategy_version_id', 'symbol', 'timeframe', 'slot', 'signals',
-      'wins', 'losses', 'ties', 'unresolved', 'pending', 'forced'],
-    primaryKey: ['day', 'strategy_version_id', 'symbol', 'timeframe', 'slot'],
     conflictTarget:
       `"day", COALESCE("strategy_version_id", '00000000-0000-0000-0000-000000000000'), ` +
       `"symbol", "timeframe", "slot"`,
+    columns: ['day', 'strategy_version_id', 'symbol', 'timeframe', 'slot', 'signals', 'wins',
+      'losses', 'ties', 'unresolved', 'pending', 'forced'],
+    primaryKey: ['day', 'strategy_version_id', 'symbol', 'timeframe', 'slot'],
   },
   signal_write_budget: {
     read: 'public', write: 'service',
@@ -171,10 +181,17 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
       'json_hash', 'is_active'],
     primaryKey: ['id'],
   },
+  // A VIEW, not a table — one row per version, aggregated over signal_daily.
+  // Nothing writes it, in Postgres or here: `write: 'never'` is not a policy
+  // decision so much as a fact, and saying it out loud stops somebody adding a
+  // writer later and wondering why the numbers do not change.
   strategy_version_stats: {
-    read: 'public', write: 'service',
-    columns: ['version_id', 'data', 'updated_ms'],
-    primaryKey: ['version_id'],
+    view: true,
+    read: 'public', write: 'never',
+    columns: ['id', 'slot', 'version_number', 'name', 'uploaded_ms', 'uploaded_by', 'is_active',
+      'json_hash', 'signals', 'wins', 'losses', 'ties', 'unresolved', 'pending', 'forced',
+      'win_rate'],
+    primaryKey: [],
   },
 
   // ── Tightened on the way across ──────────────────────────────────────────
@@ -206,12 +223,12 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   },
   repair_log: {
     read: 'admin', write: 'service',
-    columns: ['id', 'stage', 'detail', 'created_ms'],
+    columns: ['id', 'at_ms', 'action', 'result', 'created_ms'],
     primaryKey: ['id'],
   },
   captcha_stats: {
     read: 'admin', write: 'service',
-    columns: ['id', 'data', 'updated_ms'],
+    columns: ['id', 'ts_ms', 'success', 'cost'],
     primaryKey: ['id'],
   },
 
@@ -335,7 +352,11 @@ export const GOVERNED = Object.keys(POLICY).sort();
  * a stray comma inside a name) is caught by the tests instead of becoming a
  * broken statement, or worse a working one.
  */
-const IDENTIFIER = /^[a-z_][a-z0-9_]*$/;
+// Uppercase is allowed because one real column has it: `brokers.themeColor`
+// is spelled that way in Postgres, the admin writes it by that name, and
+// "correcting" it to theme_color during the copy would be renaming a column,
+// which is indistinguishable from dropping it.
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
  * The canonical table name, or null.

@@ -49,10 +49,12 @@ CREATE TABLE IF NOT EXISTS price_snapshot (
 
 -- ── Catalogue and settings ─────────────────────────────────────────────────
 
+-- Two columns. The live table has no `updated_at` — a third column here would
+-- be one nothing ever fills, which reads as a timestamp that is always missing
+-- rather than as a column that should not exist.
 CREATE TABLE IF NOT EXISTS configs (
-  id          TEXT PRIMARY KEY,
-  data        TEXT NOT NULL CHECK (json_valid(data)),
-  updated_ms  INTEGER NOT NULL
+  id    TEXT PRIMARY KEY,
+  data  TEXT NOT NULL CHECK (json_valid(data))
 );
 
 CREATE TABLE IF NOT EXISTS pairs (
@@ -81,14 +83,34 @@ CREATE TABLE IF NOT EXISTS otc_pairs (
   -- arrive switched off and wait for a decision, not start storing itself.
   enabled      INTEGER NOT NULL DEFAULT 0,
   "order"      INTEGER NOT NULL DEFAULT 0,
+  created_ms   INTEGER,
   updated_ms   INTEGER NOT NULL,
   UNIQUE (platform, symbol)
 );
 
+-- The broker list on the login screen. Sixteen columns, not the `data` blob an
+-- earlier draft of this file had: `BrokerRow` in packages/shared has always
+-- said so, and the live table agrees.
 CREATE TABLE IF NOT EXISTS brokers (
-  id          TEXT PRIMARY KEY,
-  data        TEXT NOT NULL CHECK (json_valid(data)),
-  updated_ms  INTEGER NOT NULL
+  id                 TEXT PRIMARY KEY,
+  name               TEXT NOT NULL,
+  logo_url           TEXT,
+  chart_url          TEXT,
+  registration_link  TEXT,
+  desc               TEXT,
+  click_key          TEXT,
+  promo_code         TEXT,
+  bonus_percent      REAL,
+  min_deposit        REAL,
+  is_active          INTEGER NOT NULL DEFAULT 0,
+  is_recommended     INTEGER NOT NULL DEFAULT 0,
+  "order"            INTEGER NOT NULL DEFAULT 0,
+  -- camelCase in the database, deliberately. It is spelled that way in
+  -- Postgres and the admin writes it by that name; "correcting" it here would
+  -- rename a column during a copy, which is the same as dropping it.
+  themeColor         TEXT,
+  created_ms         INTEGER,
+  updated_ms         INTEGER
 );
 
 -- ── Accounts ───────────────────────────────────────────────────────────────
@@ -229,11 +251,31 @@ CREATE TABLE IF NOT EXISTS strategy_versions (
   UNIQUE (slot, version_number)
 );
 
-CREATE TABLE IF NOT EXISTS strategy_version_stats (
-  version_id  TEXT PRIMARY KEY,
-  data        TEXT NOT NULL CHECK (json_valid(data)),
-  updated_ms  INTEGER NOT NULL
-);
+-- NOT A TABLE. In Postgres this is a view over strategy_versions and
+-- signal_daily, and copying it would copy an aggregate that is correct for one
+-- instant and wrong from the next write onwards.
+--
+-- One row per version instead of the ~21,000 raw rows a month: the difference
+-- between a query measured in kilobytes and one measured in megabytes.
+CREATE VIEW IF NOT EXISTS strategy_version_stats AS
+SELECT v.id, v.slot, v.version_number, v.name, v.uploaded_ms, v.uploaded_by,
+       v.is_active, v.json_hash,
+       COALESCE(SUM(d.signals), 0)    AS signals,
+       COALESCE(SUM(d.wins), 0)       AS wins,
+       COALESCE(SUM(d.losses), 0)     AS losses,
+       COALESCE(SUM(d.ties), 0)       AS ties,
+       COALESCE(SUM(d.unresolved), 0) AS unresolved,
+       COALESCE(SUM(d.pending), 0)    AS pending,
+       COALESCE(SUM(d.forced), 0)     AS forced,
+       -- NULL under thirty settled trades. Not computed and then hidden in the
+       -- interface: a number that gets calculated leaks out somewhere, and a
+       -- win rate from nine trades is a number nobody should ever see.
+       CASE WHEN COALESCE(SUM(d.wins + d.losses), 0) >= 30
+            THEN ROUND(100.0 * SUM(d.wins) / NULLIF(SUM(d.wins + d.losses), 0), 2)
+       END AS win_rate
+  FROM strategy_versions v
+  LEFT JOIN signal_daily d ON d.strategy_version_id = v.id
+ GROUP BY v.id;
 
 -- ── Notifications ──────────────────────────────────────────────────────────
 
@@ -299,14 +341,19 @@ CREATE TABLE IF NOT EXISTS clicks (
 
 CREATE TABLE IF NOT EXISTS repair_log (
   id          TEXT PRIMARY KEY,
-  stage       TEXT,
-  detail      TEXT,
-  created_ms  INTEGER NOT NULL
+  at_ms       INTEGER,
+  action      TEXT,
+  result      TEXT,
+  created_ms  INTEGER
 );
 CREATE INDEX IF NOT EXISTS repair_log_created ON repair_log (created_ms);
 
+-- 2captcha solve counters. `packages/shared` describes this as `{id, data}`
+-- and the live table disagrees — it has four real columns. Where the two
+-- disagree the live table wins, because it is the one holding the rows.
 CREATE TABLE IF NOT EXISTS captcha_stats (
-  id          TEXT PRIMARY KEY,
-  data        TEXT NOT NULL CHECK (json_valid(data)),
-  updated_ms  INTEGER NOT NULL
+  id       TEXT PRIMARY KEY,
+  ts_ms    INTEGER,
+  success  INTEGER,
+  cost     REAL
 );

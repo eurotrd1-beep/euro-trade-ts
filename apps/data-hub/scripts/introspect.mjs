@@ -22,9 +22,21 @@
  * ── WHAT IT READS ──────────────────────────────────────────────────────────
  *
  * PostgREST publishes an OpenAPI description of every table it exposes at the
- * root of the REST API. It is the same document the client libraries use for
- * type generation, it needs only the anon key, and it returns no rows — this
- * reads the shape of the database, never its contents.
+ * root of the REST API — types, nullability and primary keys, and no rows at
+ * all. Supabase restricts that endpoint to the service_role key:
+ *
+ *   {"message":"Invalid API key","hint":"Only the `service_role` API key can
+ *    be used for this endpoint."}
+ *
+ * With only the anon key there is exactly one way left to learn what columns a
+ * table has, and it is to ask for a row and look at the keys. So that is the
+ * fallback, with one rule: it reports column NAMES and never a value. `users`
+ * holds account ids and device bindings, and the question here is what the
+ * columns are called — printing a row to answer it would be reading personal
+ * data out loud to answer a question about the schema.
+ *
+ * The fallback also cannot see types, defaults, or keys, and it goes blind on
+ * an empty table. Set SUPABASE_SERVICE_KEY for the full answer.
  *
  *   node scripts/introspect.mjs            print every table and column
  *   node scripts/introspect.mjs --json     write out/live-schema.json
@@ -54,6 +66,11 @@ async function live() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
   });
+  if (res.status === 401) {
+    console.error('The OpenAPI endpoint needs the service_role key; sampling column');
+    console.error('names instead. Types, defaults and keys are NOT available this way.\n');
+    return sample();
+  }
   if (!res.ok) throw new Error(`Supabase answered ${res.status}`);
   const spec = await res.json();
 
@@ -74,8 +91,43 @@ async function live() {
   return tables;
 }
 
+/**
+ * Column names, read off one row per table.
+ *
+ * The row is fetched and its KEYS are kept. The values are never stored, never
+ * returned and never printed — `sampled: true` on the result is there so a
+ * reader of the output knows the types below are unknown rather than trusted.
+ */
+async function sample() {
+  const { MAPPING } = await import('./mapping.mjs');
+  const tables = {};
+  for (const map of Object.values(MAPPING)) {
+    const url = `${SUPABASE_URL}/rest/v1/${map.from}?select=*&limit=1`;
+    const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+    if (!res.ok) {
+      tables[map.from] = { error: `HTTP ${res.status}` };
+      continue;
+    }
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      // An empty table tells us nothing, and pretending otherwise would let a
+      // table with no rows pass as "confirmed, no columns".
+      tables[map.from] = { error: 'no rows — cannot see the columns this way' };
+      continue;
+    }
+    tables[map.from] = Object.keys(rows[0]).map((column) => ({
+      column, type: 'unknown (sampled)', nullable: null, pk: false,
+    }));
+  }
+  return tables;
+}
+
 function print(tables) {
   for (const [name, columns] of Object.entries(tables).sort()) {
+    if (!Array.isArray(columns)) {
+      console.log(`\n${name}   ⚠️ ${columns.error}`);
+      continue;
+    }
     const keys = columns.filter((c) => c.pk).map((c) => c.column);
     console.log(`\n${name}${keys.length ? `   pk: ${keys.join(', ')}` : ''}`);
     for (const c of columns) {
@@ -85,14 +137,12 @@ function print(tables) {
 }
 
 async function diff(tables) {
-  const { POLICY } = await import('../src/access.js').catch(() => ({ POLICY: null })) ?? {};
-  if (!POLICY) {
-    console.error('Could not load access.ts — run this from the data-hub workspace.');
-    process.exit(1);
-  }
-
-  // The Postgres name a D1 column came from. Kept in the backfill mapping, so
-  // this compares like with like rather than complaining about every rename.
+  // Compared against the copy mapping, not against access.ts: access.ts names
+  // the D1 columns and the mapping names where each one comes from, so the
+  // mapping is the only side that speaks Postgres. (It is also plain JS, and
+  // access.ts is TypeScript this script cannot import.) The schema tests hold
+  // access.ts to the D1 schema; this holds the mapping to Postgres. Between
+  // the two there is no gap for a column to fall through.
   const { MAPPING } = await import('./mapping.mjs');
 
   let problems = 0;
@@ -100,6 +150,11 @@ async function diff(tables) {
     const columns = tables[map.from];
     if (!columns) {
       console.log(`${table}: no table '${map.from}' in the live database`);
+      problems++;
+      continue;
+    }
+    if (!Array.isArray(columns)) {
+      console.log(`${table}: ${columns.error}`);
       problems++;
       continue;
     }

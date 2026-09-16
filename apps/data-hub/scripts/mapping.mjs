@@ -15,12 +15,18 @@
  *
  * ── HOW MUCH OF THIS IS VERIFIED ───────────────────────────────────────────
  *
- * Eleven tables were read off the migrations in supabase/migrations — those
- * are exact. The other nine (candles, configs, brokers, pairs, otc_pairs,
- * users, clicks, repair_log, captcha_stats) have no CREATE TABLE anywhere in
- * this repo: they were made by hand before it existed. They are written here
- * from how the app reads them, which is a guess about everything the app does
- * not read, and they stay marked until `--diff` has confirmed them.
+ * Ten tables were read off the migrations in supabase/migrations — exact, down
+ * to the keys. The other nine have no CREATE TABLE anywhere in this repo; they
+ * were made by hand before it existed, and their column NAMES were confirmed
+ * against the live database by introspect.mjs. That confirmation mattered:
+ * `brokers` turned out to have sixteen columns where a draft of this file had
+ * three, `configs` has no updated_at, `captcha_stats` and `repair_log` are not
+ * the shape packages/shared describes, and `otc_pairs` has a created_at that
+ * was missing here.
+ *
+ * Their TYPES are still inferred from how the app uses them. That is why the
+ * numeric conversion refuses rather than coerces: a boolean arriving where a
+ * number is expected stops the build instead of quietly storing a 0.
  *
  * ── THE CONVERSIONS ────────────────────────────────────────────────────────
  *
@@ -37,10 +43,27 @@ export const MS = 'ms', JSON_ = 'json', BOOL = 'bool', NUM = 'num', TEXT = 'text
 
 /** Tables whose shape is confirmed against a migration in this repo. */
 export const VERIFIED = new Set([
+  // Read off a CREATE TABLE in supabase/migrations — types, keys and all.
   'price_snapshot', 'strategy_versions', 'signals', 'signal_daily',
   'signal_write_budget', 'signal_history', 'push_subscriptions', 'push_alerts',
-  'telegram_alerts', 'telegram_queue', 'strategy_version_stats',
+  'telegram_alerts', 'telegram_queue',
+  // Column NAMES confirmed against the live database by introspect.mjs. The
+  // types below are still inferred from how the app uses them, which is why
+  // every numeric conversion refuses rather than coerces: a boolean arriving
+  // where a number is expected fails the build instead of storing a 0.
+  'users', 'pairs', 'candles', 'clicks', 'brokers', 'configs', 'otc_pairs',
+  'captcha_stats', 'repair_log',
 ]);
+
+/**
+ * Not copied, deliberately.
+ *
+ * `strategy_version_stats` is a VIEW over strategy_versions and signal_daily.
+ * D1 has the same view, so it is populated the moment its two sources are —
+ * and copying it instead would copy an aggregate that is correct for one
+ * instant and wrong from the next write onwards.
+ */
+export const DERIVED = new Set(['strategy_version_stats']);
 
 export const MAPPING = {
   // ── Confirmed against supabase/migrations ────────────────────────────────
@@ -52,9 +75,6 @@ export const MAPPING = {
     uploaded_ms: ['uploaded_at', MS], uploaded_by: ['uploaded_by', TEXT],
     name: ['name', TEXT], strategy_json: ['strategy_json', JSON_],
     json_hash: ['json_hash', TEXT], is_active: ['is_active', BOOL],
-  } },
-  strategy_version_stats: { from: 'strategy_version_stats', columns: {
-    version_id: ['version_id', TEXT], data: ['data', JSON_], updated_ms: ['updated_at', MS],
   } },
   signals: { from: 'signals', columns: {
     id: ['id', NUM], created_ms: ['created_at', MS], symbol: ['symbol', TEXT],
@@ -112,10 +132,19 @@ export const MAPPING = {
     key: ['key', TEXT], data: ['data', JSON_], updated_ms: ['updated_at', MS],
   } },
   configs: { from: 'configs', columns: {
-    id: ['id', TEXT], data: ['data', JSON_], updated_ms: ['updated_at', MS],
+    id: ['id', TEXT], data: ['data', JSON_],
   } },
   brokers: { from: 'brokers', columns: {
-    id: ['id', TEXT], data: ['data', JSON_], updated_ms: ['updated_at', MS],
+    id: ['id', TEXT], name: ['name', TEXT], logo_url: ['logo_url', TEXT],
+    chart_url: ['chart_url', TEXT], registration_link: ['registration_link', TEXT],
+    desc: ['desc', TEXT], click_key: ['click_key', TEXT], promo_code: ['promo_code', TEXT],
+    bonus_percent: ['bonus_percent', NUM], min_deposit: ['min_deposit', NUM],
+    is_active: ['is_active', BOOL], is_recommended: ['is_recommended', BOOL],
+    order: ['order', NUM],
+    // camelCase on both sides. Renaming a column during a copy is the same as
+    // dropping it, and the admin writes this one by name.
+    themeColor: ['themeColor', TEXT],
+    created_ms: ['created_at', MS], updated_ms: ['updated_at', MS],
   } },
   pairs: { from: 'pairs', columns: {
     id: ['id', TEXT], symbol: ['symbol', TEXT], chart_symbol: ['chart_symbol', TEXT],
@@ -127,7 +156,7 @@ export const MAPPING = {
     id: ['id', TEXT], platform: ['platform', TEXT], symbol: ['symbol', TEXT],
     name: ['name', TEXT], asset_type: ['asset_type', TEXT], subcategory: ['subcategory', TEXT],
     is_otc: ['is_otc', BOOL], enabled: ['enabled', BOOL], order: ['order', NUM],
-    updated_ms: ['updated_at', MS],
+    created_ms: ['created_at', MS], updated_ms: ['updated_at', MS],
   } },
   users: { from: 'users', columns: {
     id: ['id', TEXT], broker: ['broker', TEXT], role: ['role', TEXT],
@@ -139,10 +168,10 @@ export const MAPPING = {
   } },
   clicks: { from: 'clicks', columns: { id: ['id', TEXT], data: ['data', JSON_] } },
   repair_log: { from: 'repair_log', columns: {
-    id: ['id', TEXT], stage: ['stage', TEXT], detail: ['detail', TEXT],
-    created_ms: ['created_at', MS],
+    id: ['id', TEXT], at_ms: ['at', MS], action: ['action', TEXT],
+    result: ['result', TEXT], created_ms: ['created_at', MS],
   } },
   captcha_stats: { from: 'captcha_stats', columns: {
-    id: ['id', TEXT], data: ['data', JSON_], updated_ms: ['updated_at', MS],
+    id: ['id', TEXT], ts_ms: ['ts', MS], success: ['success', NUM], cost: ['cost', NUM],
   } },
 };

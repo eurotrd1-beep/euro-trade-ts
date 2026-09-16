@@ -251,7 +251,7 @@ describe('the upsert conflict target', () => {
 
   it('does not assign the key to itself', () => {
     const { sql } = sqlOf(
-      w({ table: 'configs', op: 'upsert', values: { id: 'c', data: '{}', updated_ms: 1 } }),
+      w({ table: 'configs', op: 'upsert', values: { id: 'c', data: '{}' } }),
       admin,
     );
     expect(sql).not.toContain('"id" = excluded."id"');
@@ -370,6 +370,12 @@ describe('run against SQLite, one account cannot change another', () => {
 
   it('executes a write on every writable table without a syntax error', () => {
     for (const [table, policy] of Object.entries(POLICY)) {
+      // A view is readable and never writable. Its refusal here is the rule
+      // working, not a gap in the sweep.
+      if (policy.view) {
+        expect(buildWrite(w({ table, op: 'upsert', values: { id: 'x' } }), service).ok).toBe(false);
+        continue;
+      }
       const values: Record<string, unknown> = {};
       // A value for the key and for one non-key column, which is the minimum
       // an upsert needs.
