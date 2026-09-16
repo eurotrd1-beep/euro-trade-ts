@@ -1,0 +1,78 @@
+name: Verify
+
+# ── THIS NO LONGER PUBLISHES ───────────────────────────────────────────────
+#
+# The site moved to Cloudflare Pages. GitHub Pages is gone — not redirected,
+# deleted — which was only safe because no APK was in anyone's hands: a
+# Capacitor shell loads the site from a URL baked into the build, so a live
+# install would have gone dark the moment the old host stopped answering.
+#
+# What is left here is the GATE, and it is worth keeping on its own. It ran
+# before every publish and it should still run before every merge: the engine
+# parity suite compares every indicator and the whole pyramid against values
+# recorded from the live Dart engine, so a commit that would change the signals
+# users receive fails here rather than reaching them.
+#
+# Publishing is now:
+#
+#   npm --workspace @euro/web run build:static
+#   npx wrangler pages deploy apps/web/out --project-name euro-trade
+#
+# Deliberately a command someone runs, not a push trigger. A static site that
+# republishes itself on every commit to main was right when GitHub Pages was
+# the only host and publishing was free; with the data layer now live behind
+# the same domain, a deploy is worth a decision.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Parity tests and typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The gate: every indicator and the whole pyramid must still match the
+      # values recorded from the live Dart engine. A failure here means the
+      # signals users receive would change.
+      - name: Engine parity suite
+        run: npm --workspace @euro/engine run test
+
+      - name: App tests
+        run: npm --workspace @euro/web run test
+
+      # The inventory test lives here: a table in the D1 schema with no entry
+      # in the access whitelist fails the build rather than shipping as a table
+      # nothing refuses.
+      - name: Data hub tests
+        run: npm --workspace @euro/data-hub run test
+
+      - name: Typecheck
+        run: |
+          npm --workspace @euro/engine run typecheck
+          npm --workspace @euro/shared run typecheck
+          npm --workspace @euro/web run typecheck
+          npm --workspace @euro/data-hub run typecheck
+
+      # Built, not published. A build that only breaks at deploy time is a
+      # build nobody finds until they are trying to release.
+      - name: Static build
+        run: npm --workspace @euro/web run build:static

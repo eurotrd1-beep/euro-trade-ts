@@ -37,10 +37,16 @@ const config: CapacitorConfig = {
   // REMOTE, as the Flutter shell was: a web release reaches users immediately,
   // with no store review and no new APK.
   //
-  // NOTE the repo name. `github.io/euro_trade/` is the OLD Flutter site and is
-  // still live; the TypeScript app is published under `euro-trade-ts`.
+  // Cloudflare Pages since the move off GitHub Pages. The suffix is not a typo:
+  // `euro-trade.pages.dev` was already taken by another account, so Cloudflare
+  // assigned `euro-trade-9lr`. The project is still named euro-trade.
+  //
+  // This URL is baked into every APK that ships. An installed app cannot be
+  // told a new one, so changing it again means a new build and users updating
+  // — which is why GitHub Pages could be deleted outright this time and could
+  // not be if anyone were running an old APK.
   server: {
-    url: 'https://eurotrd1-beep.github.io/euro-trade-ts/',
+    url: 'https://euro-trade-9lr.pages.dev/',
     cleartext: false,
   },
 
