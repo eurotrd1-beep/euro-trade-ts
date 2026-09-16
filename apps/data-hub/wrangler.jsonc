@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "euro-trade-data",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+
+  // ── Its own Worker, separate from the cache and the price hub ─────────────
+  // `euro-trade-cache` is live in front of Render and `euro-trade-price-hub`
+  // carries a Durable Object. Folding the database into either would tie three
+  // unrelated releases together, and would make the rollback a deploy instead
+  // of what it should be: a config row pointing back at Supabase.
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "euro-trade",
+      // Created 2026-09-17, region WEUR. The binding is DB rather than the
+      // euro_trade wrangler suggested: src/index.ts reads env.DB, and a binding
+      // named after the database would have to be renamed the first time there
+      // are two.
+      "database_id": "2b0dda98-d8ed-4c3a-89fc-62870df9916b"
+    }
+  ],
+
+  "observability": { "enabled": true }
+
+  // ── SECRETS, not vars ────────────────────────────────────────────────────
+  // SERVICE_SECRET and ADMIN_SECRET are set with `wrangler secret put`. They
+  // are deliberately absent from a `vars` block: vars are stored in this file,
+  // and this file is in git. A secret committed once is a secret forever, and
+  // these two are the difference between "the scraper may write candles" and
+  // "anyone may write candles".
+  //
+  //   wrangler secret put SERVICE_SECRET
+  //   wrangler secret put ADMIN_SECRET
+}

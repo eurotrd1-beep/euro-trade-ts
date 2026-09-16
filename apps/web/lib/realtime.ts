@@ -49,6 +49,10 @@ const WATCHED_CONFIG_IDS = [
   'display_source',
   'maintenance',
   'social',
+  // The price hub switch. Listed here because the note above says to: an id
+  // left out is fetched once and then never updates again, and a rollback that
+  // needs a reload before it takes effect is not a rollback.
+  'price_feed',
 ] as const;
 
 const configListeners = new Map<string, Set<ConfigListener>>();

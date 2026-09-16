@@ -111,7 +111,13 @@ const STRANDED_AFTER_MS = 60_000;
  * seconds is fast enough to catch a level being reached inside a
  * sixty-second candle and slow enough to be nothing.
  */
-const PRICE_POLL_MS = 4000;
+// Ten seconds, not four. This poll is the most frequent request in the system —
+// 8,640 a day per watching user — and it exists to move progress bars, not to
+// settle anything: a trade is judged on its candle, never on a tick read here.
+// At four seconds it was sampling a price the scraper only refreshes every
+// 700 ms into a bar that steps in whole percent, which is precision nobody can
+// see, paid for per user per day.
+const PRICE_POLL_MS = 10_000;
 
 /**
  * How close to the level counts as "nearly there", as a fraction of the leg.

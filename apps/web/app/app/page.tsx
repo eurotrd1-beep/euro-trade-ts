@@ -549,6 +549,7 @@ export default function MainScreen() {
                 signalEntryPrice={tradeOnThisChart ? engine.activeSignal!.entryPrice : null}
                 signalSecondsRemaining={tradeOnThisChart ? engine.secondsRemaining : 0}
                 onReady={engine.setLivePriceGetter}
+                hubUrl={config.priceHubUrl}
               />
             </div>
           </div>

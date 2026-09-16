@@ -419,7 +419,10 @@ interface OtcStatus {
 /** Dart `_otcStatus` — parses /api/otc/status into the six numbers used above. */
 async function otcStatus(base: string): Promise<OtcStatus | null> {
   try {
-    const r = await fetch(`${base}/api/otc/status`, { signal: AbortSignal.timeout(15_000) });
+    // `?diag=1` — the scraper-diagnostics row is not in the default reply any
+    // more. The app never read it; this page is the only thing that does, and
+    // it asks once per health run rather than once every few seconds per user.
+    const r = await fetch(`${base}/api/otc/status?diag=1`, { signal: AbortSignal.timeout(15_000) });
     if (r.status !== 200) return null;
     const list = (await r.json()) as Array<Record<string, unknown>>;
     const find = (id: string): Record<string, unknown> =>

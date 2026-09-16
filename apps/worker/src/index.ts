@@ -8,11 +8,15 @@
  * Behaviour, unchanged from what is deployed:
  *   • WebSocket upgrades pass straight through, untouched.
  *   • OPTIONS is answered locally with permissive CORS.
- *   • Only two GET paths are cached, with per-path TTLs. Everything else is
- *     proxied through with CORS headers added and the body streamed.
+ *   • Only the listed GET paths are cached, with per-path TTLs. Everything else
+ *     is proxied through with CORS headers added and the body streamed.
  *   • Cached entries are served stale-while-revalidate: fresh under the TTL,
- *     stale (with a background refresh) for a further STALE_TTL, and stale
- *     again as a last resort if the origin is unreachable.
+ *     stale (with a background refresh) for a further per-path stale window,
+ *     and stale again as a last resort if the origin is unreachable.
+ *
+ * The stale window is per-path because one of the cached paths feeds the
+ * strategy rather than a chart, and stale candles there are a skipped bar
+ * rather than a late redraw. See STALE_TTL below.
  */
 
 export interface Env {
@@ -24,10 +28,37 @@ export interface Env {
 const CACHE_TTL: Record<string, number> = {
   '/api/otc/candles': 15,
   '/api/otc/status': 10,
+  // ── The last path that made the origin grow with users ──────────────────
+  //
+  // Every other endpoint here collapses onto one origin fetch however many
+  // people are watching. This one did not, and it is called once per candle
+  // close per user, so it was the whole of what was left of Render's
+  // per-user cost — 0.05 MB an hour each, against zero for everything else.
+  //
+  // Ten seconds, not fifteen. This is the STRATEGY's input, not a chart's, and
+  // the one thing a cache must never do to it is hide a candle close: the
+  // program reads the newest closed bar on each tick, and a window served from
+  // before that bar existed makes it evaluate the previous one twice and skip
+  // the one in between. Ten seconds cannot span a one-minute boundary twice.
+  '/api/otc/candles-bulk': 10,
 };
 
-/** Extra seconds a stale entry may still be served while it refreshes. */
-const STALE_TTL = 60;
+/**
+ * Extra seconds a stale entry may still be served while it refreshes, per path.
+ *
+ * Serving stale is right for a chart: sixty-second-old candles draw a chart
+ * sixty seconds behind, and the next poll fixes it. It is NOT right for the
+ * bulk sweep. A seventy-five-second-old window on a one-minute grid is missing
+ * a whole candle, and the strategy reading it would step over that bar without
+ * anything reporting a gap — a silent skip in the one place the project is most
+ * careful about. So bulk gets none: it is either fresh enough or it goes to the
+ * origin.
+ */
+const STALE_TTL_DEFAULT = 60;
+const STALE_TTL: Record<string, number> = {
+  '/api/otc/candles-bulk': 0,
+};
+const staleFor = (path: string): number => STALE_TTL[path] ?? STALE_TTL_DEFAULT;
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -113,10 +144,14 @@ export default {
     const now = Date.now();
     const hit = await cache.match(key);
 
+    const stale = staleFor(url.pathname);
     if (hit) {
       const age = now - Number(hit.headers.get('x-edge-ts') || 0);
       if (age < ttl * 1000) return serve(hit, 'HIT');
-      if (age < (ttl + STALE_TTL) * 1000) {
+      // `stale` is zero for the bulk sweep, so this branch never runs for it and
+      // it falls through to the origin instead of handing the strategy a window
+      // that is missing a candle.
+      if (stale > 0 && age < (ttl + stale) * 1000) {
         // Serve the stale copy immediately; refresh after the response is sent.
         ctx.waitUntil(store(target, key, cache));
         return serve(hit, 'STALE');

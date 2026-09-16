@@ -40,6 +40,9 @@ interface CandleChartApi {
     guaranteedWin: boolean,
   ) => void;
   setProxy: (url: string) => void;
+  setWsMode: (mode: string) => void;
+  setHubUrl: (url: string) => void;
+  setLiveNeeded: (id: string, on: boolean) => void;
   updateAllSimPrice: (price: number) => void;
 }
 
@@ -84,6 +87,13 @@ export interface PriceChartProps {
   guaranteedWin: boolean;
   /** Hands back a reader for the chart's last price, as the Dart widget did. */
   onReady?: (priceGetter: () => number) => void;
+  /**
+   * The Cloudflare price hub, or empty for Render. From configs.price_feed.
+   *
+   * Empty is both the default and the rollback: clearing the row moves every
+   * open chart back within one reconnect.
+   */
+  hubUrl?: string;
 }
 
 export function PriceChart({
@@ -95,6 +105,7 @@ export function PriceChart({
   signalSecondsRemaining,
   guaranteedWin,
   onReady,
+  hubUrl,
 }: PriceChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const idRef = useRef<string>(`cc-${Date.now()}`);
@@ -112,6 +123,9 @@ export function PriceChart({
         // main_screen.dart calls setChartProxy before the chart runs, so the
         // socket and candle fetches use the admin-configured server.
         window.CandleChart.setProxy(getProxyUrl());
+        // Before init, so the first socket opens at the right address rather
+        // than connecting to one and being moved a tick later.
+        if (hubUrl !== undefined) window.CandleChart.setHubUrl?.(hubUrl);
         window.CandleChart.init(id, symbol, interval, mode);
 
         readyRef.current = true;
@@ -161,6 +175,24 @@ export function PriceChart({
       // ignored
     }
   }, [symbol, interval, mode]);
+
+  // ── live mode ─────────────────────────────────────────────────────────────
+  //
+  // Split from the trade overlay below on purpose: the overlay redraws on every
+  // countdown second, and where the price comes from has no business being
+  // re-evaluated at that rate. This changes only when the answer changes.
+  //
+  // The price hub, live. `configs.price_feed` is watched over realtime, so
+  // clearing it moves every open chart back to Render within one reconnect —
+  // which is the only rollback a live price path can afford.
+  useEffect(() => {
+    if (!readyRef.current || hubUrl === undefined) return;
+    try {
+      window.CandleChart?.setHubUrl?.(hubUrl);
+    } catch {
+      // ignored
+    }
+  }, [hubUrl]);
 
   // ── entry line + trade overlay ────────────────────────────────────────────
   useEffect(() => {

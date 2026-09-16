@@ -32,6 +32,11 @@ window.CandleChart = (function () {
   /* ── Proxy base URL ─────────────────────────────────────────── */
   var PROXY = 'https://euro-trade-proxy-1.onrender.com';
 
+  /* The Cloudflare price hub, when the admin has set one.
+     Empty means Render, which is both the default and the way back: clearing
+     the row puts every open chart back on Render within one reconnect. */
+  var HUB_URL = '';
+
   /* ── OTC data flows through the proxy server (no direct Supabase calls). ── */
 
   /* fetch with a hard timeout. A plain fetch() against a cold-starting / sleeping
@@ -375,6 +380,14 @@ window.CandleChart = (function () {
     this._simFallbackTimer = null;
     this._lastPrice    = 0;
     this._lastPriceTickTime = 0;
+
+    /* The live socket is open for the whole session.
+       There was a conditional mode here — a socket only around a candle close
+       or while a trade ran — and it is gone on purpose: the chart is on screen
+       the whole time, so a feed that comes and goes is a chart that is
+       sometimes live and sometimes stepping every few seconds, and the saving
+       was never worth explaining that to anyone watching it. */
+    this._wsWanted  = false;   // false only before the first connect and after destroy
     this._distinctPrices = 0; /* count of distinct price changes received */
     this._resolvedSym    = null;
     this._destroyed      = false;
@@ -448,7 +461,10 @@ window.CandleChart = (function () {
 
   Chart.prototype._startPriceTick = function() {
     var self = this;
-    // Close any existing WS
+    /* Close any existing WS. `_wsWanted` is cleared FIRST so `onclose` reads it
+       as deliberate and does not book a reconnect against the socket we are
+       about to replace. */
+    this._wsWanted = false;
     if (this._ws) { try { this._ws.close(); } catch(_) {} this._ws = null; }
     clearTimeout(this._wsTimer); this._wsTimer = null;
 
@@ -463,24 +479,111 @@ window.CandleChart = (function () {
       self._draw();
     }, 1000);
 
+    this._wsWanted = true;
+    this._connectWs();
+    this._watchVisibility();
+  };
+
+  /* Opens the live socket and keeps it open for the whole session, reconnecting
+     on any drop. */
+  Chart.prototype._connectWs = function() {
+    var self = this;
     function connect() {
-      if (self._destroyed) return;
-      // Recompute the WS URL from PROXY on EVERY (re)connect so an admin proxy
-      // switch (setProxy) is picked up — otherwise the socket stays pinned to the
-      // proxy that was active when the chart first loaded and can never recover.
-      var wsUrl = PROXY.replace(/^http/, 'ws') + '/ws';
+      if (self._destroyed || !self._wsWanted) return;
+      /* ── Where the live price comes from ────────────────────────────────
+         The hub when one is configured, Render otherwise — and BOTH are read
+         fresh on every reconnect, the same reason the proxy URL always was: a
+         socket pinned to whatever was set when the chart loaded can never
+         recover from a switch.
+
+         That is the whole rollback. Clearing the hub row in the admin puts
+         every open chart back on Render within one reconnect, with no deploy
+         and no reload. The two speak different shapes and the handler below
+         reads both, so a chart caught mid-switch never parses the wrong one. */
+      var viaHub = !!HUB_URL;
+      var wsUrl = viaHub
+        ? HUB_URL.replace(/^http/, 'ws').replace(/\/+$/, '') + '/ws'
+        : PROXY.replace(/^http/, 'ws') + '/ws';
+      self._viaHub = viaHub;
       var ws = new WebSocket(wsUrl);
+      /* Binary frames arrive as ArrayBuffer rather than Blob, so they can be
+         read synchronously in onmessage instead of through a FileReader. */
+      ws.binaryType = 'arraybuffer';
       self._ws = ws;
+      self._binId = null;
 
       ws.onopen = function() {
-        ws.send(JSON.stringify({ sub: toOtcSym(self.symbol) }));
+        /* The hub needs no subscription: it fans every pair to every socket and
+           the filtering is on this side. Asking it to subscribe would be an
+           incoming message it is billed for and would ignore. */
+        if (viaHub) return;
+        /* `bin:1` asks for the 9-byte price frame instead of 34 bytes of JSON.
+           It is a REQUEST, not an assumption: the proxy and this app deploy
+           separately, so a proxy that has not shipped the feature yet simply
+           answers without an `id` and keeps sending JSON, and the handler below
+           reads both. Nothing breaks in either release order. */
+        ws.send(JSON.stringify({ sub: toOtcSym(self.symbol), bin: 1 }));
       };
 
       ws.onmessage = function(e) {
         if (self._destroyed) { ws.close(); return; }
         try {
-          var d     = JSON.parse(e.data);
-          var price = d.price;
+          var price;
+
+          /* ── The hub's shape: {t:'p'|'snap', p:{SYMBOL: price, …}} ────────
+             One frame carries every pair that moved, because the hub fans the
+             whole catalogue to every socket and does not know or care which one
+             this chart is showing. So the symbol filter that the id byte does
+             on the Render path is done here by name instead — and it is the
+             same guard, for the same reason: a tick for another market once
+             landed on this chart and stretched the candle to twice the market.
+
+             `snap` is the full picture handed to a joining socket. It arrives
+             on connect and again whenever the hub has been asleep, and it is
+             treated exactly like a price frame — the only difference is how
+             many symbols are in it. */
+          if (viaHub) {
+            var msg = JSON.parse(e.data);
+            if (!msg || (msg.t !== 'p' && msg.t !== 'snap') || !msg.p) return;
+            var mine = toOtcSym(self.symbol);
+            var bare = bareOf(mine);
+            for (var k in msg.p) {
+              if (bareOf(k) !== bare) continue;
+              price = msg.p[k];
+              if (!isFinite(price) || !price) return;
+              self._onLiveTick(price);
+              return;
+            }
+            return;
+          }
+
+          /* ── The 9-byte frame: [uint8 id][float64 price] ─────────────────
+             The id is the symbol guard in one byte. It exists because a tick
+             for another market once landed here — a price near 1.85 on AUD/CAD
+             at 0.87 — and stretched the candle to twice the market. Shrinking
+             the frame must not shrink that check away, so the id is compared
+             exactly as the symbol string was.
+
+             The double is read back bit for bit: no text, no re-parsing, no
+             rounding anywhere on the path. */
+          if (e.data instanceof ArrayBuffer) {
+            if (self._binId === null || e.data.byteLength < 9) return;
+            var dv = new DataView(e.data);
+            if (dv.getUint8(0) !== self._binId) return;
+            price = dv.getFloat64(1, false);
+            if (!isFinite(price) || !price) return;
+            self._onLiveTick(price);
+            return;
+          }
+
+          var d = JSON.parse(e.data);
+
+          /* The subscribe acknowledgement. It carries the id this socket will
+             use from here on, and the current price — so a market that has not
+             moved for minutes still paints immediately. */
+          if (typeof d.id === 'number') self._binId = d.id;
+
+          price = d.price;
           if (!isFinite(price) || !price) return;
 
           /* The tick has to be for THIS chart.
@@ -501,21 +604,16 @@ window.CandleChart = (function () {
              back toward the (stale, 8s) poll target — the anim loop won and the
              live price froze. Feeding here makes every WS tick the live target,
              so the price moves in real time and new candles open on the frame. */
-          self._lastPriceTickTime = Date.now();
-          self._marketClosedNote = false;
-          /* A live tick means the server is up — clear any stale server-down /
-             reconnect banner right away instead of waiting for the 8s poll. */
-          if (self._otcProblem === 'server' || self._otcProblem === 'reconnecting') {
-            self._otcProblem = null;
-            self._otcOverlay = null;
-          }
-          self._feedOtcPrice(price);   // handles gwinAdjust + new-candle + anim
+          self._onLiveTick(price);
         } catch(_) {}
       };
 
       ws.onclose = function() {
         self._ws = null;
-        if (!self._destroyed) {
+        /* `_wsWanted` is the whole difference between a dropped socket and one
+           we closed on purpose. Without it, closing the socket would reopen it
+           three seconds later, for ever. */
+        if (!self._destroyed && self._wsWanted) {
           self._wsTimer = setTimeout(connect, 3000);
         }
       };
@@ -524,6 +622,59 @@ window.CandleChart = (function () {
     }
 
     connect();
+  };
+
+  Chart.prototype._watchVisibility = function() {
+    var self = this;
+
+    /* ── A hidden tab does not need the live feed ──────────────────────────
+       The browser throttles this chart's timers when the tab goes to the
+       background but keeps delivering WebSocket frames, so a tab left open
+       behind another one was paying for a price nobody could see — and most
+       open-tab time is exactly that.
+
+       Pausing is safe because the socket only drives the FORMING candle and
+       the price easing. The candle history under it is reloaded from
+       /api/otc/candles every fifteen seconds by _fetchOtcCandles, so a hidden
+       stretch leaves no hole: coming back, the server's own store is adopted
+       whole. What the resume has to restore is the LIVE price, and the server
+       sends it the moment it hears {resume:1}.
+
+       Only the server is told. Nothing local is stopped — the timers are the
+       browser's business and it is already throttling them. */
+    if (!this._visHandler) {
+      this._visHandler = function() {
+        var sock = self._ws;
+        if (self._destroyed || !sock || sock.readyState !== 1) return;
+        try {
+          if (document.hidden) {
+            sock.send(JSON.stringify({ pause: 1 }));
+          } else {
+            sock.send(JSON.stringify({ resume: 1 }));
+            /* And pull the history at once rather than waiting out the rest of
+               the fifteen-second cycle, so the candles the tab missed are on
+               screen immediately instead of a few seconds later. */
+            if (self._otcHistTimer) self._fetchOtcCandles();
+          }
+        } catch(_) {}
+      };
+      document.addEventListener('visibilitychange', this._visHandler);
+    }
+  };
+
+  /* What every live tick does, whichever shape it arrived in.
+     Shared so the binary and JSON paths cannot drift: they differ in how the
+     number is read off the wire and in nothing else. */
+  Chart.prototype._onLiveTick = function(price) {
+    this._lastPriceTickTime = Date.now();
+    this._marketClosedNote = false;
+    /* A live tick means the server is up — clear any stale server-down /
+       reconnect banner right away instead of waiting for the 8s poll. */
+    if (this._otcProblem === 'server' || this._otcProblem === 'reconnecting') {
+      this._otcProblem = null;
+      this._otcOverlay = null;
+    }
+    this._feedOtcPrice(price);   // handles gwinAdjust + new-candle + anim
   };
 
   /* ── OTC data mode (Pocket Option via proxy server) ─────────────────
@@ -583,8 +734,20 @@ window.CandleChart = (function () {
     var self = this;
     function load() {
       if (self._destroyed) return;
+      /* ?since — ask from the newest candle we hold, not for the window.
+         The reply is 96 bytes instead of 1,319 when nothing but the live bar
+         has moved, which is the usual case four times a minute.
+
+         `full` is the server's word for "replace what you have": it is true
+         when we asked for nothing, and true when the rolling window has moved
+         past the candle we asked from. Treating a delta as a window, or a
+         window as a delta, would leave an invisible gap in the chart — so the
+         absent field (an older proxy) reads as `full`, never as a delta. */
+      var held = self._otcHistLoaded && self.candles.length
+        ? self.candles[self.candles.length - 1].t : 0;
       var url = PROXY + '/api/otc/candles?symbol=' +
-                encodeURIComponent(toOtcSym(self.symbol)) + '&interval=' + self.interval;
+                encodeURIComponent(toOtcSym(self.symbol)) + '&interval=' + self.interval +
+                (held ? '&since=' + held : '');
       fetchT(url)
         .then(function(r) { if (!r.ok) throw 0; return r.json(); })
         .then(function(d) {
@@ -592,6 +755,17 @@ window.CandleChart = (function () {
           var arr = (d && d.candles) || [];
           arr = cleanAndSortCandles(arr);
           if (!arr.length) return;
+
+          /* A delta extends what we hold. The overlap candle is REPLACED, not
+             kept: it was still forming when we last saw it, so the server's
+             copy is the newer truth for its high, low and close. */
+          if (d.full === false && self._otcHistLoaded && self.candles.length) {
+            var byT = {};
+            var i;
+            for (i = 0; i < self.candles.length; i++) byT[self.candles[i].t] = self.candles[i];
+            for (i = 0; i < arr.length; i++) byT[arr[i].t] = arr[i];
+            arr = cleanAndSortCandles(Object.keys(byT).map(function(k) { return byT[k]; }));
+          }
           if (!self._otcHistLoaded) {
             /* FIRST successful load → BATCH RENDER: adopt all 50 and paint them
                in one shot, right now, regardless of any status message the poll
@@ -649,8 +823,11 @@ window.CandleChart = (function () {
         .catch(function() { if (!self._destroyed) self._otcMsg('supabase'); })
         .finally(function() { self._otcPolling = false; });
     }
+    /* Eight seconds. The socket is open for the whole session and delivers the
+       price, so this poll is only resolving state — the two-speed cadence that
+       was here belonged to a conditional socket that no longer exists. */
     poll();
-    this._otcPriceTimer = setInterval(poll, 8000);   // 8s status refresh (WebSocket delivers ticks)
+    this._otcPriceTimer = setInterval(poll, 8000);
   };
 
   Chart.prototype._onOtcData = function(status, prices) {
@@ -723,6 +900,13 @@ window.CandleChart = (function () {
        just stay frozen) → feed the real price into the candle series. */
     this._otcProblem = null;
     this._otcOverlay = null;     // clear any repair/reconnect banner
+
+    /* `_lastPriceTickTime` is deliberately NOT written here. It is the proof a
+       WebSocket tick arrived, and the "reconnecting" banner is built on exactly
+       that: a socket that has gone silent while the poll still answers is the
+       failure it exists to catch. Letting a poll stand in for a tick would make
+       a dead socket invisible. */
+
     this._feedOtcPrice(entry.p);
   };
 
@@ -1227,6 +1411,7 @@ window.CandleChart = (function () {
 
   Chart.prototype.destroy = function() {
     this._destroyed = true;
+    this._wsWanted = false;   // nothing may reconnect behind a destroyed chart
     this._stopAnim();
     if (this._tickTimer) clearInterval(this._tickTimer);
     if (this._priceTimer)   clearInterval(this._priceTimer);
@@ -1237,6 +1422,7 @@ window.CandleChart = (function () {
     clearTimeout(this._simFallbackTimer);
     clearTimeout(this._retryTimer);
     if (this._ro)        this._ro.disconnect();
+    if (this._visHandler) { document.removeEventListener('visibilitychange', this._visHandler); this._visHandler = null; }
     this.canvas.removeEventListener('mousemove',  this._mm);
     this.canvas.removeEventListener('mouseleave', this._ml);
     if (this._ctx_menu) this.canvas.removeEventListener('contextmenu', this._ctx_menu);
@@ -1443,6 +1629,23 @@ window.CandleChart = (function () {
        OTC data path now flows through the same proxy (/api/otc/* + /ws), OTC
        charts MUST be reconnected too — otherwise they stay pinned to the old
        proxy and their live price freezes. */
+    /* The price hub, from configs.price_feed. Empty string = Render.
+       Every open chart picks it up on its next reconnect, so this is the
+       rollback switch: a row, not a release. */
+    setHubUrl: function(url) {
+      var next = String(url || '');
+      if (next === HUB_URL) return;
+      HUB_URL = next;
+      for (var id in instances) {
+        var c = instances[id];
+        /* Drop the socket and open a new one at the new address. `_wsWanted` is
+           cleared first so the close reads as deliberate and no reconnect is
+           booked against the OLD url. */
+        if (c && c._ws) { c._wsWanted = false; try { c._ws.close(); } catch (e) {} c._ws = null; }
+        if (c && c._connectWs) { c._wsWanted = true; c._connectWs(); }
+      }
+    },
+
     setProxy: function(url) {
       if (!url || typeof url !== 'string') return;
       var clean = url.trim().replace(/\/+$/, '');

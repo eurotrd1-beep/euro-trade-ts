@@ -1,0 +1,316 @@
+'use client';
+
+/**
+ * Where the app reads and writes its data — Supabase, D1, or both.
+ *
+ * ── THE SHAPE IS DELIBERATE ────────────────────────────────────────────────
+ *
+ * This presents the same fluent chain the Supabase client does, so a call site
+ * moves across by changing `supabase()` to `db()` and nothing else. That is
+ * not laziness about the API: twenty edited call sites is twenty chances to
+ * change a filter by accident during a migration, and a `.eq()` that quietly
+ * became a `.neq()` in the middle of a data move is a bug nobody would think
+ * to look for. One shim, one place to read, one place to roll back.
+ *
+ * ── THREE MODES, AND WHY THE MIDDLE ONE EXISTS ─────────────────────────────
+ *
+ *   supabase   everything from Supabase. The rollback target, and the state
+ *              the app is in today.
+ *   mirror     READ from D1, WRITE to Supabase. A read that fails falls back
+ *              to Supabase.
+ *   d1         read and write D1. No fallback.
+ *
+ * The fallback lives in `mirror` and only in `mirror`, and that is the whole
+ * point of having a middle mode. While writes still go to Supabase the two
+ * databases hold the same rows, so a fallback returns the same answer and the
+ * user sees nothing — the hub can be wrong all afternoon and the app keeps
+ * working while the errors show up in the health screen.
+ *
+ * In `d1` mode the same fallback would be a disaster. Writes would be landing
+ * in D1 while reads quietly came from a Supabase that was getting staler by
+ * the hour, and everything would look fine: a user's trade history would just
+ * stop growing. So in `d1` a failed read is an error, loudly, and the way back
+ * is the flag — not a silent second source.
+ *
+ * ── THE FLAG IS READ FROM SUPABASE, ON PURPOSE ─────────────────────────────
+ *
+ * `configs.data_source` says which mode is live, and it is fetched from
+ * Supabase even in `d1` mode. It has to be: a flag stored in the database it
+ * controls cannot be used to switch away from that database when it is down,
+ * which is exactly the moment it is needed. Rolling back stays a row edit in
+ * a system that is, by definition, still working.
+ */
+
+import { supabase } from '@euro/shared';
+
+export type DataMode = 'supabase' | 'mirror' | 'd1';
+
+/** Where the hub lives. Overridden by `configs.data_source.url`. */
+let hubUrl = '';
+let mode: DataMode = 'supabase';
+
+/**
+ * Reads that fell back to Supabase, and reads that failed outright.
+ *
+ * Surfaced in the health screen rather than logged and forgotten. A migration
+ * where "it seems fine" is doing the work of a number is a migration that gets
+ * finished on a feeling.
+ */
+export const hubStats = { reads: 0, fallbacks: 0, errors: 0, lastError: '' };
+
+export function configureDataSource(config: unknown): void {
+  const c = (config ?? {}) as { mode?: unknown; url?: unknown };
+  mode = c.mode === 'mirror' || c.mode === 'd1' ? c.mode : 'supabase';
+  hubUrl = typeof c.url === 'string' ? c.url.replace(/\/+$/, '') : '';
+  // A mode that names no hub is a mode that cannot work. Falling back to
+  // Supabase is the safe reading of a half-filled config row, and saying so
+  // beats discovering it as a wall of failed reads.
+  if (mode !== 'supabase' && hubUrl === '') {
+    hubStats.lastError = 'data_source names a mode but no url — staying on Supabase';
+    mode = 'supabase';
+  }
+}
+
+export const currentMode = (): DataMode => mode;
+
+// ── The request ─────────────────────────────────────────────────────────────
+
+interface Filter { column: string; value: string }
+
+async function hubRead(
+  table: string,
+  cols: string[] | null,
+  filters: Filter[],
+  order: { column: string; desc: boolean } | null,
+  limit: number | null,
+  count: boolean,
+  accountId: string | null,
+): Promise<{ rows: Record<string, unknown>[] }> {
+  const params = new URLSearchParams();
+  if (cols && cols.length > 0 && !cols.includes('*')) params.set('cols', cols.join(','));
+  for (const f of filters) params.append('eq', `${f.column}:${f.value}`);
+  if (order) params.set('order', `${order.column}.${order.desc ? 'desc' : 'asc'}`);
+  if (limit !== null) params.set('limit', String(limit));
+  if (count) params.set('count', '1');
+
+  const headers: Record<string, string> = {};
+  // The account id is a claim, not a credential — the hub scopes to it and
+  // refuses everything else regardless. Sending it is what makes an
+  // owner-scoped read possible at all.
+  if (accountId) headers['x-account-id'] = accountId;
+
+  const res = await fetch(`${hubUrl}/v1/${table}?${params}`, { headers });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(`${res.status} ${body.error ?? ''}`.trim());
+  }
+  return (await res.json()) as { rows: Record<string, unknown>[] };
+}
+
+// ── The chain ───────────────────────────────────────────────────────────────
+
+/**
+ * The account whose rows an owner-scoped read is for.
+ *
+ * Held here rather than passed at every call site because the Supabase client
+ * has no equivalent parameter, and adding one to twenty call sites is the
+ * churn this shim exists to avoid.
+ */
+let accountId: string | null = null;
+export function setDataAccount(id: string | null): void { accountId = id; }
+
+class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | null; count?: number }> {
+  private cols: string[] | null = null;
+  private filters: Filter[] = [];
+  private orderBy: { column: string; desc: boolean } | null = null;
+  private rowLimit: number | null = null;
+  private wantCount = false;
+  private single = false;
+
+  constructor(private readonly table: string) {}
+
+  select(columns = '*', opts?: { count?: 'exact'; head?: boolean }): this {
+    this.cols = columns === '*' ? null : columns.split(',').map((c) => c.trim());
+    if (opts?.count === 'exact') this.wantCount = true;
+    return this;
+  }
+
+  eq(column: string, value: unknown): this {
+    this.filters.push({ column, value: String(value) });
+    return this;
+  }
+
+  order(column: string, opts?: { ascending?: boolean }): this {
+    this.orderBy = { column, desc: opts?.ascending === false };
+    return this;
+  }
+
+  limit(n: number): this { this.rowLimit = n; return this; }
+
+  /** One row or null — never an error for "no rows", same as Supabase. */
+  maybeSingle(): this { this.single = true; this.rowLimit = 1; return this; }
+
+  async run(): Promise<{ data: Row[] | null; error: Error | null; count?: number }> {
+    if (mode === 'supabase') return this.viaSupabase();
+
+    try {
+      hubStats.reads++;
+      const body = await hubRead(
+        this.table, this.cols, this.filters, this.orderBy, this.rowLimit,
+        this.wantCount, accountId,
+      );
+      if (this.wantCount) {
+        const n = Number(body.rows[0]?.['count'] ?? 0);
+        return { data: [] as Row[], error: null, count: n };
+      }
+      return { data: body.rows as Row[], error: null };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      hubStats.lastError = `${this.table}: ${message}`;
+
+      // `mirror` only. In `d1` the two databases have diverged, and a silent
+      // second source would serve a stale answer that looks exactly like a
+      // fresh one.
+      if (mode === 'mirror') {
+        hubStats.fallbacks++;
+        return this.viaSupabase();
+      }
+      hubStats.errors++;
+      return { data: null, error: new Error(message) };
+    }
+  }
+
+  private async viaSupabase(): Promise<
+    { data: Row[] | null; error: Error | null; count?: number }
+  > {
+    let q = supabase().from(this.table).select(
+      this.cols === null ? '*' : this.cols.join(','),
+      this.wantCount ? { count: 'exact' } : undefined,
+    ) as unknown as {
+      eq: (c: string, v: string) => typeof q;
+      order: (c: string, o: { ascending: boolean }) => typeof q;
+      limit: (n: number) => typeof q;
+      then: unknown;
+    };
+    for (const f of this.filters) q = q.eq(f.column, f.value);
+    if (this.orderBy) q = q.order(this.orderBy.column, { ascending: !this.orderBy.desc });
+    if (this.rowLimit !== null) q = q.limit(this.rowLimit);
+
+    const res = (await (q as unknown as Promise<{
+      data: Row[] | null; error: Error | null; count?: number;
+    }>));
+    return res;
+  }
+
+  // Awaiting the chain runs it, exactly as the Supabase builder does.
+  then<R1 = { data: Row[] | null; error: Error | null; count?: number }, R2 = never>(
+    onFulfilled?: ((v: { data: Row[] | null; error: Error | null; count?: number }) => R1 | PromiseLike<R1>) | null,
+    onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+  ): PromiseLike<R1 | R2> {
+    return this.run().then(onFulfilled, onRejected);
+  }
+}
+
+class Table<Row> {
+  constructor(private readonly name: string) {}
+  select(columns?: string, opts?: { count?: 'exact'; head?: boolean }): Query<Row> {
+    return new Query<Row>(this.name).select(columns, opts);
+  }
+
+  /**
+   * Writes go to whichever database the mode says owns them.
+   *
+   * There is no fallback here in any mode. A write that lands in one database
+   * and not the other is a divergence, and a divergence discovered later
+   * cannot be resolved by looking at either side — neither knows it is the one
+   * that is wrong.
+   */
+  async upsert(values: Record<string, unknown>): Promise<{ error: Error | null }> {
+    if (mode !== 'd1') {
+      const { error } = await supabase().from(this.name).upsert(values);
+      return { error: error as Error | null };
+    }
+    return this.hubWrite('upsert', values, []);
+  }
+
+  async update(values: Record<string, unknown>): Promise<UpdateChain> {
+    return new UpdateChain(this.name, values);
+  }
+
+  private async hubWrite(
+    op: 'insert' | 'upsert' | 'update' | 'delete',
+    values: Record<string, unknown>,
+    where: Filter[],
+  ): Promise<{ error: Error | null }> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accountId) headers['x-account-id'] = accountId;
+      const res = await fetch(`${hubUrl}/v1/${this.name}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ op, values, where }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(`${res.status} ${body.error ?? ''}`.trim());
+      }
+      return { error: null };
+    } catch (e) {
+      hubStats.errors++;
+      const message = e instanceof Error ? e.message : String(e);
+      hubStats.lastError = `${this.name} ${op}: ${message}`;
+      return { error: new Error(message) };
+    }
+  }
+}
+
+class UpdateChain {
+  private filters: Filter[] = [];
+  constructor(
+    private readonly table: string,
+    private readonly values: Record<string, unknown>,
+  ) {}
+
+  eq(column: string, value: unknown): this {
+    this.filters.push({ column, value: String(value) });
+    return this;
+  }
+
+  async run(): Promise<{ error: Error | null }> {
+    if (mode !== 'd1') {
+      let q = supabase().from(this.table).update(this.values) as unknown as {
+        eq: (c: string, v: string) => typeof q;
+      };
+      for (const f of this.filters) q = q.eq(f.column, f.value);
+      const { error } = await (q as unknown as Promise<{ error: Error | null }>);
+      return { error };
+    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accountId) headers['x-account-id'] = accountId;
+    const res = await fetch(`${hubUrl}/v1/${this.table}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ op: 'update', values: this.values, where: this.filters }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      const message = `${res.status} ${body.error ?? ''}`.trim();
+      hubStats.errors++;
+      hubStats.lastError = `${this.table} update: ${message}`;
+      return { error: new Error(message) };
+    }
+    return { error: null };
+  }
+
+  then<R1, R2 = never>(
+    onFulfilled?: ((v: { error: Error | null }) => R1 | PromiseLike<R1>) | null,
+    onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+  ): PromiseLike<R1 | R2> {
+    return this.run().then(onFulfilled, onRejected);
+  }
+}
+
+/** The entry point. `db().from('candles').select('*').eq('key', k)`. */
+export function db(): { from: <Row = Record<string, unknown>>(table: string) => Table<Row> } {
+  return { from: <Row,>(table: string) => new Table<Row>(table) };
+}
