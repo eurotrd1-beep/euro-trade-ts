@@ -15,6 +15,14 @@ import type { PairRow } from '@euro/shared';
 export interface AppConfig {
   /** 'sim' | 'scraping' — anything other than 'sim' resolves to 'scraping'. */
   chartMode: 'sim' | 'scraping';
+  /**
+   * Where the live price comes from: a Cloudflare hub URL, or empty for Render.
+   *
+   * Empty is the default and the way back. Clearing the row puts every open
+   * chart back on Render within one reconnect — no deploy, no reload — which
+   * is the only rollback a price path can afford.
+   */
+  priceHubUrl: string;
   /** Raw `price_system` value; null until the row arrives. */
   priceSystem: string | null;
   /**
@@ -41,6 +49,7 @@ const INITIAL: AppConfig = {
   // deliberate choice an operator makes, never somewhere the app drifts into
   // while it waits for a network reply.
   chartMode: 'scraping',
+  priceHubUrl: '',
   priceSystem: null,
   loaded: false,
   displaySource: 'all',
@@ -60,7 +69,9 @@ export function useAppConfig(): AppConfig {
       watchConfig('chart_settings', (d) =>
         // Dart: `mode == 'sim' ? 'sim' : 'scraping'` — anything unknown means
         // scraping, so a typo in the admin never silently falls back to sim.
-        patch({ chartMode: str(d['mode'], 'sim') === 'sim' ? 'sim' : 'scraping' }),
+        patch({
+          chartMode: str(d['mode'], 'sim') === 'sim' ? 'sim' : 'scraping',
+        }),
       ),
 
       watchConfig('price_system', (d) =>
@@ -70,6 +81,9 @@ export function useAppConfig(): AppConfig {
         }),
       ),
 
+      // The price hub. A row rather than a build constant precisely so the
+      // switch back needs neither.
+      watchConfig('price_feed', (d) => patch({ priceHubUrl: str(d['hubUrl'], '') })),
       watchConfig('display_source', (d) => patch({ displaySource: str(d['value'], 'all') })),
 
       watchConfig('maintenance', (d) =>

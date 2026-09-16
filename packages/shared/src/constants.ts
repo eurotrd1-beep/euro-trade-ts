@@ -20,12 +20,17 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * How many symbols the catalogue holds after the asset policy.
+ * How many symbols the catalogue holds after the asset policy and the shortlist.
  *
- * It was 183 until stocks and indices were dropped and commodities and crypto
- * were cut to gold, silver, BTC, ETH and SOL — the scraper does not subscribe
- * to the rest and nothing stores them. 89 is what `otc_pairs`, `pairs` and the
- * live feed all report, and `20260817_asset_policy.sql` is what set it.
+ * 183 → 89 when stocks and indices were dropped and commodities and crypto were
+ * cut to gold, silver, BTC, ETH and SOL (`20260817_asset_policy.sql`). 89 → 20
+ * when the list was cut to the pairs worth running
+ * (`20260916_pair_shortlist.sql`): the six largest USD pairs in the world and
+ * four well-known crosses on the real market, plus ten OTC symbols — six major
+ * pairs, two crosses and the two metals — which also trade at the weekend.
+ *
+ * The scraper does not subscribe to anything else and nothing stores it, so 20
+ * is what `otc_pairs` (enabled), `pairs` and the live feed all report.
  *
  * It lives here because three places were carrying the old figure separately:
  * two health checks that had been quietly warning ever since, and a headline
@@ -33,7 +38,7 @@ export function formatPrice(price: number): string {
  * count kept in one place can go stale; a count kept in three goes stale in
  * pieces, and the pieces disagree.
  */
-export const CATALOGUE_SYMBOLS = 89;
+export const CATALOGUE_SYMBOLS = 18;
 
 // ── Local storage keys ──────────────────────────────────────────────────────
 
@@ -113,20 +118,35 @@ export interface PairDef {
  * it arrives; this only covers first paint and the offline case.
  */
 export const DEFAULT_CURRENCY_PAIRS: readonly PairDef[] = [
-  // Currencies (Pocket Option OTC)
+  // Real market — the six largest USD pairs by global turnover. These close at
+  // the weekend, which is what the OTC block below is for.
+  { symbol: 'EUR/USD', chartSymbol: 'EURUSD', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'USD/JPY', chartSymbol: 'USDJPY', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'GBP/USD', chartSymbol: 'GBPUSD', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'USD/CAD', chartSymbol: 'USDCAD', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'AUD/USD', chartSymbol: 'AUDUSD', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'USD/CHF', chartSymbol: 'USDCHF', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  // Real market — the best known crosses. EUR/GBP would rank above GBP/JPY on
+  // turnover and is absent here on purpose: its real feed stopped updating about
+  // 44 hours before the rest of the catalogue, so it is carried as OTC below.
+  { symbol: 'EUR/JPY', chartSymbol: 'EURJPY', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'GBP/JPY', chartSymbol: 'GBPJPY', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'EUR/CHF', chartSymbol: 'EURCHF', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  { symbol: 'AUD/JPY', chartSymbol: 'AUDJPY', category: 'currencies', type: 'currencies', source: 'po', isOtc: false, enabled: true },
+  // OTC — the same markets in the form that also runs on Saturday and Sunday.
+  // NZD/USD is only here and never above: Pocket Option does not advertise a
+  // real-market NZD/USD at all, though `isAllowedAsset` already permits it.
   { symbol: 'EUR/USD OTC', chartSymbol: 'EURUSD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
-  { symbol: 'GBP/USD OTC', chartSymbol: 'GBPUSD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
   { symbol: 'USD/JPY OTC', chartSymbol: 'USDJPY_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
-  { symbol: 'AUD/USD OTC', chartSymbol: 'AUDUSD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
+  { symbol: 'GBP/USD OTC', chartSymbol: 'GBPUSD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
   { symbol: 'USD/CAD OTC', chartSymbol: 'USDCAD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
-  { symbol: 'AUD/CAD OTC', chartSymbol: 'AUDCAD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
-  { symbol: 'EUR/JPY OTC', chartSymbol: 'EURJPY_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
-  { symbol: 'CAD/JPY OTC', chartSymbol: 'CADJPY_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
-  // Commodities (Pocket Option OTC)
+  { symbol: 'USD/CHF OTC', chartSymbol: 'USDCHF_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
+  { symbol: 'NZD/USD OTC', chartSymbol: 'NZDUSD_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
+  { symbol: 'GBP/JPY OTC', chartSymbol: 'GBPJPY_otc', category: 'currencies', type: 'currencies', source: 'po', isOtc: true, enabled: true },
+  // Metals, OTC only: the real XAUUSD and XAGUSD feeds are dead — silver stored
+  // a hundred candles at ONE price — so the OTC pair is the live one.
   { symbol: 'Gold OTC', chartSymbol: 'XAUUSD_otc', category: 'commodities', type: 'commodities', source: 'po', isOtc: true, enabled: true },
-  { symbol: 'Silver OTC', chartSymbol: 'XAGUSD_otc', category: 'commodities', type: 'commodities', source: 'po', isOtc: true, enabled: true },
 ];
-
 /**
  * Maps a display name to its Pocket Option chart symbol
  * ("EUR/USD" → "EURUSD", "Gold OTC" → "XAUUSD_otc").

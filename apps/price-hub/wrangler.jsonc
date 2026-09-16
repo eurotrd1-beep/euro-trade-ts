@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "euro-trade-price-hub",
+  "main": "src/index.ts",
+  // Its OWN Worker, deliberately not folded into `euro-trade-cache`. That one
+  // is live and serving candles and status; a Durable Object migration on it
+  // would tie the two releases together for no reason. Separate also gives the
+  // rollback its shape: the app is told where to get prices by a config row, so
+  // pointing back at Render is a row change, not a deploy.
+  "compatibility_date": "2026-09-01",
+  "durable_objects": {
+    "bindings": [{ "name": "PRICE_HUB", "class_name": "PriceHub" }]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      // SQLite-backed, because that is the only kind the Workers Free plan
+      // offers. Nothing here stores anything — the class keeps its prices in
+      // memory — but the backend still has to be declared, and declaring the
+      // one the free plan does not have would fail at deploy.
+      "new_sqlite_classes": ["PriceHub"]
+    }
+  ],
+  "observability": { "enabled": true }
+  // INGEST_SECRET is a SECRET, set with `wrangler secret put INGEST_SECRET`.
+  // Never a var: vars live in this file, and this file is in git.
+}
