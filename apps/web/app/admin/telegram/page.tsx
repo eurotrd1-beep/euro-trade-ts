@@ -28,7 +28,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '@euro/shared';
+
+import { db } from '@/lib/dataHub';
 import {
   KIND_LABEL,
   STATUS_LABEL,
@@ -65,7 +66,7 @@ export default function TelegramQueueView() {
       const [p, d, cfg] = await Promise.all([
         fetchPending(),
         fetchDecided(),
-        supabase().from('configs').select('data').eq('id', 'telegram').maybeSingle(),
+        db().from('configs').select('data').eq('id', 'telegram').maybeSingle(),
       ]);
       setPending(p);
       setDecided(d);

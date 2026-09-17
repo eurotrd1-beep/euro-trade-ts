@@ -1,99 +1,114 @@
 /**
  * Admin gate.
  *
- * ⚠️ READ THIS BEFORE RELYING ON IT.
+ * ── WHAT THIS USED TO BE, AND WHY IT CHANGED ───────────────────────────────
  *
- * This is a client-side gate on a statically exported site. There is no server
- * to check a password against, so the check runs in the browser and the
- * credential hash ships in the bundle. It stops someone who stumbles onto
- * /admin. It does NOT stop anyone who opens devtools, and it does not need to
- * be bypassed at all: the Supabase anon key is public and RLS is open, so the
- * same writes can be made directly against the API.
+ * A username and a SHA-256 hash, both compiled into the bundle, checked in the
+ * browser. It stopped someone who wandered onto /admin and nobody else — and
+ * it did not need to be bypassed at all, because the writes it guarded were
+ * made with the public anon key against tables RLS left open. Anyone with the
+ * bundle could make them directly.
  *
- * Real protection needs the plan in docs/security.md — an authenticated Route
- * Handler holding the service key, and RLS closed behind it.
+ * The gate now guards something real. Every admin write goes to the data hub,
+ * which requires `x-admin-secret` and refuses the request without it. The
+ * secret is not in the bundle, not in this file, and not derivable from
+ * anything shipped: the admin types it, and it is held in this browser only.
  *
- * The password is stored as a SHA-256 hash rather than plaintext purely so it
- * is not greppable in the shipped JavaScript.
+ * So the check moved from "does this hash match" to "does the hub accept this
+ * credential" — and the second question is the one that matters, because it is
+ * the same question the hub asks on every subsequent write.
+ *
+ * ── WHY LOCALSTORAGE AND NOT A COOKIE ──────────────────────────────────────
+ *
+ * The old session flag lived in both. A flag can: it said nothing. A secret
+ * cannot. A cookie is attached to every request to the origin, so the
+ * credential would be sent to the static host on every page load, every asset,
+ * every favicon — landing in CDN and access logs that have no reason to hold
+ * it. `localStorage` is never transmitted by the browser; it goes out only
+ * where this code puts it, which is the `x-admin-secret` header on the hub.
+ *
+ * The cost is that the session no longer survives localStorage being cleared,
+ * and that is the correct trade for a credential.
+ *
+ * ── WHY THERE IS NO "VERIFY" CALL HERE ─────────────────────────────────────
+ *
+ * The hub deliberately has no verify endpoint, so it can never become an oracle
+ * that confirms a guess for free. Sign-in therefore makes a REAL admin request
+ * (see `AdminGate`) and keeps the secret only if it is not refused. Wrong
+ * guesses are counted and rate-limited by the hub exactly like any other failed
+ * credential.
  */
 
-const USERNAME = 'joex';
+const STORE_KEY = 'admin_secret';
+const SESSION_DAYS = 30;
 
-/** sha256('joex') */
-const PASSWORD_HASH = '98f067307fdd8010ba77f4688f256897a593488be1a4fbb10f43e70130bc7f38';
-
-const SESSION_KEY = 'admin_session';
-const COOKIE_MAX_AGE_DAYS = 30;
-
-async function sha256(text: string): Promise<string> {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+interface Stored {
+  secret: string;
+  /** When it was entered, so a forgotten browser does not stay signed in. */
+  at: number;
 }
 
-/** Verifies a username/password pair. */
-export async function checkCredentials(username: string, password: string): Promise<boolean> {
-  if (username.trim().toLowerCase() !== USERNAME) return false;
+function read(): Stored | null {
   try {
-    return (await sha256(password)) === PASSWORD_HASH;
+    const raw = globalThis.localStorage?.getItem(STORE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Stored>;
+    if (typeof parsed.secret !== 'string' || parsed.secret.length === 0) return null;
+    if (typeof parsed.at !== 'number') return null;
+    if (Date.now() - parsed.at > SESSION_DAYS * 86_400_000) {
+      signOutAdmin();
+      return null;
+    }
+    return { secret: parsed.secret, at: parsed.at };
   } catch {
-    // crypto.subtle needs a secure context; without it the gate cannot verify.
-    return false;
-  }
-}
-
-// ── Session, stored the same durable way as the user session ────────────────
-
-function writeCookie(value: string): void {
-  try {
-    document.cookie = `${SESSION_KEY}=${value}; Max-Age=${COOKIE_MAX_AGE_DAYS * 86400}; Path=/; SameSite=Lax`;
-  } catch {
-    // Cookies blocked — localStorage may still hold it.
-  }
-}
-
-function readCookie(): string | null {
-  try {
-    return document.cookie.match(new RegExp(`(?:^|; )${SESSION_KEY}=([^;]*)`))?.[1] ?? null;
-  } catch {
+    // Storage blocked, or a value left by an older build. Either way: signed out.
     return null;
   }
 }
 
-/** True while the admin session is valid. Re-writes both stores to keep it alive. */
-export function isAdminSignedIn(): boolean {
-  let local: string | null = null;
-  try {
-    local = globalThis.localStorage?.getItem(SESSION_KEY) ?? null;
-  } catch {
-    local = null;
-  }
-
-  const token = local ?? readCookie();
-  if (token !== 'true') return false;
-
-  // Repair whichever store was cleared and roll the cookie expiry forward.
-  signInAdmin();
-  return true;
+/**
+ * The secret to send, or null.
+ *
+ * `dataHub` calls this on every request and attaches the header only when it
+ * returns a string, so a public page — which shares the same client — never
+ * sends an admin header it does not have.
+ */
+export function adminSecret(): string | null {
+  return read()?.secret ?? null;
 }
 
-export function signInAdmin(): void {
+/** True while a secret is held. Not proof it is still accepted — the hub decides that. */
+export function isAdminSignedIn(): boolean {
+  return read() !== null;
+}
+
+/** Keeps the secret in this browser. Called only after the hub has accepted it. */
+export function signInAdmin(secret: string): void {
   try {
-    globalThis.localStorage?.setItem(SESSION_KEY, 'true');
+    globalThis.localStorage?.setItem(
+      STORE_KEY,
+      JSON.stringify({ secret, at: Date.now() } satisfies Stored),
+    );
   } catch {
-    // Cookie carries it.
+    // Nothing persists; the admin will be asked again on the next page load.
   }
-  writeCookie('true');
 }
 
 export function signOutAdmin(): void {
   try {
-    globalThis.localStorage?.removeItem(SESSION_KEY);
+    globalThis.localStorage?.removeItem(STORE_KEY);
   } catch {
     // Nothing to remove.
   }
+  // The old build kept a session flag in a cookie. Clear it so a browser that
+  // signed in before this change does not stay "signed in" on a stale flag.
   try {
-    document.cookie = `${SESSION_KEY}=; Max-Age=0; Path=/; SameSite=Lax`;
+    document.cookie = 'admin_session=; Max-Age=0; Path=/; SameSite=Lax';
+  } catch {
+    // No document, or cookies blocked.
+  }
+  try {
+    globalThis.localStorage?.removeItem('admin_session');
   } catch {
     // Nothing to remove.
   }

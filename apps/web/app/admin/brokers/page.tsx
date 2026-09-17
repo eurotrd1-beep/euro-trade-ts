@@ -14,7 +14,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { supabase, type BrokerRow } from '@euro/shared';
+import { type BrokerRow } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import styles from '../admin.module.css';
 
 const ACCENT_CYAN = '#06B6D4';
@@ -93,7 +94,7 @@ export default function BrokersView() {
 
   async function load(): Promise<void> {
     try {
-      const { data } = await supabase().from('brokers').select('*').order('order');
+      const { data } = await db().from('brokers').select('*').order('order');
       setBrokers((data as BrokerRow[] | null) ?? []);
     } catch {
       setBrokers([]);
@@ -156,11 +157,11 @@ export default function BrokersView() {
 
       const editing = draft.id;
       if (editing) {
-        const { error } = await supabase().from('brokers').update(payload).eq('id', editing);
+        const { error } = await db().from('brokers').update(payload).eq('id', editing);
         if (error) throw error;
       } else {
         payload.created_at = new Date().toISOString();
-        const { error } = await supabase().from('brokers').insert(payload);
+        const { error } = await db().from('brokers').insert(payload);
         if (error) throw error;
       }
 
@@ -182,7 +183,7 @@ export default function BrokersView() {
     if (!confirm(`حذف منصة ${row.name}\n\nهل أنت متأكد؟ سيتم حذف المنصة نهائياً.`)) return;
     setBusy(true);
     try {
-      await supabase().from('brokers').delete().eq('id', row.id);
+      await db().from('brokers').delete().eq('id', row.id);
       await load();
       setMessage({ kind: 'ok', text: 'تم حذف المنصة' });
     } catch {
@@ -196,7 +197,7 @@ export default function BrokersView() {
   async function saveQuickColor(id: string, hex: string): Promise<void> {
     setBusy(true);
     try {
-      await supabase().from('brokers').update({ themeColor: normalizeHex(hex) }).eq('id', id);
+      await db().from('brokers').update({ themeColor: normalizeHex(hex) }).eq('id', id);
       setColorFor(null);
       await load();
       setMessage({ kind: 'ok', text: 'تم تحديث لون الثيم ✅' });

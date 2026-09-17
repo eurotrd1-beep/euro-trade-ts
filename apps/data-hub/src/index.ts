@@ -58,7 +58,7 @@
  */
 
 import { decide, type Caller } from './access.js';
-import { buildSelect, buildWrite, parseQuery, type Write } from './db.js';
+import { buildSelect, buildWrite, parseFilters, parseQuery, type Write } from './db.js';
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 import { prune } from './prune.js';
 import {
@@ -496,7 +496,7 @@ export default {
         table: read[1]!,
         op,
         values: body.values ?? {},
-        where: Array.isArray(body.where) ? body.where : [],
+        where: parseFilters(body.where),
       }, caller);
       if (!built.ok) return json({ error: built.reason }, built.status);
 

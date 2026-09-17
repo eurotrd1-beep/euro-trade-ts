@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, type BrokerRow } from '@euro/shared';
+import { type BrokerRow } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import styles from '../admin.module.css';
 
 interface Row {
@@ -33,8 +34,8 @@ export default function AnalyticsView() {
     void (async () => {
       try {
         const [b, c] = await Promise.all([
-          supabase().from('brokers').select('*').order('order'),
-          supabase().from('clicks').select('data').eq('id', 'brokers').maybeSingle(),
+          db().from('brokers').select('*').order('order'),
+          db().from('clicks').select('data').eq('id', 'brokers').maybeSingle(),
         ]);
         if (cancelled) return;
         setBrokers((b.data as BrokerRow[] | null) ?? []);

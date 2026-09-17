@@ -10,7 +10,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase, DEFAULT_PROXY_URL } from '@euro/shared';
+import { DEFAULT_PROXY_URL } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import styles from '../admin.module.css';
 
 interface ControlState {
@@ -70,7 +71,7 @@ export default function AppControlView() {
 
   async function load(): Promise<void> {
     try {
-      const { data } = await supabase().from('configs').select('*');
+      const { data } = await db().from('configs').select('*');
       const rows = (data as Array<{ id: string; data: Record<string, unknown> }> | null) ?? [];
       const get = (id: string): Record<string, unknown> =>
         rows.find((r) => r.id === id)?.data ?? {};
@@ -122,7 +123,7 @@ export default function AppControlView() {
     setBusy(true);
     setMessage(null);
     try {
-      const { error } = await supabase().from('configs').upsert({ id, data });
+      const { error } = await db().from('configs').upsert({ id, data });
       if (error) throw error;
       setMessage({ kind: 'ok', text: `تم تحديث ${id} — التغيير وصل لكل المستخدمين فورًا` });
       await load();

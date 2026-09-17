@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase, tr, type BrokerRow } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import { TradingBackground } from '@/components/TradingBackground';
 import styles from './notice.module.css';
 
@@ -23,7 +24,7 @@ export default function NoticePage() {
 
     async function load(): Promise<void> {
       try {
-        const { data } = await supabase()
+        const { data } = await db()
           .from('brokers')
           .select('*')
           .eq('is_active', true)

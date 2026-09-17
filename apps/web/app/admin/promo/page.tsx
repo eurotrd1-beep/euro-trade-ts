@@ -19,7 +19,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@euro/shared';
+
+import { db } from '@/lib/dataHub';
 import { formatExpiry } from '@/lib/vipDuration';
 import styles from '../admin.module.css';
 
@@ -61,8 +62,8 @@ export default function PromoView() {
   async function load(): Promise<void> {
     try {
       const [cfg, clicks] = await Promise.all([
-        supabase().from('configs').select('data').eq('id', 'promo').maybeSingle(),
-        supabase().from('clicks').select('data').eq('id', 'promo').maybeSingle(),
+        db().from('configs').select('data').eq('id', 'promo').maybeSingle(),
+        db().from('clicks').select('data').eq('id', 'promo').maybeSingle(),
       ]);
 
       const d = (cfg.data?.['data'] ?? {}) as Record<string, unknown>;
@@ -114,7 +115,7 @@ export default function PromoView() {
       const target = d.targetMode === 'specific' ? d.targetId.trim() : 'all';
       const newVersion = version + 1;
 
-      const { error } = await supabase()
+      const { error } = await db()
         .from('configs')
         .upsert({
           id: 'promo',
@@ -152,10 +153,10 @@ export default function PromoView() {
     if (!draft) return;
     setDraft({ ...draft, enabled: v });
     try {
-      const { data } = await supabase().from('configs').select('data').eq('id', 'promo').maybeSingle();
+      const { data } = await db().from('configs').select('data').eq('id', 'promo').maybeSingle();
       const cur = { ...((data?.['data'] as Record<string, unknown> | null) ?? {}) };
       cur['enabled'] = v;
-      await supabase().from('configs').upsert({ id: 'promo', data: cur });
+      await db().from('configs').upsert({ id: 'promo', data: cur });
       setMessage({
         kind: v ? 'ok' : 'error',
         text: v ? 'تم تفعيل الإعلان ✅' : 'تم إيقاف الإعلان — لن يظهر للمستخدمين',
@@ -169,11 +170,11 @@ export default function PromoView() {
   async function resetStats(): Promise<void> {
     if (!confirm('تصفير الإحصائيات\n\nهل تريد تصفير عدد المشاهدات والضغطات إلى صفر؟')) return;
     try {
-      const { data } = await supabase().from('clicks').select('data').eq('id', 'promo').maybeSingle();
+      const { data } = await db().from('clicks').select('data').eq('id', 'promo').maybeSingle();
       const cur = { ...((data?.['data'] as Record<string, unknown> | null) ?? {}) };
       cur['views'] = 0;
       cur['cta'] = 0;
-      await supabase().from('clicks').upsert({ id: 'promo', data: cur });
+      await db().from('clicks').upsert({ id: 'promo', data: cur });
       setStats({ views: 0, cta: 0 });
       setMessage({ kind: 'ok', text: 'تم تصفير الإحصائيات ✅' });
     } catch {

@@ -17,7 +17,11 @@
  */
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@euro/shared';
+
+import { MAX_IN_VALUES, db, usersRowFor } from '@/lib/dataHub';
+
+/** `db().from<Row>(t)`, named once so the two reads below line up. */
+const dbFrom = <Row,>(table: string) => db().from<Row>(table);
 import {
   VIP_PRESETS,
   VIP_UNITS,
@@ -29,7 +33,15 @@ import {
 } from '@/lib/vipDuration';
 import styles from '../admin.module.css';
 
-const BATCH_SIZE = 100;
+/**
+ * How many accounts one patch names.
+ *
+ * It was 100, chosen against PostgREST, which has no such limit. The hub
+ * refuses an IN list longer than `MAX_IN_VALUES` rather than truncating it, so
+ * a hundred would have been rejected outright — every batch failing, the whole
+ * grant reporting an error, and nobody's VIP actually changing.
+ */
+const BATCH_SIZE = MAX_IN_VALUES;
 
 interface GlobalVipState {
   enabled: boolean;
@@ -51,8 +63,8 @@ export default function GlobalVipView() {
   async function load(): Promise<void> {
     try {
       const [cfg, users] = await Promise.all([
-        supabase().from('configs').select('data').eq('id', 'globalVip').maybeSingle(),
-        supabase().from('users').select('id', { count: 'exact', head: true }),
+        db().from('configs').select('data').eq('id', 'globalVip').maybeSingle(),
+        db().from('users').select('id', { count: 'exact', head: true }),
       ]);
 
       const d = (cfg.data?.['data'] ?? {}) as Record<string, unknown>;
@@ -71,11 +83,48 @@ export default function GlobalVipView() {
     void load();
   }, []);
 
+  /**
+   * Every account id, or every id with one role.
+   *
+   * ── WHY IT CHECKS THE COUNT ────────────────────────────────────────────
+   *
+   * The hub caps one read at 1,000 rows, to protect a daily budget that is
+   * shared with the price feed. The cap is a CLAMP, not a refusal: asking for
+   * more returns a thousand rows and an ordinary success.
+   *
+   * So a read alone cannot tell "these are all the accounts" from "these are
+   * the first thousand of them", and the difference matters here more than
+   * almost anywhere — the caller patches whatever comes back and then reports
+   * how many users were granted VIP. A truncated list would report a complete
+   * grant that silently skipped everyone past the cap.
+   *
+   * There are 31 accounts today, so this never fires. It is here for the day
+   * that changes, because the failure it prevents is invisible.
+   */
+  async function allUserIds(role?: string): Promise<string[]> {
+    const CAP = 1000;
+    const rows = dbFrom<{ id: string }>('users').select('id').limit(CAP);
+    const total = dbFrom<{ id: string }>('users').select('id', { count: 'exact' });
+    if (role) { rows.eq('role', role); total.eq('role', role); }
+
+    const [listed, counted] = await Promise.all([rows, total]);
+    if (listed.error) throw listed.error;
+    const ids = (listed.data ?? []).map((r) => r.id);
+
+    const n = counted.count ?? ids.length;
+    if (n > ids.length) {
+      throw new Error(
+        `فيه ${n} حساب والقراءة رجّعت ${ids.length} بس — العملية اتوقفت عشان متتنفذش على جزء منهم.`,
+      );
+    }
+    return ids;
+  }
+
   /** Applies one patch to every user id, in batches of BATCH_SIZE. */
   async function patchAllUsers(ids: string[], updates: Record<string, unknown>): Promise<void> {
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
       const batch = ids.slice(i, i + BATCH_SIZE);
-      const { error } = await supabase().from('users').update(updates).in('id', batch);
+      const { error } = await db().from('users').update(usersRowFor(updates)).in('id', batch).run();
       if (error) throw error;
     }
   }
@@ -88,7 +137,7 @@ export default function GlobalVipView() {
       const expiry = new Date(Date.now() + ms).toISOString();
 
       // Config first, so anyone registering mid-run already inherits VIP.
-      const { error: cfgErr } = await supabase().from('configs').upsert({
+      const { error: cfgErr } = await db().from('configs').upsert({
         id: 'globalVip',
         data: {
           enabled: true,
@@ -99,8 +148,7 @@ export default function GlobalVipView() {
       });
       if (cfgErr) throw cfgErr;
 
-      const { data } = await supabase().from('users').select('id');
-      const ids = ((data as Array<{ id: string }> | null) ?? []).map((r) => r.id);
+      const ids = await allUserIds();
       await patchAllUsers(ids, { role: 'vip', vip_expiry: expiry });
 
       setMessage({
@@ -124,14 +172,13 @@ export default function GlobalVipView() {
     setBusy(true);
     setMessage(null);
     try {
-      const { error: cfgErr } = await supabase().from('configs').upsert({
+      const { error: cfgErr } = await db().from('configs').upsert({
         id: 'globalVip',
         data: { enabled: false, disabledAt: new Date().toISOString() },
       });
       if (cfgErr) throw cfgErr;
 
-      const { data } = await supabase().from('users').select('id').eq('role', 'vip');
-      const ids = ((data as Array<{ id: string }> | null) ?? []).map((r) => r.id);
+      const ids = await allUserIds('vip');
       await patchAllUsers(ids, { role: 'standard', vip_expiry: null });
 
       setMessage({

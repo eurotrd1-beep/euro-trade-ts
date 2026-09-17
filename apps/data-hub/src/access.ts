@@ -221,8 +221,12 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
       'decided_ms'],
     primaryKey: ['event_key'],
   },
+  // `admin`, for the same reason as `clicks` below: the panel writes its own
+  // repair log — "switched the proxy", "cleared the cache" — and reads it back
+  // as the feed at the top of the health screen. Both ends are the admin, and
+  // service still qualifies because it outranks admin.
   repair_log: {
-    read: 'admin', write: 'service',
+    read: 'admin', write: 'admin',
     columns: ['id', 'at_ms', 'action', 'result', 'created_ms'],
     primaryKey: ['id'],
   },
@@ -241,8 +245,15 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
   // one narrow, fixed mutation that runs as the service. A `write: 'public'`
   // here would be a widening dressed as a port: it would let anyone overwrite
   // every counter the analytics page reads.
+  //
+  // `admin` rather than `service`, and it does not widen anything: admin ranks
+  // BELOW service, so the scraper still qualifies, and the public still does
+  // not. What it adds is the one write the panel has always made — "reset the
+  // promo counters to zero" — which is a deliberate act by a credential holder,
+  // not an anonymous increment. Leaving it at `service` would have moved a
+  // working admin button into a 403 and called that a security improvement.
   clicks: {
-    read: 'admin', write: 'service',
+    read: 'admin', write: 'admin',
     columns: ['id', 'data'],
     primaryKey: ['id'],
   },

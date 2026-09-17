@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@euro/shared';
+
+import { db } from '@/lib/dataHub';
 import styles from '../admin.module.css';
 
 interface UpdateState {
@@ -39,7 +40,7 @@ export default function AppUpdatesView() {
 
   async function load(): Promise<void> {
     try {
-      const { data } = await supabase()
+      const { data } = await db()
         .from('configs')
         .select('data')
         .eq('id', 'appUpdate')
@@ -76,7 +77,7 @@ export default function AppUpdatesView() {
     setBusy(true);
     setMessage(null);
     try {
-      const { error } = await supabase().from('configs').upsert({
+      const { error } = await db().from('configs').upsert({
         id: 'appUpdate',
         data: {
           hasUpdate: true,
@@ -103,7 +104,7 @@ export default function AppUpdatesView() {
     try {
       // Dart writes only `hasUpdate: false`, dropping the other keys — kept
       // identical so a stale version string can never linger.
-      const { error } = await supabase()
+      const { error } = await db()
         .from('configs')
         .upsert({ id: 'appUpdate', data: { hasUpdate: false } });
       if (error) throw error;

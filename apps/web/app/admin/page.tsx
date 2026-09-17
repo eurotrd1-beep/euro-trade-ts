@@ -9,7 +9,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, type UserRow } from '@euro/shared';
+import { type UserRow } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import {
   VIP_PRESETS,
   VIP_UNITS,
@@ -34,10 +35,14 @@ export default function UsersView() {
 
   async function load(): Promise<void> {
     try {
-      const { data } = await supabase()
+      const { data } = await db()
         .from('users')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        // Explicit, because the hub's default is 100 and a clamp is not an
+        // error: without this the page would show the hundred newest accounts
+        // and look exactly like a page showing all of them.
+        .limit(1000);
       setUsers((data as UserRow[] | null) ?? []);
     } catch {
       setUsers([]);
@@ -54,7 +59,7 @@ export default function UsersView() {
     setBusy(id);
     setError(null);
     try {
-      const { error: err } = await supabase().from('users').update(updates).eq('id', id);
+      const { error: err } = await db().from('users').update(updates).eq('id', id);
       if (err) throw err;
       await load();
     } catch {

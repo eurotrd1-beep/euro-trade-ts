@@ -42,62 +42,50 @@
  */
 
 import { supabase } from '@euro/shared';
+import { adminSecret } from './adminAuth';
 
 export type DataMode = 'supabase' | 'mirror' | 'd1';
 
 /**
  * Tables that stay on Supabase whatever the mode says.
  *
- * ── THE SIGNAL PIPELINE IS NOT MOVING ──────────────────────────────────────
+ * ── WHAT USED TO BE HERE ───────────────────────────────────────────────────
  *
- * Four Postgres functions own these — record_signals, resolve_signals,
- * refresh_signal_daily and prune_signals — and the proxy calls all four. They
- * are not helpers around the pipeline; they ARE the pipeline, and
- * resolve_signals decides what a trade's outcome is:
+ * The whole signal pipeline: `signals`, `signal_daily`, `signal_write_budget`,
+ * `strategy_versions` and the view over them. They were pinned because four
+ * Postgres functions owned them and one of those functions decides what a
+ * trade's outcome is — porting that is changing settlement, and a mistake in
+ * settlement does not throw, it changes published results.
  *
- *     WHEN i.price IS NULL          THEN 'unresolved'
- *     WHEN i.outcome IN (win,loss,tie) THEN i.outcome
- *     ELSE 'unresolved'   -- an outcome nobody understands is NOT a tie
+ * They are gone from this list because the port happened, row-by-row compared
+ * against Postgres, and the proxy now records and resolves into D1. Leaving
+ * them pinned after that was the same bug in the other direction: the admin's
+ * signals screen read Supabase while every new signal landed in D1, so the
+ * screen showed a record that had simply stopped growing.
  *
- * Porting that is changing settlement, and a mistake in it does not throw —
- * it changes results. So it stays where it is, and these tables stay with it.
+ * ── WHAT IS STILL HERE, AND WHAT WOULD HAVE TO CHANGE ──────────────────────
  *
- * ── WHY EACH ONE ───────────────────────────────────────────────────────────
+ * `configs`, and it is not about the admin panel any more — that moved with
+ * this change. It is about the PROXY, which reads and writes the same table
+ * with the service key, straight to Postgres:
  *
- *   signals              written by record_signals, updated by resolve_signals
- *   signal_daily         built by refresh_signal_daily
- *   signal_write_budget  read and written inside record_signals
- *   strategy_versions    signals.strategy_version_id REFERENCES it. Moving the
- *                        writes would let a version be published to D1 that
- *                        Postgres has never heard of, and the next insert
- *                        would fail a foreign key — a split key is a key that
- *                        has stopped being enforced.
+ *   telegram         the admin writes it; `telegram.js` reads it to decide
+ *                    whether alerts go out at all, and at what depth
+ *   otc_scan         the panel requests a scan, `po-scraper.js` performs it
+ *   otc_status       the scraper publishes it, the health screen reads it
+ *   otc_token        the scraper stores and reloads its session there
+ *   captcha_balance  the scraper writes it, the panel displays it
  *
- * The first three were established by listing every table the four functions
- * touch, rather than by judgement: they touch these and nothing else.
+ * Every one of those is a value handed between the browser and the scraper. If
+ * the browser moved to D1 on its own, each would be written to one database
+ * and read from the other, and none of them would error — telegram alerts
+ * would quietly ignore every change the admin made, and the scan button would
+ * do nothing at all.
+ *
+ * So `configs` moves when the proxy's config access moves, not before.
  */
 const SUPABASE_ONLY: ReadonlySet<string> = new Set([
-  // ── configs: because the ADMIN still writes it through Supabase ──────────
-  //
-  // Not part of the pipeline. It is here because a table has to be read from
-  // the database it is written to, and the admin panel has not moved yet: it
-  // writes `configs` with the anon key, and the hub requires the admin secret
-  // for that table, which no browser holds yet.
-  //
-  // Left on D1, the next maintenance banner, VIP grant, theme change or
-  // price_system switch would be written to Supabase and read from D1 — the
-  // admin would see it saved and no user would ever receive it. Nothing would
-  // error. Caught before it cost a config change; it moves back the moment the
-  // admin does.
   'configs',
-
-  'signals',
-  'signal_daily',
-  'signal_write_budget',
-  'strategy_versions',
-  // The view over strategy_versions and signal_daily. Its sources stay, so the
-  // D1 copy would answer from rows that stopped being updated.
-  'strategy_version_stats',
 ]);
 
 /** True when this table answers from Supabase no matter what the mode is. */
@@ -160,7 +148,173 @@ export const currentMode = (): DataMode => mode;
 
 // ── The request ─────────────────────────────────────────────────────────────
 
-interface Filter { column: string; value: string }
+/**
+ * One filter: equals a value, or is one of a list.
+ *
+ * The list form is what makes the admin's bulk operations possible in a
+ * browser. Global VIP patches every user row, and one request per user is not
+ * an operation that finishes.
+ */
+interface Filter {
+  column: string;
+  value?: unknown;
+  values?: unknown[];
+  gte?: unknown;
+  lte?: unknown;
+}
+
+/**
+ * How many ids one request may name.
+ *
+ * The hub refuses a longer list rather than truncating it, so this number has
+ * to be the same number. It is deliberately not exported from there and
+ * imported here — the two packages do not share a build — so a change on one
+ * side that is not made on the other shows up as a 400 with the cap in the
+ * message, rather than as a silent partial write.
+ */
+export const MAX_IN_VALUES = 80;
+
+/**
+ * Columns the SQLite schema spells differently from Postgres.
+ *
+ * Only renames belong here — a column whose TYPE changed (boolean to 1/0,
+ * jsonb to TEXT) is handled at the value, because the name still matches and
+ * the caller still finds it. A renamed column is the dangerous one: the caller
+ * asks for `vip_expiry`, D1 has no such column, and depending on where the name
+ * was used the answer is either a 400 or a silent `undefined`.
+ *
+ * Applied in both directions — outgoing on the columns asked for, filtered on
+ * and ordered by; incoming on the rows that come back.
+ */
+const ALIASES: Record<string, Record<string, string>> = {
+  users: { vip_expiry: 'vip_expiry_ms', created_at: 'created_ms' },
+  repair_log: { at: 'at_ms', created_at: 'created_ms' },
+  signals: { created_at: 'created_ms', bar_time: 'bar_ms', outcome_at: 'outcome_ms' },
+  strategy_versions: { uploaded_at: 'uploaded_ms' },
+  strategy_version_stats: { uploaded_at: 'uploaded_ms' },
+};
+
+/** The D1 spelling of a column the app names in the Postgres way. */
+const aliasOut = (table: string, column: string): string =>
+  ALIASES[table]?.[column] ?? column;
+
+/**
+ * Columns that are `jsonb` in Postgres and TEXT in SQLite.
+ *
+ * ── WHY THIS CANNOT BE LEFT TO THE CALL SITES ──────────────────────────────
+ *
+ * Because the value still arrives, still has a type, and is still truthy. A
+ * config read from Postgres is an object; the same row read from D1 is the
+ * STRING `'{"enabled":true}'`. `data['enabled']` on that string is `undefined`
+ * — not an error — so an admin screen renders every switch off, and saving the
+ * form writes those offs back over the real settings.
+ *
+ * `signalHistoryStore` already carried a hand-written guard for exactly this,
+ * with a comment describing the same loss. One guard per call site is a rule
+ * that holds until somebody adds the next call site.
+ *
+ * Only columns declared `CHECK (json_valid(...))` in the D1 schema belong here.
+ */
+const JSON_COLUMNS: Record<string, readonly string[]> = {
+  candles: ['data'],
+  price_snapshot: ['data'],
+  configs: ['data'],
+  clicks: ['data'],
+  signal_history: ['signals'],
+  signals: ['rules_matched', 'candle_snapshot'],
+  strategy_versions: ['strategy_json'],
+  push_subscriptions: ['subscription', 'symbols'],
+};
+
+/** Parses the JSON columns of a row coming back from D1. */
+function jsonIn(table: string, row: Record<string, unknown>): Record<string, unknown> {
+  const columns = JSON_COLUMNS[table];
+  if (columns === undefined) return row;
+  const out = { ...row };
+  for (const column of columns) {
+    const value = out[column];
+    if (typeof value !== 'string') continue;
+    try {
+      out[column] = JSON.parse(value);
+    } catch {
+      // Left as the string. The CHECK constraint makes this close to
+      // impossible, and replacing it with null would destroy the row's
+      // contents on the next save.
+    }
+  }
+  return out;
+}
+
+/** Serialises the JSON columns of a row on its way to D1. */
+function jsonOut(table: string, values: Record<string, unknown>): Record<string, unknown> {
+  const columns = JSON_COLUMNS[table];
+  if (columns === undefined) return values;
+  const out = { ...values };
+  for (const column of columns) {
+    if (!(column in out)) continue;
+    const value = out[column];
+    // Already a string means it was serialised by the caller; JSON.stringify
+    // would then store a quoted string of a string.
+    if (typeof value === 'string' || value === null || value === undefined) continue;
+    out[column] = JSON.stringify(value);
+  }
+  return out;
+}
+
+/**
+ * A filter value, in the form D1 stores — applied at the boundary, not earlier.
+ *
+ * SQLite has no boolean, so `enabled = true` filters nothing: `String(true)` is
+ * `'true'`, and the column holds 1. The comparison is valid, runs, and returns
+ * no rows — which reads as "there are no enabled pairs" rather than as an
+ * error, and the backtest that asked quietly measures nothing.
+ *
+ * It converts HERE, where the request is serialised, and not in `.eq()`, so the
+ * Supabase path still sends Postgres a real boolean. Converting at the call
+ * site would have handed `'1'` to a `boolean` column in the mode that is the
+ * rollback target.
+ */
+const hubValue = (value: unknown): string => {
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  return String(value);
+};
+
+/**
+ * A time filter's value, in the units the aliased column stores.
+ *
+ * The app filters by ISO strings — `created_at >= '2026-09-01T00:00:00Z'` —
+ * because that is what Postgres holds. The D1 column is `created_ms`, holding
+ * an integer, and comparing an integer column to the string '2026-…' in SQLite
+ * compares across storage classes: every integer sorts below every string, so
+ * `created_ms >= '2026-09-01…'` is false for every row and `<=` is true for
+ * all of them. Neither errors. The range simply stops meaning anything.
+ */
+const timeValue = (table: string, column: string, value: unknown): unknown => {
+  if (aliasOut(table, column) === column) return value;       // not a renamed time column
+  if (!aliasOut(table, column).endsWith('_ms')) return value;
+  if (typeof value === 'number') return value;
+  const ms = Date.parse(String(value));
+  return Number.isFinite(ms) ? ms : value;
+};
+
+/**
+ * Headers every hub request carries.
+ *
+ * The admin secret goes on whenever this browser holds one. It is not
+ * conditional on the page: a hub that refuses the write is the check, and a
+ * client deciding for itself which requests "are admin requests" is a second,
+ * weaker copy of a rule that already exists in one place.
+ */
+function hubHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  // The account id is a claim, not a credential — the hub scopes to it and
+  // refuses everything else regardless. Sending it is what makes an
+  // owner-scoped read possible at all.
+  if (accountId) headers['x-account-id'] = accountId;
+  const secret = adminSecret();
+  if (secret) headers['x-admin-secret'] = secret;
+  return headers;
+}
 
 async function hubRead(
   table: string,
@@ -172,19 +326,31 @@ async function hubRead(
   accountId: string | null,
 ): Promise<{ rows: Record<string, unknown>[] }> {
   const params = new URLSearchParams();
-  if (cols && cols.length > 0 && !cols.includes('*')) params.set('cols', cols.join(','));
-  for (const f of filters) params.append('eq', `${f.column}:${f.value}`);
-  if (order) params.set('order', `${order.column}.${order.desc ? 'desc' : 'asc'}`);
+  if (cols && cols.length > 0 && !cols.includes('*')) {
+    params.set('cols', cols.map((c) => aliasOut(table, c)).join(','));
+  }
+  for (const f of filters) {
+    const column = aliasOut(table, f.column);
+    if (f.gte !== undefined) {
+      params.append('gte', `${column}:${hubValue(timeValue(table, f.column, f.gte))}`);
+    }
+    if (f.lte !== undefined) {
+      params.append('lte', `${column}:${hubValue(timeValue(table, f.column, f.lte))}`);
+    }
+    if (f.gte !== undefined || f.lte !== undefined) continue;
+    if (f.values) {
+      params.append('in', `${column}:${f.values.map((v) => hubValue(timeValue(table, f.column, v))).join(',')}`);
+    } else {
+      params.append('eq', `${column}:${hubValue(timeValue(table, f.column, f.value))}`);
+    }
+  }
+  if (order) {
+    params.set('order', `${aliasOut(table, order.column)}.${order.desc ? 'desc' : 'asc'}`);
+  }
   if (limit !== null) params.set('limit', String(limit));
   if (count) params.set('count', '1');
 
-  const headers: Record<string, string> = {};
-  // The account id is a claim, not a credential — the hub scopes to it and
-  // refuses everything else regardless. Sending it is what makes an
-  // owner-scoped read possible at all.
-  if (accountId) headers['x-account-id'] = accountId;
-
-  const res = await fetch(`${hubUrl}/v1/${table}?${params}`, { headers });
+  const res = await fetch(`${hubUrl}/v1/${table}?${params}`, { headers: hubHeaders() });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(`${res.status} ${body.error ?? ''}`.trim());
@@ -221,7 +387,22 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
   }
 
   eq(column: string, value: unknown): this {
-    this.filters.push({ column, value: String(value) });
+    this.filters.push({ column, value });
+    return this;
+  }
+
+  in(column: string, values: readonly unknown[]): this {
+    this.filters.push({ column, values: [...values] });
+    return this;
+  }
+
+  gte(column: string, value: unknown): this {
+    this.filters.push({ column, gte: value });
+    return this;
+  }
+
+  lte(column: string, value: unknown): this {
+    this.filters.push({ column, lte: value });
     return this;
   }
 
@@ -232,8 +413,29 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
 
   limit(n: number): this { this.rowLimit = n; return this; }
 
-  /** One row or null — never an error for "no rows", same as Supabase. */
-  maybeSingle(): this { this.single = true; this.rowLimit = 1; return this; }
+  /**
+   * One row or null — never an error for "no rows", same as Supabase.
+   *
+   * ── THIS USED TO RETURN AN ARRAY, AND IT COST REAL DATA ─────────────────
+   *
+   * The flag was set and never read, so through the hub `maybeSingle()` handed
+   * back `[row]` where Supabase hands back `row`. Nothing threw. Call sites
+   * split into two camps and both were wrong in one mode:
+   *
+   *   `data?.['data']`  read a config out of an array → undefined → the admin
+   *                     screen rendered blank and saved the blank back
+   *   `data?.[0]`       read a row out of an object in Supabase mode → the
+   *                     same thing in the other direction
+   *
+   * A different SHAPE is a loud failure; a different NAME on the same shape is
+   * a silent one. Returning a distinct type is what makes the compiler catch
+   * the call sites rather than leaving them to be found in production.
+   */
+  maybeSingle(): SingleQuery<Row> {
+    this.single = true;
+    this.rowLimit = 1;
+    return new SingleQuery<Row>(this);
+  }
 
   async run(): Promise<{ data: Row[] | null; error: Error | null; count?: number }> {
     // Not a fallback — a home. These never reach the hub in any mode.
@@ -249,7 +451,10 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
         const n = Number(body.rows[0]?.['count'] ?? 0);
         return { data: [] as Row[], error: null, count: n };
       }
-      return { data: body.rows as Row[], error: null };
+      const rows = body.rows
+        .map((row) => timesBack(this.table, row))
+        .map((row) => jsonIn(this.table, row));
+      return { data: rows as Row[], error: null };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       hubStats.lastError = `${this.table}: ${message}`;
@@ -273,12 +478,20 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
       this.cols === null ? '*' : this.cols.join(','),
       this.wantCount ? { count: 'exact' } : undefined,
     ) as unknown as {
-      eq: (c: string, v: string) => typeof q;
+      eq: (c: string, v: unknown) => typeof q;
+      in: (c: string, v: unknown[]) => typeof q;
+      gte: (c: string, v: unknown) => typeof q;
+      lte: (c: string, v: unknown) => typeof q;
       order: (c: string, o: { ascending: boolean }) => typeof q;
       limit: (n: number) => typeof q;
       then: unknown;
     };
-    for (const f of this.filters) q = q.eq(f.column, f.value);
+    for (const f of this.filters) {
+      if (f.gte !== undefined) q = q.gte(f.column, f.gte);
+      if (f.lte !== undefined) q = q.lte(f.column, f.lte);
+      if (f.gte !== undefined || f.lte !== undefined) continue;
+      q = f.values ? q.in(f.column, f.values) : q.eq(f.column, f.value);
+    }
     if (this.orderBy) q = q.order(this.orderBy.column, { ascending: !this.orderBy.desc });
     if (this.rowLimit !== null) q = q.limit(this.rowLimit);
 
@@ -291,6 +504,30 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
   // Awaiting the chain runs it, exactly as the Supabase builder does.
   then<R1 = { data: Row[] | null; error: Error | null; count?: number }, R2 = never>(
     onFulfilled?: ((v: { data: Row[] | null; error: Error | null; count?: number }) => R1 | PromiseLike<R1>) | null,
+    onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+  ): PromiseLike<R1 | R2> {
+    return this.run().then(onFulfilled, onRejected);
+  }
+}
+
+/**
+ * The result of `maybeSingle()`: the same query, unwrapped to one row.
+ *
+ * A wrapper rather than a flag on `Query` so the returned type differs, which
+ * is the whole point — `{ data: Row | null }` and `{ data: Row[] | null }` are
+ * not assignable to each other, so every call site had to be looked at when
+ * this was fixed.
+ */
+class SingleQuery<Row> implements PromiseLike<{ data: Row | null; error: Error | null }> {
+  constructor(private readonly query: Query<Row>) {}
+
+  async run(): Promise<{ data: Row | null; error: Error | null }> {
+    const { data, error } = await this.query.run();
+    return { data: data?.[0] ?? null, error };
+  }
+
+  then<R1 = { data: Row | null; error: Error | null }, R2 = never>(
+    onFulfilled?: ((v: { data: Row | null; error: Error | null }) => R1 | PromiseLike<R1>) | null,
     onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
   ): PromiseLike<R1 | R2> {
     return this.run().then(onFulfilled, onRejected);
@@ -320,14 +557,42 @@ class Table<Row> {
   }
 
   /**
+   * Insert, not upsert.
+   *
+   * The two are different answers to "this row already exists": upsert
+   * overwrites it, insert refuses. The admin's add-a-broker and add-a-pair
+   * forms want the refusal — a duplicate there is a mistake, and silently
+   * replacing the existing row would lose whatever it held.
+   */
+  async insert(values: Record<string, unknown>): Promise<{ error: Error | null }> {
+    if (mode !== 'd1' || staysOnSupabase(this.name)) {
+      const { error } = await supabase().from(this.name).insert(values);
+      return { error: error as Error | null };
+    }
+    return this.hubWrite('insert', values, []);
+  }
+
+  /**
    * Synchronous, like the Supabase builder it stands in for.
    *
-   * It returned a Promise<UpdateChain> at first, which made every call site
+   * It returned a Promise<WriteChain> at first, which made every call site
    * write `(await update(x)).eq(...)` — and an awaited chain that has not been
    * given its `.eq()` yet is an UPDATE with no WHERE waiting to happen.
    */
-  update(values: Record<string, unknown>): UpdateChain {
-    return new UpdateChain(this.name, values);
+  update(values: Record<string, unknown>): WriteChain {
+    return new WriteChain(this.name, 'update', values);
+  }
+
+  /**
+   * Also synchronous, and for a sharper version of the same reason.
+   *
+   * An awaited DELETE that has not been given its `.eq()` yet is
+   * `DELETE FROM <table>` — the whole table, silently, reporting success. The
+   * hub refuses an unfiltered delete outright, but the shape that cannot be
+   * awaited early is what stops the attempt being made.
+   */
+  delete(): WriteChain {
+    return new WriteChain(this.name, 'delete', {});
   }
 
   private async hubWrite(
@@ -336,12 +601,10 @@ class Table<Row> {
     where: Filter[],
   ): Promise<{ error: Error | null }> {
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (accountId) headers['x-account-id'] = accountId;
       const res = await fetch(`${hubUrl}/v1/${this.name}`, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ op, values, where }),
+        headers: hubHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ op, values: jsonOut(this.name, values), where }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -357,42 +620,85 @@ class Table<Row> {
   }
 }
 
-class UpdateChain {
+/**
+ * An UPDATE or a DELETE, waiting for the rows it applies to.
+ *
+ * One class for both because they differ in exactly one thing — whether there
+ * are values — and everything that matters here is the part they share: a
+ * filter chain that must not be empty when it runs.
+ */
+class WriteChain {
   private filters: Filter[] = [];
   constructor(
     private readonly table: string,
+    private readonly op: 'update' | 'delete',
     private readonly values: Record<string, unknown>,
   ) {}
 
   eq(column: string, value: unknown): this {
-    this.filters.push({ column, value: String(value) });
+    this.filters.push({ column, value });
+    return this;
+  }
+
+  /**
+   * Names the rows explicitly.
+   *
+   * An empty list means no rows — never every row. The hub agrees, turning it
+   * into a `0 = 1` clause rather than dropping it, and both sides have to,
+   * because "delete the ids in this empty array" is a no-op that a dropped
+   * clause turns into "delete everything".
+   */
+  in(column: string, values: readonly unknown[]): this {
+    this.filters.push({ column, values: [...values] });
     return this;
   }
 
   async run(): Promise<{ error: Error | null }> {
-    if (mode !== 'd1' || staysOnSupabase(this.table)) {
-      let q = supabase().from(this.table).update(this.values) as unknown as {
-        eq: (c: string, v: string) => typeof q;
-      };
-      for (const f of this.filters) q = q.eq(f.column, f.value);
-      const { error } = await (q as unknown as Promise<{ error: Error | null }>);
-      return { error };
+    if (this.filters.length === 0) {
+      // Refused here as well as at the hub. The hub's refusal protects the
+      // database; this one gives the call site an error it can read without a
+      // network round trip, and holds even in Supabase mode — where nothing
+      // refuses it at all.
+      const message = `${this.op} on '${this.table}' with no filter`;
+      hubStats.errors++;
+      hubStats.lastError = message;
+      return { error: new Error(message) };
     }
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (accountId) headers['x-account-id'] = accountId;
+
+    if (mode !== 'd1' || staysOnSupabase(this.table)) return this.viaSupabase();
+
     const res = await fetch(`${hubUrl}/v1/${this.table}`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify({ op: 'update', values: this.values, where: this.filters }),
+      headers: hubHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        op: this.op,
+        values: jsonOut(this.table, this.values),
+        where: this.filters.map((f) => (f.values
+          ? { column: aliasOut(this.table, f.column), values: f.values.map(hubValue) }
+          : { column: aliasOut(this.table, f.column), value: hubValue(f.value) })),
+      }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       const message = `${res.status} ${body.error ?? ''}`.trim();
       hubStats.errors++;
-      hubStats.lastError = `${this.table} update: ${message}`;
+      hubStats.lastError = `${this.table} ${this.op}: ${message}`;
       return { error: new Error(message) };
     }
     return { error: null };
+  }
+
+  private async viaSupabase(): Promise<{ error: Error | null }> {
+    const base = supabase().from(this.table);
+    let q = (this.op === 'delete' ? base.delete() : base.update(this.values)) as unknown as {
+      eq: (c: string, v: unknown) => typeof q;
+      in: (c: string, v: unknown[]) => typeof q;
+    };
+    for (const f of this.filters) {
+      q = f.values ? q.in(f.column, f.values) : q.eq(f.column, f.value);
+    }
+    const { error } = await (q as unknown as Promise<{ error: Error | null }>);
+    return { error };
   }
 
   then<R1, R2 = never>(
@@ -494,6 +800,74 @@ export function usersRowFor(values: Record<string, unknown>): Record<string, unk
       continue;
     }
     out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Asks the hub whether the secret this browser holds is accepted.
+ *
+ * ── WHY THIS DOES NOT GO THROUGH `db()` ────────────────────────────────────
+ *
+ * Because `db()` honours the data mode, and in `supabase` mode it would not
+ * touch the hub at all — the read would go to Postgres, where `repair_log` is
+ * readable with the anon key, succeed, and report that ANY typed password was
+ * correct. A gate that opens for every password in one of three modes is not a
+ * gate.
+ *
+ * The credential belongs to the hub, so the question is asked of the hub
+ * directly, in every mode. `hubUrl` is empty only when no hub is configured;
+ * then there is nothing to verify against and sign-in fails closed.
+ *
+ * Returns the HTTP status so the caller can tell "wrong secret" (401/403) from
+ * "the Worker is unreachable" — which must not be reported as a bad password,
+ * or the admin goes looking for a credential that was never the problem.
+ */
+export async function hubAcceptsAdmin(): Promise<{ ok: boolean; status: number; detail: string }> {
+  if (hubUrl === '') return { ok: false, status: 0, detail: 'no hub configured' };
+  const secret = adminSecret();
+  if (secret === null) return { ok: false, status: 0, detail: 'no secret held' };
+
+  try {
+    // Admin-only, one row, and nothing in it worth having. The point is the
+    // status code, not the body.
+    const res = await fetch(`${hubUrl}/v1/repair_log?cols=id&limit=1`, {
+      headers: { 'x-admin-secret': secret },
+    });
+    if (res.ok) return { ok: true, status: res.status, detail: '' };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, status: res.status, detail: body.error ?? '' };
+  } catch (e) {
+    return { ok: false, status: 0, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * The inverse of `ALIASES`, applied to rows coming BACK from D1.
+ *
+ * `vip_expiry` became `vip_expiry_ms` and `created_at` became `created_ms` in
+ * the SQLite schema, and the write path has always translated. The read path
+ * did not, so every caller asking a D1 `users` row for `vip_expiry` got
+ * `undefined` — and `undefined` is not an error, it is "no expiry". A paid VIP
+ * account read back as one with no expiry date on it at all.
+ *
+ * Driven by the same table the outgoing direction uses, so the two cannot
+ * describe different sets of columns.
+ *
+ * A renamed column is the worst kind of change to leave untranslated: a
+ * changed TYPE throws somewhere, a changed NAME just answers undefined.
+ */
+function timesBack(table: string, row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...row };
+  for (const [iso, ms] of Object.entries(ALIASES[table] ?? {})) {
+    if (!(ms in out)) continue;
+    const value = out[ms];
+    delete out[ms];
+    // Back to the ISO string the app has always read, so nothing downstream
+    // has to know which database answered.
+    out[iso] = typeof value === 'number' && Number.isFinite(value)
+      ? new Date(value).toISOString()
+      : null;
   }
   return out;
 }

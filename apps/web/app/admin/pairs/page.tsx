@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, type PairRow } from '@euro/shared';
+import { type PairRow } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import styles from '../admin.module.css';
 
 /**
@@ -31,7 +32,7 @@ export default function PairsView() {
 
   async function load(): Promise<void> {
     try {
-      const { data } = await supabase().from('pairs').select('*').order('order');
+      const { data } = await db().from('pairs').select('*').order('order');
       setPairs((data as PairRow[] | null) ?? []);
     } catch {
       setPairs([]);
@@ -46,7 +47,7 @@ export default function PairsView() {
   async function loadLibrary(): Promise<void> {
     setBusy(true);
     try {
-      const { data } = await supabase().from('otc_pairs').select('*').limit(500);
+      const { data } = await db().from('otc_pairs').select('*').limit(500);
       setLibrary((data as Array<Record<string, unknown>> | null) ?? []);
     } catch {
       setMessage({ kind: 'error', text: 'تعذّر تحميل مكتبة OTC' });
@@ -58,7 +59,7 @@ export default function PairsView() {
   async function patch(id: string, updates: Partial<PairRow>): Promise<void> {
     setBusy(true);
     try {
-      await supabase().from('pairs').update(updates).eq('id', id);
+      await db().from('pairs').update(updates).eq('id', id);
       await load();
     } catch {
       setMessage({ kind: 'error', text: 'تعذّر التحديث' });
@@ -71,7 +72,7 @@ export default function PairsView() {
     if (!confirm(`حذف الزوج "${symbol}" من قائمة المستخدمين؟`)) return;
     setBusy(true);
     try {
-      await supabase().from('pairs').delete().eq('id', id);
+      await db().from('pairs').delete().eq('id', id);
       await load();
     } catch {
       setMessage({ kind: 'error', text: 'تعذّر الحذف' });
@@ -92,7 +93,7 @@ export default function PairsView() {
 
     setBusy(true);
     try {
-      await supabase().from('pairs').insert({
+      await db().from('pairs').insert({
         symbol: String(entry['display'] ?? symbol),
         chart_symbol: symbol,
         category: String(entry['category'] ?? 'currencies'),

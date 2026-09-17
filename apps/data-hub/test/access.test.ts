@@ -197,6 +197,19 @@ describe('what the admin panel actually does', () => {
     expect(decide('clicks', 'read', admin).allowed).toBe(true);
   });
 
+  it('resets them, which is a write the panel has always made', () => {
+    // The promo screen's "تصفير الإحصائيات" button. It is a deliberate act by
+    // a credential holder, not the anonymous increment that `/v1/click` exists
+    // for, and the two must not be confused: the increment stays a fixed
+    // mutation nobody can aim, while this one replaces the row.
+    expect(decide('clicks', 'write', admin).allowed).toBe(true);
+    // And opening it to the admin did not open it to anyone below.
+    expect(decide('clicks', 'write', pub).allowed).toBe(false);
+    expect(decide('clicks', 'write', user('acct-1')).allowed).toBe(false);
+    // The scraper still qualifies — service outranks admin.
+    expect(decide('clicks', 'write', service).allowed).toBe(true);
+  });
+
   it('keeps the public OUT of all of it', () => {
     // The same five operations, from a browser with no admin credential. This
     // is the hole being closed: today every one of them succeeds with the

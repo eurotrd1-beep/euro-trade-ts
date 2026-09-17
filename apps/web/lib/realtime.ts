@@ -144,7 +144,7 @@ export function watchConfig(id: string, onData: ConfigListener): () => void {
           .select('data')
           .eq('id', id)
           .maybeSingle();
-        const value = (data?.[0]?.['data'] ?? {}) as Record<string, unknown>;
+        const value = (data?.['data'] ?? {}) as Record<string, unknown>;
         configCache.set(id, value);
         onData(value);
       } catch {

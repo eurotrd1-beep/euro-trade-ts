@@ -37,13 +37,45 @@ import {
   type Caller,
 } from './access.js';
 
+/**
+ * One filter: a column equals a value, or is one of a list.
+ *
+ * `values` exists for the admin's bulk operations — global VIP patches every
+ * user row, and without it that is one HTTP request per user from a browser.
+ * It is still an equality test, just several of them ORed, so nothing about
+ * the scope guarantee changes: the list is ANDed with the scope clause like
+ * any other filter, and a list naming other people's rows intersects to none.
+ */
+export interface Filter {
+  column: string;
+  /** Exactly one of these three is set. */
+  value?: string;
+  values?: readonly string[];
+  /** A range bound: `>=` when `gte`, `<=` when `lte`. Both may be given. */
+  gte?: string;
+  lte?: string;
+}
+
+/**
+ * How many values one IN list may carry.
+ *
+ * D1 caps bound parameters per statement, and the SET clause of an UPDATE
+ * spends some of that allowance before the WHERE gets any. Eighty leaves room
+ * for a wide row and still turns a thousand-user patch into thirteen requests
+ * instead of a thousand.
+ *
+ * A longer list is refused rather than truncated. Truncating would update some
+ * of the rows the caller named and report success for all of them.
+ */
+export const MAX_IN_VALUES = 80;
+
 /** A parsed, not-yet-authorised read. Every field comes from the request. */
 export interface Query {
   table: string;
   /** null means every declared column. */
   columns: readonly string[] | null;
-  /** Equality filters only — enough for every read the app makes today. */
-  where: ReadonlyArray<{ column: string; value: string }>;
+  /** Equality and IN — enough for every read the app and the admin make. */
+  where: ReadonlyArray<Filter>;
   order: { column: string; desc: boolean } | null;
   limit: number;
   /** Ask for the row count instead of the rows. */
@@ -72,6 +104,71 @@ export const DEFAULT_LIMIT = 100;
 
 /** Quoted, so a column called `order` — which `pairs` has — is not a syntax error. */
 const quote = (identifier: string): string => `"${identifier}"`;
+
+/**
+ * Turns the request's filters into clauses, or says why it will not.
+ *
+ * Shared by the read and the write path deliberately. They had the same loop
+ * written twice, and a rule about what may be filtered on is exactly the kind
+ * of thing that gets fixed in one copy.
+ *
+ * It appends — the caller has already pushed the scope clause, and appending
+ * after it is what makes the scope un-widenable: two clauses on one column are
+ * ANDed, so a filter naming another owner narrows to nothing rather than
+ * replacing anything.
+ */
+function appendFilters(
+  table: string,
+  filters: ReadonlyArray<Filter>,
+  clauses: string[],
+  binds: unknown[],
+): { ok: true } | { ok: false; status: number; reason: string } {
+  for (const filter of filters) {
+    const column = columnNamed(table, filter.column);
+    if (column === null) {
+      return { ok: false, status: 400, reason: `unknown filter column '${filter.column}'` };
+    }
+
+    // A range. Both bounds may appear on one filter, and both are bound
+    // parameters like every other value — the operator is the only thing
+    // chosen here, and it is chosen from two literals, never from the request.
+    if (filter.gte !== undefined || filter.lte !== undefined) {
+      if (filter.gte !== undefined) {
+        clauses.push(`${quote(column)} >= ?`);
+        binds.push(filter.gte);
+      }
+      if (filter.lte !== undefined) {
+        clauses.push(`${quote(column)} <= ?`);
+        binds.push(filter.lte);
+      }
+      continue;
+    }
+
+    if (filter.values !== undefined) {
+      if (filter.values.length === 0) {
+        // `IN ()` is a syntax error in SQLite, and the honest reading of an
+        // empty list is "no rows" — so say that, rather than dropping the
+        // clause and matching everything, which is the dangerous reading.
+        clauses.push('0 = 1');
+        continue;
+      }
+      if (filter.values.length > MAX_IN_VALUES) {
+        return {
+          ok: false,
+          status: 400,
+          reason: `'${filter.column}' names ${filter.values.length} values, over the ${MAX_IN_VALUES} allowed`,
+        };
+      }
+      clauses.push(`${quote(column)} IN (${filter.values.map(() => '?').join(', ')})`);
+      binds.push(...filter.values);
+      continue;
+    }
+
+    clauses.push(`${quote(column)} = ?`);
+    binds.push(filter.value);
+  }
+  return { ok: true };
+}
 
 /**
  * Builds the SELECT, or refuses.
@@ -116,14 +213,8 @@ export function buildSelect(query: Query, caller: Caller): Built {
     binds.push(decision.scope.value);
   }
 
-  for (const filter of query.where) {
-    const column = columnNamed(table, filter.column);
-    if (column === null) {
-      return { ok: false, status: 400, reason: `unknown filter column '${filter.column}'` };
-    }
-    clauses.push(`${quote(column)} = ?`);
-    binds.push(filter.value);
-  }
+  const filtered = appendFilters(table, query.where, clauses, binds);
+  if (!filtered.ok) return filtered;
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '';
 
@@ -183,7 +274,7 @@ export interface Write {
   /** Column → value, for insert, upsert and update. */
   values: Readonly<Record<string, unknown>>;
   /** Which rows, for update and delete. */
-  where: ReadonlyArray<{ column: string; value: string }>;
+  where: ReadonlyArray<Filter>;
 }
 
 /**
@@ -254,14 +345,8 @@ export function buildWrite(write: Write, caller: Caller): Built {
     clauses.push(`${quote(owner.column)} = ?`);
     whereBinds.push(owner.value);
   }
-  for (const filter of write.where) {
-    const column = columnNamed(table, filter.column);
-    if (column === null) {
-      return { ok: false, status: 400, reason: `unknown filter column '${filter.column}'` };
-    }
-    clauses.push(`${quote(column)} = ?`);
-    whereBinds.push(filter.value);
-  }
+  const filtered = appendFilters(table, write.where, clauses, whereBinds);
+  if (!filtered.ok) return filtered;
 
   if ((write.op === 'update' || write.op === 'delete') && clauses.length === 0) {
     // An UPDATE or DELETE with no WHERE is the whole table. It is a legal
@@ -346,15 +431,82 @@ export function buildWrite(write: Write, caller: Caller): Built {
  *   ?limit=50
  *   ?count=1               the count instead of the rows
  */
+/**
+ * Filters out of a request BODY, reduced to the two shapes that exist.
+ *
+ * The POST handler used to pass `body.where` through untouched whenever it was
+ * an array, which meant the shape of a filter was whatever the caller sent.
+ * `{ column: 'id', values: 'not-an-array' }` would reach the builder and throw
+ * on `.map`, answering a malformed request with a 500. Everything that is not
+ * one of the two shapes is dropped here instead.
+ *
+ * Dropping is safe in the direction that matters: a filter that disappears
+ * makes an UPDATE or DELETE match MORE rows, but the builder refuses one with
+ * no filters at all, so the worst case is a refusal rather than a wide write.
+ */
+export function parseFilters(raw: unknown): Filter[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Filter[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) continue;
+    const f = item as { column?: unknown; value?: unknown; values?: unknown };
+    if (typeof f.column !== 'string' || f.column.length === 0) continue;
+
+    if (Array.isArray(f.values)) {
+      out.push({ column: f.column, values: f.values.map((v) => String(v)) });
+      continue;
+    }
+
+    const range = f as { gte?: unknown; lte?: unknown };
+    if (range.gte !== undefined || range.lte !== undefined) {
+      const bounds: Filter = { column: f.column };
+      if (range.gte !== undefined && range.gte !== null) bounds.gte = String(range.gte);
+      if (range.lte !== undefined && range.lte !== null) bounds.lte = String(range.lte);
+      // A range whose only bounds were null carries no clause at all, and a
+      // filter with no clause would make an UPDATE wider. Dropped instead.
+      if (bounds.gte !== undefined || bounds.lte !== undefined) out.push(bounds);
+      continue;
+    }
+    if (f.value !== undefined && f.value !== null) {
+      out.push({ column: f.column, value: String(f.value) });
+    }
+  }
+  return out;
+}
+
 export function parseQuery(table: string, params: URLSearchParams): Query {
   const cols = params.get('cols');
-  const where: Array<{ column: string; value: string }> = [];
+  const where: Filter[] = [];
   for (const raw of params.getAll('eq')) {
     // Split once: a value may legitimately contain a colon (an ISO time, a
     // URL), and splitting on every one would silently truncate it.
     const at = raw.indexOf(':');
     if (at <= 0) continue;
     where.push({ column: raw.slice(0, at), value: raw.slice(at + 1) });
+  }
+
+  // `gte=col:value` and `lte=col:value`, one clause each.
+  for (const [param, key] of [['gte', 'gte'], ['lte', 'lte']] as const) {
+    for (const raw of params.getAll(param)) {
+      const at = raw.indexOf(':');
+      if (at <= 0) continue;
+      where.push({ column: raw.slice(0, at), [key]: raw.slice(at + 1) });
+    }
+  }
+
+  // `in=col:a,b,c`. Comma-separated, so a value containing a comma cannot be
+  // expressed this way — no read makes one today, and the write path takes its
+  // lists as JSON where the question does not arise.
+  for (const raw of params.getAll('in')) {
+    const at = raw.indexOf(':');
+    if (at <= 0) continue;
+    const list = raw.slice(at + 1);
+    where.push({
+      column: raw.slice(0, at),
+      // An explicitly empty list stays empty rather than becoming ['']: the
+      // builder turns it into `0 = 1`, which is what "one of nothing" means.
+      values: list.length === 0 ? [] : list.split(','),
+    });
   }
 
   const rawOrder = params.get('order');

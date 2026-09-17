@@ -8,7 +8,7 @@
  */
 
 import { CATALOGUE_SYMBOLS, supabase } from '@euro/shared';
-import { currentMode, hubStats } from './dataHub';
+import { db, currentMode, hubStats } from './dataHub';
 
 // ── Fixed infra endpoints (Dart: _kWorker / _kOrigin / _kRef …) ────────────
 
@@ -546,7 +546,7 @@ export function checkWebSocket(url: string, sym: string, timeoutMs = 9_000): Pro
 
 export async function logRepair(action: string, result: string): Promise<void> {
   try {
-    await supabase().from('repair_log').insert({
+    await db().from('repair_log').insert({
       action,
       result,
       at: new Date().toISOString(),
@@ -1275,7 +1275,7 @@ export async function runGemini(
 /** Dart `_loadNotifs` — the repair_log feed shown at the top. */
 export async function loadNotifs(): Promise<Array<Record<string, unknown>>> {
   try {
-    const { data } = await supabase()
+    const { data } = await db()
       .from('repair_log')
       .select('action,result,at')
       .order('at', { ascending: false })

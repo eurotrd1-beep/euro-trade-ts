@@ -195,7 +195,7 @@ export async function fetchRemoteHistory(accountId: string): Promise<TradingSign
       .eq('account_id', accountId)
       .maybeSingle();
     if (error) return null;
-    const row = data?.[0] ?? null;
+    const row = data;
     // `signals` is jsonb in Postgres and TEXT in D1, so one arrives parsed and
     // the other does not. Handing a string to the code below would find no
     // array, return an empty history, and then OVERWRITE the real one on the

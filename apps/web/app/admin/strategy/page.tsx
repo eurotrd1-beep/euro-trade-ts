@@ -25,7 +25,8 @@
  */
 
 import { useState } from 'react';
-import { supabase } from '@euro/shared';
+
+import { db } from '@/lib/dataHub';
 import {
   programForPlan,
   SUPPORTED_TIMEFRAMES,
@@ -56,8 +57,8 @@ import styles from '../admin.module.css';
  * measured.
  */
 async function backtestPairs(): Promise<string[]> {
-  const { data } = await supabase()
-    .from('pairs')
+  const { data } = await db()
+    .from<{ chart_symbol: string }>('pairs')
     .select('chart_symbol,enabled')
     .eq('enabled', true)
     .order('order');

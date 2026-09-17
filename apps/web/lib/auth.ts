@@ -95,7 +95,7 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
       .select('*')
       .eq('id', accountId)
       .maybeSingle();
-    const row = (data?.[0] ?? null) as UserRow | null;
+    const row = data;
 
     if (row) {
       // Every later read of this account's own rows is scoped by the hub to

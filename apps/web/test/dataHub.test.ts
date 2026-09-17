@@ -288,7 +288,7 @@ describe('dbBool reads a boolean from either database', () => {
  * in it does not throw — it changes results. So the pipeline stays, and these
  * tests are what stops a later edit quietly moving it.
  */
-describe('the signal pipeline does not move', () => {
+describe('the signal pipeline has moved, and the pin list says so', () => {
   const PIPELINE = [
     'signals', 'signal_daily', 'signal_write_budget',
     'strategy_versions', 'strategy_version_stats',
@@ -296,28 +296,29 @@ describe('the signal pipeline does not move', () => {
 
   beforeEach(() => configureDataSource({ mode: 'd1', url: HUB }));
 
-  it('names every table the four functions touch', () => {
-    // Established by listing what record_signals, resolve_signals,
-    // refresh_signal_daily and prune_signals actually write — not by judgement.
-    for (const t of PIPELINE) expect(staysOnSupabase(t), t).toBe(true);
+  it('no longer holds the pipeline tables', () => {
+    // They were pinned while the four Postgres functions still owned them.
+    // The port happened and was compared row by row, so the pin became the
+    // bug: the admin's signals screen read Supabase while every new signal
+    // landed in D1 — a published record that had silently stopped growing.
+    for (const t of PIPELINE) expect(staysOnSupabase(t), t).toBe(false);
   });
 
-  it('reads them from Supabase even in d1 mode', async () => {
+  it('reads them from the hub in d1 mode', async () => {
     fetchMock.mockReturnValue(hubOk([{ from: 'd1' }]));
     for (const t of PIPELINE) {
       supabaseCalls.length = 0;
       const { data } = await db().from(t).select('*');
-      expect(data, t).toEqual([{ from: 'supabase' }]);
-      expect(supabaseCalls, t).toEqual([`read:${t}`]);
+      expect(data, t).toEqual([{ from: 'd1' }]);
+      expect(supabaseCalls, t).toEqual([]);
     }
-    // Never once asked the hub.
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('writes them to Supabase even in d1 mode', async () => {
+  it('writes them to the hub in d1 mode', async () => {
+    fetchMock.mockReturnValue(Promise.resolve({ ok: true, status: 200, json: async () => ({}) }));
     await db().from('signals').upsert({ id: 1 });
-    expect(supabaseCalls).toEqual(['upsert:signals']);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(supabaseCalls).toEqual([]);
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it('leaves everything else on the hub', async () => {
@@ -330,21 +331,28 @@ describe('the signal pipeline does not move', () => {
     }
   });
 
-  it('keeps configs on Supabase because the ADMIN still writes it there', () => {
-    // Not part of the pipeline. A table has to be read from the database it is
-    // written to, and the admin panel writes configs with the anon key while
-    // the hub requires the admin secret for it — which no browser holds yet.
-    //
-    // Read from D1 and written to Supabase, the next maintenance banner, VIP
-    // grant or price_system switch would be saved by the admin and received by
-    // nobody, with no error anywhere.
+  it('keeps configs on Supabase, because the PROXY still reads and writes it there', async () => {
+    // The admin panel moved with this change; the scraper did not. `configs`
+    // is where the two hand values to each other — `telegram` decides whether
+    // alerts go out, `otc_scan` asks for a scan, `otc_status` and
+    // `captcha_balance` report back. Split across two databases, none of them
+    // would error: telegram alerts would simply ignore every change the admin
+    // made, and the scan button would do nothing.
     expect(staysOnSupabase('configs')).toBe(true);
+
+    fetchMock.mockReturnValue(hubOk([{ from: 'd1' }]));
+    const { data } = await db().from('configs').select('*');
+    expect(data).toEqual([{ from: 'supabase' }]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('keeps strategy_versions because a foreign key points at it', () => {
-    // signals.strategy_version_id REFERENCES strategy_versions(id). Publishing
-    // a version to D1 that Postgres never heard of would fail the next insert
-    // — a key split across two databases is a key that stopped being enforced.
-    expect(staysOnSupabase('strategy_versions')).toBe(true);
+  it('is the only thing left on Supabase', () => {
+    // A one-item list is worth asserting as a list: the next table added here
+    // should be a deliberate decision with a reason beside it, not a quiet
+    // addition while something else was being fixed.
+    for (const t of ['users', 'pairs', 'brokers', 'clicks', 'candles', 'repair_log',
+                     'signal_history', 'otc_pairs', ...PIPELINE]) {
+      expect(staysOnSupabase(t), t).toBe(false);
+    }
   });
 });

@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CATALOGUE_SYMBOLS, supabase, tr, type BrokerRow } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import {
   verifyAccount,
   persistSession,
@@ -68,7 +69,7 @@ export default function LoginPage() {
     void (async () => {
       try {
         const [b, s] = await Promise.all([
-          supabase().from('brokers').select('*').eq('is_active', true).order('order'),
+          db().from('brokers').select('*').eq('is_active', true).order('order'),
           supabase().from('configs').select('data').eq('id', 'social').maybeSingle(),
         ]);
         if (cancelled) return;

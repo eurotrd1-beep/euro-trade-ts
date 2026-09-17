@@ -25,7 +25,7 @@
  */
 
 import { supabase } from '@euro/shared';
-import { statsViaHub, staysOnSupabase } from './dataHub';
+import { db, statsViaHub, staysOnSupabase } from './dataHub';
 
 /** A binary option paying 80–90% needs this much just to return the stake. */
 export const BREAKEVEN_LOW = 52.6;
@@ -153,7 +153,7 @@ export async function fetchStats(f: StatsFilter, groupBy: 'total' | 'day' | 'sym
   // aggregate over it does too — the hub would be summing a copy that stopped
   // being written. The port is kept and tested for the stage where the
   // pipeline itself moves.
-  const viaHub = staysOnSupabase('"signal_daily"') ? null : await statsViaHub({
+  const viaHub = staysOnSupabase('signal_daily') ? null : await statsViaHub({
     from: f.from,
     to: f.to,
     group_by: groupBy,
@@ -234,7 +234,7 @@ export async function fetchEraSplit(f: StatsFilter): Promise<EraSplit> {
 
 /** Every version ever published, with its lifetime numbers. Tens of rows. */
 export async function fetchVersions(): Promise<VersionStats[]> {
-  const { data, error } = await supabase()
+  const { data, error } = await db()
     .from('strategy_version_stats')
     .select('*')
     .order('uploaded_at', { ascending: false });
@@ -244,11 +244,11 @@ export async function fetchVersions(): Promise<VersionStats[]> {
 
 /** The full JSON of one version — fetched only when the copy button is pressed. */
 export async function fetchVersionJson(id: string): Promise<Record<string, unknown>> {
-  const { data, error } = await supabase()
+  const { data, error } = await db()
     .from('strategy_versions')
     .select('strategy_json')
     .eq('id', id)
-    .single();
+    .maybeSingle();
   if (error) throw new Error(error.message);
   return (data?.['strategy_json'] as Record<string, unknown>) ?? {};
 }
@@ -261,7 +261,7 @@ export async function fetchVersionJson(id: string): Promise<Record<string, unkno
  * per-signal detail does not.
  */
 export async function fetchSignals(f: StatsFilter, limit = 200, outcome?: string): Promise<SignalRow[]> {
-  let q = supabase()
+  let q = db()
     .from('signals')
     .select('*')
     .gte('created_at', `${f.from}T00:00:00Z`)

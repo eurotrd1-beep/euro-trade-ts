@@ -14,7 +14,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@euro/shared';
+
+import { db } from '@/lib/dataHub';
 import { cssToArgb } from '@/lib/theme';
 import {
   ALL_PRESETS,
@@ -36,7 +37,7 @@ export default function ThemeView() {
   useEffect(() => {
     void (async () => {
       try {
-        const { data } = await supabase().from('configs').select('data').eq('id', 'theme').maybeSingle();
+        const { data } = await db().from('configs').select('data').eq('id', 'theme').maybeSingle();
         const raw = (data?.['data'] ?? {}) as Record<string, unknown>;
         // A legacy row has no palette; start from the shipped defaults.
         setCfg(
@@ -62,7 +63,7 @@ export default function ThemeView() {
     setBusy(true);
     setMessage(null);
     try {
-      const { error } = await supabase()
+      const { error } = await db()
         .from('configs')
         .upsert({
           id: 'theme',

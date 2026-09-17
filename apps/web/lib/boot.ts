@@ -38,7 +38,7 @@ async function fetchMaintenance(): Promise<MaintenanceData | null> {
       .select('data')
       .eq('id', 'maintenance')
       .maybeSingle();
-    return (data?.[0]?.['data'] as MaintenanceData | undefined) ?? null;
+    return (data?.['data'] as MaintenanceData | undefined) ?? null;
   } catch {
     // Unreachable backend must not strand the user on the splash.
     return null;
@@ -52,7 +52,7 @@ async function fetchBanState(accountId: string): Promise<{ banned: boolean; reas
       .select('is_banned, ban_reason')
       .eq('id', accountId)
       .maybeSingle();
-    const row = data?.[0];
+    const row = data;
     return {
       // 1 from D1, true from Postgres. See dbBool — `=== true` here would let
       // every banned account straight back in.
