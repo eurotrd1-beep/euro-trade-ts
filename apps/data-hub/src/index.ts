@@ -62,6 +62,7 @@ import {
   MAX_ROWS_PER_WRITE, buildSelect, buildWrite, parseFilters, parseQuery, type Write,
 } from './db.js';
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
+import { countWrites, shouldShed } from './budget.js';
 import { prune } from './prune.js';
 import {
   expiresAt, planPrune, planRecord, planRefreshDaily, planResolve, utcDay,
@@ -207,7 +208,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
     const url = new URL(request.url);
@@ -510,6 +511,27 @@ export default {
       }
       const where = parseFilters(body.where);
 
+      // ── The budget, before the work ─────────────────────────────────────
+      //
+      // Candle writes are refused once the day is 80% spent, so the rest of
+      // the budget belongs to rows that cannot be rebuilt. The scraper treats
+      // a refusal the way it treats any failed save: it logs and keeps the
+      // candles in memory, which is where they already are.
+      //
+      // 429 rather than 403 — this is "not now", not "not allowed", and the
+      // distinction matters to anyone reading the log at 3am.
+      const budget = await shouldShed(read[1]!);
+      if (budget.shed) {
+        console.warn(
+          `shed ${read[1]} write: ${budget.used} rows today, ` +
+          `${(budget.fraction * 100).toFixed(0)}% of the daily limit`,
+        );
+        return json({
+          error: 'daily write budget reserved for the signal pipeline',
+          used: budget.used,
+        }, 429);
+      }
+
       const statements = [];
       for (const values of rows) {
         if (typeof values !== 'object' || values === null || Array.isArray(values)) {
@@ -533,6 +555,9 @@ export default {
         // reports ok, and a caller that assumes otherwise is storing nothing
         // and believing it stored something.
         const changes = results.reduce((n, r) => n + (r.meta?.changes ?? 0), 0);
+        // Counted after the fact, from what D1 reports it actually wrote — an
+        // UPDATE that matched nothing costs nothing and should not be charged.
+        ctx.waitUntil(countWrites(changes));
         return json({ ok: true, rows: changes });
       } catch (e) {
         console.error('write failed', read[1], e instanceof Error ? e.message : e);
