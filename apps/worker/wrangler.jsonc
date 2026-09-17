@@ -1,7 +1,22 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "euro-trade-cache",
+  // Renamed from `euro-trade-cache`, which lives on a DIFFERENT Cloudflare
+  // account (9c5b439c…) that nothing here can deploy to. That Worker still
+  // names the suspended Render service as its origin, so every request through
+  // it is a 502, and it cannot be corrected from this side.
+  //
+  // This is the same code on the account that owns everything else in the
+  // migration, so it can be deployed alongside them instead of needing a
+  // second login nobody remembers.
+  "name": "euro-trade-cache-v2",
   "main": "src/index.ts",
+  // Pinned because it is NOT the account wrangler picks on its own. This login
+  // can see more than one, and `wrangler deploy` kept targeting 9c5b439c… —
+  // the account that owns the original euro-trade-cache — failing with an
+  // authentication error that reads like a broken login rather than the wrong
+  // destination. Naming it here makes the deploy go where the rest of this
+  // migration lives.
+  "account_id": "ca050464d5de56ce173149e69de967a1",
   // Matches the deployed Worker exactly — changing this changes runtime
   // semantics, so it stays pinned to what was live.
   "compatibility_date": "2025-06-01",
