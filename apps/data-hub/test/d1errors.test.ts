@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { classifyD1Error, quotaKind, shouldSpool } from '../src/d1errors.js';
+import { classifyD1Error, nextUtcMidnight, quotaKind, shouldSpool } from '../src/d1errors.js';
 
 // Verbatim from developers.cloudflare.com/d1/observability/debug-d1/.
 const WRITE_QUOTA = "Your account has exceeded D1's free tier daily row write limit. Upgrade to a paid plan or wait until tomorrow (midnight UTC) to continue. See https://developers.cloudflare.com/d1/platform/limits/ for more details.";
@@ -80,5 +80,28 @@ describe('everything that is not the quota', () => {
     expect(classifyD1Error(null)).toBe('unknown');
     expect(classifyD1Error(undefined)).toBe('unknown');
     expect(classifyD1Error({ weird: true })).toBe('unknown');
+  });
+});
+
+describe('when the lockout ends', () => {
+  // "Free limits reset daily at 00:00 UTC." The app schedules its check from
+  // this number, so an off-by-one here is a pause screen that lingers a day.
+  it('is the next UTC midnight', () => {
+    expect(nextUtcMidnight(Date.UTC(2026, 8, 17, 14, 30))).toBe(Date.UTC(2026, 8, 18));
+  });
+
+  it('is tomorrow even one millisecond after midnight', () => {
+    expect(nextUtcMidnight(Date.UTC(2026, 8, 17, 0, 0, 0, 1))).toBe(Date.UTC(2026, 8, 18));
+  });
+
+  it('rolls over month and year ends', () => {
+    expect(nextUtcMidnight(Date.UTC(2026, 8, 30, 23, 0))).toBe(Date.UTC(2026, 9, 1));
+    expect(nextUtcMidnight(Date.UTC(2026, 11, 31, 23, 59))).toBe(Date.UTC(2027, 0, 1));
+  });
+
+  it('ignores the local timezone of whatever runs it', () => {
+    // A Worker runs in UTC, a browser does not. Both must agree on the answer.
+    const at = Date.UTC(2026, 8, 17, 22, 0); // 01:00 on the 18th in Cairo
+    expect(new Date(nextUtcMidnight(at)).toISOString()).toBe('2026-09-18T00:00:00.000Z');
   });
 });

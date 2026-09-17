@@ -43,6 +43,7 @@
 
 import { supabase } from '@euro/shared';
 import { adminSecret } from './adminAuth';
+import { isQuotaActive, noteHubResponse, reportResumed, setQuotaProbe } from './quota';
 
 export type DataMode = 'supabase' | 'mirror' | 'd1';
 
@@ -341,9 +342,15 @@ async function hubRead(
 
   const res = await fetch(`${hubUrl}/v1/${table}?${params}`, { headers: hubHeaders() });
   if (!res.ok) {
+    // The quota is noted before the error is raised, so the pause screen goes
+    // up on the same failed read that discovered it.
+    await noteHubResponse(res);
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(`${res.status} ${body.error ?? ''}`.trim());
   }
+  // A read that succeeds while a lockout is recorded means it is over — the
+  // cheapest possible way to find out, since the read was happening anyway.
+  if (isQuotaActive()) reportResumed();
   return (await res.json()) as { rows: Record<string, unknown>[] };
 }
 
@@ -603,6 +610,7 @@ class Table<Row> {
         body: JSON.stringify({ op, values: jsonOut(this.name, values), where }),
       });
       if (!res.ok) {
+        await noteHubResponse(res);
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(`${res.status} ${body.error ?? ''}`.trim());
       }
@@ -686,6 +694,7 @@ class WriteChain {
       }),
     });
     if (!res.ok) {
+      await noteHubResponse(res);
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       const message = `${res.status} ${body.error ?? ''}`.trim();
       hubStats.errors++;
@@ -879,6 +888,24 @@ function timesBack(table: string, row: Record<string, unknown>): Record<string, 
   }
   return out;
 }
+
+/**
+ * The recovery check the quota store runs after the reset.
+ *
+ * One row of `pairs`: public, tiny, and a real D1 read, which is the only
+ * thing that can tell a lifted quota from one that is still in force.
+ * `hubRead` already clears the state on success, so this only has to say
+ * whether it got an answer.
+ */
+setQuotaProbe(async () => {
+  if (hubUrl === '') return false;
+  try {
+    await hubRead('pairs', ['id'], [], null, 1, false, null);
+    return true;
+  } catch {
+    return false;
+  }
+});
 
 /** The entry point. `db().from('candles').select('*').eq('key', k)`. */
 export function db(): { from: <Row = Record<string, unknown>>(table: string) => Table<Row> } {

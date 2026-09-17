@@ -52,6 +52,25 @@ export interface ChangeMessage {
   ids: string[];
 }
 
+/**
+ * The daily quota, as open apps are told about it.
+ *
+ * Sent on this socket because this object is NOT D1: when the quota is spent,
+ * every D1 query fails until 00:00 UTC, and the one channel that still works is
+ * this one. It is also why the app finds out at once, everywhere — rather than
+ * each app separately, the next time it happens to make a query.
+ */
+export type QuotaMessage =
+  | { t: 'quota'; limit: 'read' | 'write'; resumes_at: number }
+  | { t: 'resumed' };
+
+interface QuotaState {
+  limit: 'read' | 'write';
+  resumes_at: number;
+}
+
+const QUOTA_KEY = 'quota';
+
 /** Tables worth telling anyone about. Everything else is noise. */
 export const BROADCAST_TABLES: readonly string[] = [
   'configs', 'pairs', 'users', 'brokers',
@@ -76,7 +95,50 @@ export class LiveHub implements DurableObject {
       // Hibernatable: the runtime holds the socket, not this object, so an
       // idle client costs nothing and survives the object being evicted.
       this.state.acceptWebSocket(pair[1]);
+
+      // An app opened DURING a lockout has missed the broadcast. Tell it now,
+      // so it does not have to discover the quota by failing a query first.
+      const quota = await this.state.storage.get<QuotaState>(QUOTA_KEY);
+      if (quota && quota.resumes_at > Date.now()) {
+        try {
+          pair[1].send(JSON.stringify({ t: 'quota', ...quota } satisfies QuotaMessage));
+        } catch {
+          // The socket went away between accepting it and writing to it.
+        }
+      }
       return new Response(null, { status: 101, webSocket: pair[0] });
+    }
+
+    // ── The hub reporting that D1 refused on quota ──────────────────────
+    //
+    // Broadcast ONCE per lockout. Every failing query in every isolate reports
+    // it, and without this check each of them would wake every open app.
+    if (url.pathname === '/quota' && request.method === 'POST') {
+      const body = (await request.json()) as Partial<QuotaState>;
+      const limit = body.limit === 'read' ? 'read' : 'write';
+      const resumes_at = Number(body.resumes_at) || 0;
+      const current = await this.state.storage.get<QuotaState>(QUOTA_KEY);
+      const alreadyKnown = current !== undefined && current.resumes_at === resumes_at;
+      if (!alreadyKnown) {
+        await this.state.storage.put(QUOTA_KEY, { limit, resumes_at } satisfies QuotaState);
+        this.broadcast({ t: 'quota', limit, resumes_at });
+      }
+      return Response.json({ announced: !alreadyKnown });
+    }
+
+    // ── The hub reporting that D1 answers again ─────────────────────────
+    if (url.pathname === '/resumed' && request.method === 'POST') {
+      const current = await this.state.storage.get<QuotaState>(QUOTA_KEY);
+      if (current !== undefined) {
+        await this.state.storage.delete(QUOTA_KEY);
+        this.broadcast({ t: 'resumed' });
+      }
+      return Response.json({ announced: current !== undefined });
+    }
+
+    if (url.pathname === '/quota-state') {
+      const current = await this.state.storage.get<QuotaState>(QUOTA_KEY);
+      return Response.json({ quota: current ?? null });
     }
 
     // ── The Worker reporting a write ────────────────────────────────────
@@ -93,20 +155,26 @@ export class LiveHub implements DurableObject {
         ids: Array.isArray(body.ids) ? body.ids.map(String).slice(0, 50) : [],
       } satisfies ChangeMessage);
 
-      let sent = 0;
-      for (const socket of this.state.getWebSockets()) {
-        try {
-          socket.send(payload);
-          sent++;
-        } catch {
-          // A socket that cannot be written to is already gone. Dropping it
-          // here would race with the close handler; the runtime cleans up.
-        }
-      }
-      return Response.json({ sent });
+      return Response.json({ sent: this.broadcast(payload) });
     }
 
     return new Response('not found', { status: 404 });
+  }
+
+  /** Writes one message to every open socket. Returns how many took it. */
+  private broadcast(message: string | QuotaMessage): number {
+    const payload = typeof message === 'string' ? message : JSON.stringify(message);
+    let sent = 0;
+    for (const socket of this.state.getWebSockets()) {
+      try {
+        socket.send(payload);
+        sent++;
+      } catch {
+        // A socket that cannot be written to is already gone. Dropping it
+        // here would race with the close handler; the runtime cleans up.
+      }
+    }
+    return sent;
   }
 
   /**

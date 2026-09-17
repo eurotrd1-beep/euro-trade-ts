@@ -35,6 +35,8 @@
  * rather than "this screen is wrong until it is reloaded".
  */
 
+import { reportQuota, reportResumed } from './quota';
+
 const RETRY_MIN_MS = 1_000;
 const RETRY_MAX_MS = 30_000;
 /** Some proxies close a socket that has been silent; this is cheaper than that. */
@@ -102,12 +104,17 @@ function connect(): void {
   };
 
   ws.onmessage = (event) => {
-    let msg: { t?: string; table?: string; ids?: unknown };
+    let msg: { t?: string; table?: string; ids?: unknown; resumes_at?: unknown };
     try {
       msg = JSON.parse(String(event.data)) as typeof msg;
     } catch {
       return; // 'pong', or anything else that is not ours.
     }
+    // The daily quota. This socket is served by a Durable Object, not by D1,
+    // which is why it still works during a lockout — and why every open app
+    // hears about it at once instead of each discovering it on a failed read.
+    if (msg.t === 'quota') { reportQuota(Number(msg.resumes_at)); return; }
+    if (msg.t === 'resumed') { reportResumed(); return; }
     if (msg.t !== 'changed' || typeof msg.table !== 'string') return;
     const change: Change = {
       table: msg.table,
@@ -167,8 +174,27 @@ function maybeClose(): void {
   try { old?.close(); } catch { /* already gone */ }
 }
 
-/** For tests, and for a clean teardown. */
+/** For tests, and for a clean teardown. Permanent — nothing reconnects after it. */
 export function stopLive(): void {
   stopped = true;
   maybeClose();
+}
+
+/**
+ * Drops the socket and lets it come back, as if the connection had failed.
+ *
+ * For the health screen's "it is not updating, kick it" button. That button
+ * used to call `stopLive()`, which is permanent: the socket closed and never
+ * returned, so the repair made things strictly worse. This closes the socket
+ * the same way a network drop would, which the close handler answers with a
+ * reconnect and a resync.
+ */
+export function restartLive(): void {
+  retry = RETRY_MIN_MS;
+  const old = socket;
+  if (old) {
+    try { old.close(); } catch { /* already gone */ }
+  } else {
+    connect();
+  }
 }

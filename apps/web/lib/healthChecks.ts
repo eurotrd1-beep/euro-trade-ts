@@ -8,7 +8,7 @@
  */
 
 import { CATALOGUE_SYMBOLS } from '@euro/shared';
-import { stopLive } from './live';
+import { restartLive } from './live';
 import { db, currentMode, hubStats } from './dataHub';
 
 // ── Fixed infra endpoints (Dart: _kWorker / _kOrigin / _kRef …) ────────────
@@ -611,7 +611,7 @@ export async function savePoToken(token: string): Promise<string> {
  */
 export async function resubRealtime(): Promise<string> {
   try {
-    stopLive();
+    restartLive();
   } catch {
     // Nothing connected.
   }

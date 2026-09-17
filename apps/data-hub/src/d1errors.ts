@@ -84,3 +84,18 @@ export function quotaKind(error: unknown): 'read' | 'write' | null {
   const m = text.match(QUOTA);
   return m ? (m[1]!.toLowerCase() as 'read' | 'write') : null;
 }
+
+/**
+ * The next 00:00 UTC — when the free plan's daily limits reset.
+ *
+ * "Free limits reset daily at 00:00 UTC", per the D1 pricing page. It is sent
+ * to the app as a number rather than a message, so the app can schedule its
+ * own check without having to parse anything.
+ */
+export function nextUtcMidnight(now = Date.now()): number {
+  const d = new Date(now);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+}
+
+/** The code the app looks for. A status alone is ambiguous; this is not. */
+export const QUOTA_CODE = 'd1_quota';

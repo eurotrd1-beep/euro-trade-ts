@@ -200,3 +200,40 @@ describe('keepalive', () => {
     off();
   });
 });
+
+describe('the repair button', () => {
+  it('reconnects after a restart — it must not be a permanent stop', () => {
+    // It called stopLive() at first, which closes for good: the "kick it"
+    // button left the app with no live updates at all until a reload.
+    const off = live.onChange(() => {});
+    latest().open();
+    const before = FakeSocket.instances.length;
+    live.restartLive();
+    vi.advanceTimersByTime(2000);
+    expect(FakeSocket.instances.length).toBeGreaterThan(before);
+    off();
+  });
+});
+
+describe('quota messages on the socket', () => {
+  it('raises and clears the pause state', async () => {
+    const quota = await import('../lib/quota.js');
+    quota.resetQuotaForTests();
+    const off = live.onChange(() => {});
+    latest().open();
+    latest().deliver({ t: 'quota', limit: 'write', resumes_at: Date.now() + 3_600_000 });
+    expect(quota.isQuotaActive()).toBe(true);
+    latest().deliver({ t: 'resumed' });
+    expect(quota.isQuotaActive()).toBe(false);
+    off();
+  });
+
+  it('does not treat a quota message as a row change', () => {
+    const seen: unknown[] = [];
+    const off = live.onChange((c) => seen.push(c));
+    latest().open();
+    latest().deliver({ t: 'quota', limit: 'read', resumes_at: 1 });
+    expect(seen).toEqual([]);
+    off();
+  });
+});

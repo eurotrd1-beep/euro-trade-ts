@@ -42,6 +42,7 @@ import { SignalHistory } from '@/components/SignalHistory';
 import { LiveFeed } from '@/components/LiveFeed';
 import { PromoOverlay } from '@/components/PromoOverlay';
 import { requestNotificationPermission } from '@/lib/signalNotify';
+import { QuotaPause } from '@/components/QuotaPause';
 import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
 import { AppHeader } from '@/components/AppHeader';
@@ -555,7 +556,12 @@ export default function MainScreen() {
           </div>
         </section>
 
-        <aside className={styles.sideColumn}>
+        {/*
+          The signals column, and only it, pauses when D1's daily quota is spent.
+          The chart column beside it keeps working — its prices come from the
+          proxy, not from D1 — so the cover goes here rather than over the page.
+        */}
+        <QuotaPause className={styles.sideColumn}>
           <SignalPanel
             signal={tradeOnThisChart ? engine.activeSignal : null}
             secondsRemaining={engine.secondsRemaining}
@@ -598,7 +604,7 @@ export default function MainScreen() {
           />
 
           <SignalHistory history={engine.history} />
-        </aside>
+        </QuotaPause>
       </div>
 
       {/*

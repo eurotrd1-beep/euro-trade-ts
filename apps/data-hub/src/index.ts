@@ -64,7 +64,7 @@ import {
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 import { countWrites, shouldShed } from './budget.js';
 import { BROADCAST_TABLES, LiveHub } from './live.js';
-import { classifyD1Error, shouldSpool } from './d1errors.js';
+import { QUOTA_CODE, classifyD1Error, nextUtcMidnight, quotaKind, shouldSpool } from './d1errors.js';
 import { DRAIN_BATCH, EXISTS_SQL, SignalSpool, existsBinds, type SpooledRow } from './spool.js';
 import { prune } from './prune.js';
 import {
@@ -234,6 +234,75 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+
+// ── The daily quota ─────────────────────────────────────────────────────────
+
+const live = (env: Env): DurableObjectStub => env.LIVE.get(env.LIVE.idFromName('global'));
+
+/**
+ * Tells every open app that D1's daily quota is spent. Idempotent: the live
+ * object broadcasts once per lockout however many queries report it.
+ */
+function announceQuota(env: Env, ctx: ExecutionContext, error: unknown): void {
+  const limit = quotaKind(error) ?? 'write';
+  ctx.waitUntil(
+    live(env).fetch('https://live/quota', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit, resumes_at: nextUtcMidnight() }),
+    }).then(() => undefined, () => undefined),
+  );
+}
+
+/**
+ * The response for a query D1 refused, or null if it was not the quota.
+ *
+ * 503, not 429. 429 already means two other things in this Worker — the
+ * candle shed at 80% and the wrong-secret limiter — and a status that means
+ * three things is a status nobody can act on. The `code` is what the app
+ * actually checks; the status is for anything that only reads statuses.
+ *
+ * Nothing about the database is in the body: the app shows two short lines
+ * and no technical detail, and a schema-describing error is not something to
+ * hand a browser in any case.
+ */
+function quotaResponse(env: Env, ctx: ExecutionContext, error: unknown): Response | null {
+  if (classifyD1Error(error) !== 'quota') return null;
+  announceQuota(env, ctx, error);
+  const resumes = nextUtcMidnight();
+  return new Response(JSON.stringify({
+    error: 'daily limit reached',
+    code: QUOTA_CODE,
+    limit: quotaKind(error) ?? 'write',
+    resumes_at: resumes,
+  }), {
+    status: 503,
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json',
+      'Retry-After': String(Math.max(1, Math.ceil((resumes - Date.now()) / 1000))),
+    },
+  });
+}
+
+/**
+ * Asks D1 the cheapest possible question, to learn whether a lockout is over.
+ *
+ * Only run while a lockout is recorded, so a healthy day spends nothing on it.
+ * `SELECT 1` reads no rows, so it costs nothing against the read budget either.
+ */
+async function checkQuotaRecovery(env: Env, ctx: ExecutionContext): Promise<void> {
+  const res = await live(env).fetch('https://live/quota-state');
+  const { quota } = (await res.json()) as { quota: { resumes_at: number } | null };
+  if (quota === null) return;
+  try {
+    await env.DB.prepare('SELECT 1').first();
+    await live(env).fetch('https://live/resumed', { method: 'POST' });
+    console.log('D1 answers again — lockout over');
+  } catch (e) {
+    if (classifyD1Error(e) === 'quota') announceQuota(env, ctx, e);
+  }
+}
 
 // ── Recording signals ───────────────────────────────────────────────────────
 
@@ -449,6 +518,8 @@ export default {
         const result = await env.DB.prepare(sql).bind(...binds).all();
         return json({ rows: result.results ?? [] });
       } catch (e) {
+        const q = quotaResponse(env, ctx, e);
+        if (q) return q;
         console.error('stats failed', e instanceof Error ? e.message : e);
         return json({ error: 'query failed' }, 500);
       }
@@ -473,6 +544,8 @@ export default {
         await env.DB.prepare(statement.sql).bind(...statement.binds).run();
         return json({ ok: true });
       } catch (e) {
+        const q = quotaResponse(env, ctx, e);
+        if (q) return q;
         console.error('click failed', e instanceof Error ? e.message : e);
         return json({ error: 'write failed' }, 500);
       }
@@ -502,6 +575,8 @@ export default {
           ).all();
           return json({ rows: result.results ?? [] });
         } catch (e) {
+          const q = quotaResponse(env, ctx, e);
+          if (q) return q;
           console.error('pending failed', e instanceof Error ? e.message : e);
           return json({ error: 'query failed' }, 500);
         }
@@ -548,6 +623,7 @@ export default {
             // so a reworded message degrades to the old behaviour, not to a
             // poison row.
             const kind = classifyD1Error(e);
+            if (kind === 'quota') announceQuota(env, ctx, e);
             console.error(`record → D1 failed (${kind})`, rows.length, e instanceof Error ? e.message : e);
             if (rows.length === 0 || !shouldSpool(kind)) throw e;
             const res = await spool(env).fetch('https://spool/put', {
@@ -606,6 +682,8 @@ export default {
 
         return json({ error: 'not found' }, 404);
       } catch (e) {
+        const q = quotaResponse(env, ctx, e);
+        if (q) return q;
         console.error('pipeline', url.pathname, e instanceof Error ? e.message : e);
         return json({ error: 'pipeline failed' }, 500);
       }
@@ -646,6 +724,8 @@ export default {
           .all();
         return json({ rows: result.results ?? [] });
       } catch (e) {
+        const q = quotaResponse(env, ctx, e);
+        if (q) return q;
         // The message is logged, not returned. A SQL error quoted back to the
         // caller describes the schema to whoever provoked it.
         console.error('read failed', read[1], e instanceof Error ? e.message : e);
@@ -771,6 +851,8 @@ export default {
 
         return json({ ok: true, rows: changes });
       } catch (e) {
+        const q = quotaResponse(env, ctx, e);
+        if (q) return q;
         console.error('write failed', read[1], e instanceof Error ? e.message : e);
         return json({ error: 'write failed' }, 500);
       }
@@ -799,6 +881,14 @@ export default {
     // against the D1 budget.
     if (controller.cron === '*/5 * * * *') {
       ctx.waitUntil((async () => {
+        // Recovery before draining: the moment D1 answers after midnight, the
+        // open apps are told, and THEN the held signals go in. The other order
+        // would leave the pause screen up while the drain ran.
+        try {
+          await checkQuotaRecovery(env, ctx);
+        } catch (e) {
+          console.error('quota recovery check failed:', e instanceof Error ? e.message : e);
+        }
         try {
           const r = await drainSpool(env);
           if (r.moved > 0 || r.dropped > 0 || r.left > 0) {
