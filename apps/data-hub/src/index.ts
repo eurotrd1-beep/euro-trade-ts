@@ -310,6 +310,26 @@ export default {
     if (url.pathname.startsWith('/v1/pipeline/')) {
       if (caller.kind !== 'service') return json({ error: 'service only' }, 403);
 
+      // ── The signals still waiting to be settled ──────────────────────────
+      //
+      // A GET, and the only one under /v1/pipeline. It exists because the
+      // settlement pass has to look in the database the signals were RECORDED
+      // to: reading Supabase while recording to D1 left every signal pending
+      // for ever, and nothing reported it, because a pass that finds nothing
+      // is indistinguishable from one with nothing to find.
+      if (url.pathname === '/v1/pipeline/pending' && request.method === 'GET') {
+        try {
+          const result = await env.DB.prepare(
+            `SELECT "id", "symbol", "direction", "entry_price", "bar_ms", "expiry_seconds"` +
+            ` FROM "signals" WHERE "outcome" = 'pending' ORDER BY "id" LIMIT 500`,
+          ).all();
+          return json({ rows: result.results ?? [] });
+        } catch (e) {
+          console.error('pending failed', e instanceof Error ? e.message : e);
+          return json({ error: 'query failed' }, 500);
+        }
+      }
+
       let body: Record<string, unknown>;
       try {
         body = (await request.json()) as Record<string, unknown>;
