@@ -10,7 +10,6 @@
 import { saveSession } from './session';
 import { countClick, db, setDataAccount, usersRowFor } from './dataHub';
 import {
-  supabase,
   getDeviceId,
   KEY_USER_VERIFIED,
   KEY_USER_ACCOUNT_ID,
@@ -54,7 +53,7 @@ export function clickFieldFor(brokerKey: string, brokerName: string): string {
 /** Reads the `globalVip` config: new accounts inherit VIP while it is active. */
 async function globalVipGrant(): Promise<{ role: string; expiry: string | null }> {
   try {
-    const { data } = await supabase()
+    const { data } = await db()
       .from('configs')
       .select('data')
       .eq('id', 'globalVip')
@@ -85,7 +84,6 @@ async function globalVipGrant(): Promise<{ role: string; expiry: string | null }
  * deliberate in the original.
  */
 export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
-  const sb = supabase();
   const deviceId = getDeviceId();
   const accountId = req.accountId.trim();
 

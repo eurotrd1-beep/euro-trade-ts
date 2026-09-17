@@ -7,7 +7,8 @@
  * a status here means the same thing it meant in the Flutter admin.
  */
 
-import { CATALOGUE_SYMBOLS, supabase } from '@euro/shared';
+import { CATALOGUE_SYMBOLS } from '@euro/shared';
+import { stopLive } from './live';
 import { db, currentMode, hubStats } from './dataHub';
 
 // ── Fixed infra endpoints (Dart: _kWorker / _kOrigin / _kRef …) ────────────
@@ -368,7 +369,7 @@ export const CHECKS: RCheck[] = [
 /** Dart `_readActiveProxy` — configs.proxy_server_url, trailing slashes cut. */
 export async function readActiveProxy(): Promise<string> {
   try {
-    const { data } = await supabase()
+    const { data } = await db()
       .from('configs')
       .select('data')
       .eq('id', 'proxy_server_url')
@@ -485,9 +486,9 @@ async function otcStatus(base: string): Promise<OtcStatus | null> {
 async function count(
   table: string,
   col = 'id',
-  filter?: (q: ReturnType<ReturnType<typeof supabase>['from']>) => unknown,
+  filter?: (q: unknown) => unknown,
 ): Promise<number> {
-  const base = supabase().from(table).select(col);
+  const base = db().from(table).select(col);
   const q = filter ? filter(base as never) : base;
   const { data, error } = (await q) as { data: unknown[] | null; error: unknown };
   if (error) throw error;
@@ -557,7 +558,7 @@ export async function logRepair(action: string, result: string): Promise<void> {
 }
 
 export async function switchProxy(url: string): Promise<string> {
-  await supabase()
+  await db()
     .from('configs')
     .upsert({ id: 'proxy_server_url', data: { url, updatedAt: new Date().toISOString() } });
   await logRepair('switch_proxy', `proxy_server_url → ${url}`);
@@ -569,12 +570,12 @@ export async function nudgeScraper(): Promise<string> {
   // Merge so fields other writers own are not wiped.
   let cur: Record<string, unknown> = {};
   try {
-    const { data } = await supabase().from('configs').select('data').eq('id', 'otc_scan').maybeSingle();
+    const { data } = await db().from('configs').select('data').eq('id', 'otc_scan').maybeSingle();
     if (data?.['data'] && typeof data['data'] === 'object') cur = data['data'] as Record<string, unknown>;
   } catch {
     // Start from empty.
   }
-  await supabase()
+  await db()
     .from('configs')
     .upsert({
       id: 'otc_scan',
@@ -587,7 +588,7 @@ export async function nudgeScraper(): Promise<string> {
 export async function savePoToken(token: string): Promise<string> {
   const t = token.trim();
   if (t.length < 40) return 'التوكن قصير جداً — تأكد إنك لصقت إطار auth كامل.';
-  await supabase()
+  await db()
     .from('configs')
     .upsert({
       id: 'otc_token',
@@ -597,13 +598,24 @@ export async function savePoToken(token: string): Promise<string> {
   return 'اتحفظ التوكن الجديد ✅. اعمل Manual Deploy للبروكسي عشان يلتقطه، أو نبّه السكرابر.';
 }
 
+/**
+ * Forces the live channel to reconnect.
+ *
+ * It used to disconnect Supabase Realtime. There is no Supabase Realtime any
+ * more — live updates come from a socket to the hub — and that socket already
+ * reconnects on its own with a backoff, and refetches everything when it does.
+ *
+ * The button stays because "it is not updating, kick it" is a real thing an
+ * admin wants at 3am, and closing the socket is exactly how to do it: the
+ * client treats the close as a drop, reconnects, and resyncs.
+ */
 export async function resubRealtime(): Promise<string> {
   try {
-    supabase().realtime.disconnect();
+    stopLive();
   } catch {
     // Nothing connected.
   }
-  await logRepair('resub_realtime', 'realtime disconnect (auto-reconnect)');
+  await logRepair('resub_realtime', 'live socket closed (auto-reconnect)');
   return 'اتقطع الـ realtime — هيعيد الاشتراك تلقائياً.';
 }
 
@@ -963,7 +975,7 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
       case 's_alive': {
         const t0 = performance.now();
         try {
-          const { error } = await supabase().from('configs').select('id').limit(1);
+          const { error } = await db().from('configs').select('id').limit(1);
           if (error) throw error;
           const ms = Math.round(performance.now() - t0);
           return res(ms > 3000 ? 'warn' : 'ok', `200 في ${ms}ms`, {
@@ -1158,7 +1170,7 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
 
       // ---- app ----
       case 'a_ver': {
-        const { data } = await supabase()
+        const { data } = await db()
           .from('configs')
           .select('id,data')
           .in('id', ['price_system', 'display_source', 'chart_settings']);

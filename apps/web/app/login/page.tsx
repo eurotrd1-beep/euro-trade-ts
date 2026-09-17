@@ -70,7 +70,7 @@ export default function LoginPage() {
       try {
         const [b, s] = await Promise.all([
           db().from('brokers').select('*').eq('is_active', true).order('order'),
-          supabase().from('configs').select('data').eq('id', 'social').maybeSingle(),
+          db().from('configs').select('data').eq('id', 'social').maybeSingle(),
         ]);
         if (cancelled) return;
 

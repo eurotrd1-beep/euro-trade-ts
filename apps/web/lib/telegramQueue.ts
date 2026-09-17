@@ -13,7 +13,9 @@
  * read the migration to know why an update silently affected no rows.
  */
 
-import { supabase, type TelegramQueueRow } from '@euro/shared';
+import { type TelegramQueueRow } from '@euro/shared';
+import { db } from './dataHub';
+import { onChange, onResync } from './live';
 
 export type { TelegramQueueRow };
 
@@ -35,19 +37,20 @@ export const STATUS_LABEL: Record<TelegramQueueRow['status'], string> = {
 
 /** Everything still waiting on a decision, oldest first — that is the order they matter in. */
 export async function fetchPending(): Promise<TelegramQueueRow[]> {
-  const { data, error } = await supabase()
-    .from('telegram_queue')
+  const { data, error } = await db()
+    .from<TelegramQueueRow>('telegram_queue')
     .select('*')
     .eq('status', 'pending')
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .limit(200);
   if (error) throw error;
   return (data ?? []) as TelegramQueueRow[];
 }
 
 /** The last decisions, newest first — approved-but-not-yet-sent shows up here. */
 export async function fetchDecided(): Promise<TelegramQueueRow[]> {
-  const { data, error } = await supabase()
-    .from('telegram_queue')
+  const { data, error } = await db()
+    .from<TelegramQueueRow>('telegram_queue')
     .select('*')
     .neq('status', 'pending')
     .order('created_at', { ascending: false })
@@ -58,9 +61,9 @@ export async function fetchDecided(): Promise<TelegramQueueRow[]> {
 
 /** Pending count for the sidebar badge — `head` so no rows cross the wire. */
 export async function countPending(): Promise<number> {
-  const { count, error } = await supabase()
+  const { count, error } = await db()
     .from('telegram_queue')
-    .select('event_key', { count: 'exact', head: true })
+    .select('event_key', { count: 'exact' })
     .eq('status', 'pending');
   if (error) throw error;
   return count ?? 0;
@@ -81,18 +84,18 @@ export async function decide(
   eventKey: string,
   status: 'approved' | 'rejected',
 ): Promise<boolean> {
-  const { data, error } = await supabase()
+  // `rows` is the changed count the hub reports. It replaces the `.select()`
+  // Postgres needed to answer the same question: did this update match
+  // anything, or was the decision already made somewhere else?
+  const { error, rows } = await db()
     .from('telegram_queue')
     .update({ status })
     .eq('event_key', eventKey)
     .eq('status', 'pending')
-    .select('event_key');
+    .run();
   if (error) throw error;
-  return (data ?? []).length > 0;
+  return (rows ?? 0) > 0;
 }
-
-/** Distinguishes concurrent subscribers; see `watchQueue`. */
-let watcherSeq = 0;
 
 /**
  * Live updates for as long as the page is open.
@@ -103,21 +106,20 @@ let watcherSeq = 0;
  * re-read, because the rows are few and a delta merge would be more code with
  * more ways to drift from the table.
  */
-export function watchQueue(onChange: () => void): () => void {
-  const channel = supabase()
-    // Numbered, not a fixed name. The sidebar badge and the review page both
-    // watch, and two channels sharing one topic on the same client is the
-    // shape where one of them silently stops receiving.
-    .channel(`telegram_queue:${++watcherSeq}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'telegram_queue' },
-      () => onChange(),
-    )
-    .subscribe();
+export function watchQueue(onRowsChanged: () => void): () => void {
+  // One socket for the whole app, so the sidebar badge and the review page can
+  // both watch without the two-channels-one-topic problem the Supabase version
+  // had to number its channels to avoid.
+  const offChange = onChange((change) => {
+    if (change.table === 'telegram_queue') onRowsChanged();
+  });
+  // A reconnect means a decision may have been missed while the socket was
+  // down, and a queue showing a decided row as pending is worse than a refetch.
+  const offResync = onResync(() => onRowsChanged());
 
   return () => {
-    void supabase().removeChannel(channel);
+    offChange();
+    offResync();
   };
 }
 

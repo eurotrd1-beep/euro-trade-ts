@@ -142,6 +142,7 @@ export const currentMode = (): DataMode => mode;
 interface Filter {
   column: string;
   value?: unknown;
+  ne?: unknown;
   values?: unknown[];
   gte?: unknown;
   lte?: unknown;
@@ -322,6 +323,10 @@ async function hubRead(
       params.append('lte', `${column}:${hubValue(timeValue(table, f.column, f.lte))}`);
     }
     if (f.gte !== undefined || f.lte !== undefined) continue;
+    if (f.ne !== undefined) {
+      params.append('ne', `${column}:${hubValue(timeValue(table, f.column, f.ne))}`);
+      continue;
+    }
     if (f.values) {
       params.append('in', `${column}:${f.values.map((v) => hubValue(timeValue(table, f.column, v))).join(',')}`);
     } else {
@@ -382,6 +387,11 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
 
   gte(column: string, value: unknown): this {
     this.filters.push({ column, gte: value });
+    return this;
+  }
+
+  neq(column: string, value: unknown): this {
+    this.filters.push({ column, ne: value });
     return this;
   }
 
@@ -463,6 +473,7 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
       this.wantCount ? { count: 'exact' } : undefined,
     ) as unknown as {
       eq: (c: string, v: unknown) => typeof q;
+      neq: (c: string, v: unknown) => typeof q;
       in: (c: string, v: unknown[]) => typeof q;
       gte: (c: string, v: unknown) => typeof q;
       lte: (c: string, v: unknown) => typeof q;
@@ -474,6 +485,7 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
       if (f.gte !== undefined) q = q.gte(f.column, f.gte);
       if (f.lte !== undefined) q = q.lte(f.column, f.lte);
       if (f.gte !== undefined || f.lte !== undefined) continue;
+      if (f.ne !== undefined) { q = q.neq(f.column, f.ne); continue; }
       q = f.values ? q.in(f.column, f.values) : q.eq(f.column, f.value);
     }
     if (this.orderBy) q = q.order(this.orderBy.column, { ascending: !this.orderBy.desc });
@@ -637,7 +649,18 @@ class WriteChain {
     return this;
   }
 
-  async run(): Promise<{ error: Error | null }> {
+  /**
+   * Returns how many rows actually changed, as well as the error.
+   *
+   * `rows` is the half that lets a caller tell "nothing matched" from "it
+   * worked". The Telegram review queue depends on it: an approve click filters
+   * on `status = 'pending'` so a row already decided in another tab updates
+   * nothing, and a filtered update matching nothing is not an error.
+   *
+   * `null` when the write went to Supabase, which does not report it without
+   * asking for the rows back.
+   */
+  async run(): Promise<{ error: Error | null; rows: number | null }> {
     if (this.filters.length === 0) {
       // Refused here as well as at the hub. The hub's refusal protects the
       // database; this one gives the call site an error it can read without a
@@ -646,7 +669,7 @@ class WriteChain {
       const message = `${this.op} on '${this.table}' with no filter`;
       hubStats.errors++;
       hubStats.lastError = message;
-      return { error: new Error(message) };
+      return { error: new Error(message), rows: null };
     }
 
     if (mode !== 'd1' || staysOnSupabase(this.table)) return this.viaSupabase();
@@ -667,12 +690,13 @@ class WriteChain {
       const message = `${res.status} ${body.error ?? ''}`.trim();
       hubStats.errors++;
       hubStats.lastError = `${this.table} ${this.op}: ${message}`;
-      return { error: new Error(message) };
+      return { error: new Error(message), rows: null };
     }
-    return { error: null };
+    const body = (await res.json().catch(() => ({}))) as { rows?: number };
+    return { error: null, rows: typeof body.rows === 'number' ? body.rows : null };
   }
 
-  private async viaSupabase(): Promise<{ error: Error | null }> {
+  private async viaSupabase(): Promise<{ error: Error | null; rows: number | null }> {
     const base = supabase().from(this.table);
     let q = (this.op === 'delete' ? base.delete() : base.update(this.values)) as unknown as {
       eq: (c: string, v: unknown) => typeof q;
@@ -682,11 +706,11 @@ class WriteChain {
       q = f.values ? q.in(f.column, f.values) : q.eq(f.column, f.value);
     }
     const { error } = await (q as unknown as Promise<{ error: Error | null }>);
-    return { error };
+    return { error, rows: null };
   }
 
   then<R1, R2 = never>(
-    onFulfilled?: ((v: { error: Error | null }) => R1 | PromiseLike<R1>) | null,
+    onFulfilled?: ((v: { error: Error | null; rows: number | null }) => R1 | PromiseLike<R1>) | null,
     onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
   ): PromiseLike<R1 | R2> {
     return this.run().then(onFulfilled, onRejected);

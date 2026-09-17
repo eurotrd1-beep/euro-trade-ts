@@ -48,8 +48,10 @@ import {
  */
 export interface Filter {
   column: string;
-  /** Exactly one of these three is set. */
+  /** Exactly one of these is set, except the range bounds which may pair up. */
   value?: string;
+  /** Not equal. The admin's review queue asks for "everything already decided". */
+  ne?: string;
   values?: readonly string[];
   /** A range bound: `>=` when `gte`, `<=` when `lte`. Both may be given. */
   gte?: string;
@@ -154,6 +156,15 @@ function appendFilters(
     const column = columnNamed(table, filter.column);
     if (column === null) {
       return { ok: false, status: 400, reason: `unknown filter column '${filter.column}'` };
+    }
+
+    if (filter.ne !== undefined) {
+      // `<>` and not `!=`: the same thing in SQLite, and the standard spelling.
+      // NULLs are excluded by either — a NULL column is neither equal nor
+      // unequal to a value — which matches what Postgres did here.
+      clauses.push(`${quote(column)} <> ?`);
+      binds.push(filter.ne);
+      continue;
     }
 
     // A range. Both bounds may appear on one filter, and both are bound
@@ -485,6 +496,11 @@ export function parseFilters(raw: unknown): Filter[] {
       continue;
     }
 
+    if ((f as { ne?: unknown }).ne !== undefined && (f as { ne?: unknown }).ne !== null) {
+      out.push({ column: f.column, ne: String((f as { ne: unknown }).ne) });
+      continue;
+    }
+
     const range = f as { gte?: unknown; lte?: unknown };
     if (range.gte !== undefined || range.lte !== undefined) {
       const bounds: Filter = { column: f.column };
@@ -513,8 +529,8 @@ export function parseQuery(table: string, params: URLSearchParams): Query {
     where.push({ column: raw.slice(0, at), value: raw.slice(at + 1) });
   }
 
-  // `gte=col:value` and `lte=col:value`, one clause each.
-  for (const [param, key] of [['gte', 'gte'], ['lte', 'lte']] as const) {
+  // `gte=col:value`, `lte=col:value` and `ne=col:value`, one clause each.
+  for (const [param, key] of [['gte', 'gte'], ['lte', 'lte'], ['ne', 'ne']] as const) {
     for (const raw of params.getAll(param)) {
       const at = raw.indexOf(':');
       if (at <= 0) continue;

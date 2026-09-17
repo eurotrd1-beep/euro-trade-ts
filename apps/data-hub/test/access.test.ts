@@ -368,3 +368,48 @@ describe('the schema avoids the two types SQLite does not have', () => {
     expect(SQL).toMatch(/pairs[\s\S]*?enabled\s+INTEGER NOT NULL DEFAULT 0/);
   });
 });
+
+describe('rotating the service secret without an outage', () => {
+  // `identify` is exported from index.ts, which needs the Env shape.
+  const env = (current: string, next?: string) =>
+    ({ SERVICE_SECRET: current, SERVICE_SECRET_NEXT: next, ADMIN_SECRET: 'a' }) as never;
+  const req = (secret: string) =>
+    new Request('https://h/v1/candles', { headers: { 'x-service-secret': secret } });
+
+  it('accepts the current secret', async () => {
+    const { identify } = await import('../src/index.js');
+    expect(identify(req('old'), env('old'))).toEqual({ kind: 'service' });
+  });
+
+  it('accepts BOTH while a rotation is in flight', async () => {
+    // The whole point: the moment the Worker stops taking the old secret, the
+    // proxy holding it cannot record a signal — and it stays that way until
+    // someone edits a variable on a different service. Accepting both for the
+    // length of the handover makes the window zero.
+    const { identify } = await import('../src/index.js');
+    expect(identify(req('old'), env('old', 'new'))).toEqual({ kind: 'service' });
+    expect(identify(req('new'), env('old', 'new'))).toEqual({ kind: 'service' });
+  });
+
+  it('refuses everything else, rotation or not', async () => {
+    const { identify, BAD_SECRET } = await import('../src/index.js');
+    expect(identify(req('wrong'), env('old', 'new'))).toBe(BAD_SECRET);
+    expect(identify(req('wrong'), env('old'))).toBe(BAD_SECRET);
+  });
+
+  it('does not let an unset NEXT match an empty header', async () => {
+    // The danger is a comparison of two empty strings letting a caller through
+    // as `service`. It cannot happen, and not because of the comparison: an
+    // empty header is falsy, so the branch is never entered and the caller
+    // falls through to `public` — which may not write anything at all.
+    const { identify } = await import('../src/index.js');
+    expect(identify(req(''), env('old', ''))).toEqual({ kind: 'public' });
+    expect(identify(req(''), env('old'))).toEqual({ kind: 'public' });
+    expect(identify(req(''), env('', ''))).toEqual({ kind: 'public' });
+  });
+
+  it('refuses when the current secret is unset and only NEXT is present', async () => {
+    const { identify } = await import('../src/index.js');
+    expect(identify(req('new'), env('', 'new'))).toEqual({ kind: 'service' });
+  });
+});

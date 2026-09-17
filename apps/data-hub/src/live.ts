@@ -53,7 +53,13 @@ export interface ChangeMessage {
 }
 
 /** Tables worth telling anyone about. Everything else is noise. */
-export const BROADCAST_TABLES: readonly string[] = ['configs', 'pairs', 'users', 'brokers'];
+export const BROADCAST_TABLES: readonly string[] = [
+  'configs', 'pairs', 'users', 'brokers',
+  // The admin's review queue. A queued message is worth sending for the length
+  // of one trade, so waiting for a refresh to find out it arrived is the same
+  // as not getting it.
+  'telegram_queue',
+];
 
 export class LiveHub implements DurableObject {
   constructor(private readonly state: DurableObjectState) {}

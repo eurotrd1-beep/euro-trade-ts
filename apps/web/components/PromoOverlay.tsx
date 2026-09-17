@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, tr } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import { countClick } from '@/lib/dataHub';
 import { TelegramIcon } from './BrandIcons';
 import styles from './PromoOverlay.module.css';
@@ -75,7 +76,7 @@ export function PromoOverlay({
 
     void (async () => {
       try {
-        const { data } = await supabase().from('configs').select('data').eq('id', 'promo').maybeSingle();
+        const { data } = await db().from('configs').select('data').eq('id', 'promo').maybeSingle();
         if (!data) return;
         const d = (data['data'] ?? {}) as Record<string, unknown>;
 

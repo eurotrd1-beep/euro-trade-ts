@@ -12,6 +12,7 @@
  */
 
 import { supabase } from '@euro/shared';
+import { db } from './dataHub';
 import { THEME_TOKENS, parseThemeConfig, type ThemeConfig } from './themePresets';
 
 /**
@@ -58,7 +59,7 @@ export function applyThemeConfig(cfg: ThemeConfig, root: HTMLElement = document.
  */
 export async function loadAppTheme(): Promise<void> {
   try {
-    const { data } = await supabase()
+    const { data } = await db()
       .from('configs')
       .select('data')
       .eq('id', 'theme')

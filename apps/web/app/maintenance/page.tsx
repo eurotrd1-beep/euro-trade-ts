@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, tr } from '@euro/shared';
+import { db } from '@/lib/dataHub';
 import { TradingBackground } from '@/components/TradingBackground';
 import styles from './maintenance.module.css';
 
@@ -42,7 +43,7 @@ export default function MaintenancePage() {
 
     async function check(): Promise<void> {
       try {
-        const { data } = await supabase()
+        const { data } = await db()
           .from('configs')
           .select('data')
           .eq('id', 'maintenance')

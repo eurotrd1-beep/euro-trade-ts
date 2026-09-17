@@ -74,6 +74,20 @@ export interface Env {
   DB: D1Database;
   /** Render and the schedulers. */
   SERVICE_SECRET: string;
+  /**
+   * The incoming secret during a rotation, accepted alongside SERVICE_SECRET.
+   *
+   * A secret cannot be changed in one step without an outage: the moment the
+   * Worker stops accepting the old one, the proxy holding it stops being able
+   * to record a signal, and it stays that way until somebody edits an
+   * environment variable on another service. Accepting both for the length of
+   * the handover turns that into no window at all.
+   *
+   * It is empty except during a rotation, and `secretEquals` is never called
+   * with an empty expectation — an unset variable must not match an empty
+   * header.
+   */
+  SERVICE_SECRET_NEXT?: string;
   /** The admin panel. */
   ADMIN_SECRET: string;
   /** The live channel every open app is attached to. */
@@ -184,7 +198,13 @@ async function countWrongGuess(request: Request): Promise<void> {
 export function identify(request: Request, env: Env): Caller | typeof BAD_SECRET {
   const service = request.headers.get('x-service-secret');
   if (service) {
-    if (!env.SERVICE_SECRET || !secretEquals(service, env.SERVICE_SECRET)) return BAD_SECRET;
+    // Both are checked, and both with the constant-time compare — short
+    // circuiting on the first would leak which of the two matched through
+    // timing, which is the whole thing `secretEquals` exists to prevent.
+    const current = Boolean(env.SERVICE_SECRET) && secretEquals(service, env.SERVICE_SECRET);
+    const next = Boolean(env.SERVICE_SECRET_NEXT)
+      && secretEquals(service, env.SERVICE_SECRET_NEXT!);
+    if (!current && !next) return BAD_SECRET;
     return { kind: 'service' };
   }
   const admin = request.headers.get('x-admin-secret');
