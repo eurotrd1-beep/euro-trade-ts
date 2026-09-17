@@ -102,6 +102,33 @@ export type Built =
 export const MAX_LIMIT = 1000;
 export const DEFAULT_LIMIT = 100;
 
+/**
+ * The same cap for the service, which legitimately scans whole tables.
+ *
+ * The scraper reads every push subscription to send to it, and every enabled
+ * symbol to know what to stream. Those are full reads by nature, and the cap
+ * exists to stop a browser walking the candle table — not to stop the one
+ * process that owns the rows.
+ *
+ * Five thousand rows is a twentieth of one percent of the five million daily
+ * row reads, so the budget argument does not apply at this size.
+ */
+export const MAX_LIMIT_SERVICE = 5000;
+
+/**
+ * How many rows one write request may carry.
+ *
+ * The asset scan upserts the whole Pocket Option catalogue — hundreds of rows —
+ * and one HTTP request per row is hundreds of round trips from a server in
+ * Frankfurt to a Worker. They are sent as a batch instead: one request, one
+ * prepared statement per row, applied together.
+ *
+ * Capped so a single request cannot be made arbitrarily large, and because
+ * every row still counts against the daily write budget whether it arrives
+ * alone or in company.
+ */
+export const MAX_ROWS_PER_WRITE = 250;
+
 /** Quoted, so a column called `order` — which `pairs` has — is not a syntax error. */
 const quote = (identifier: string): string => `"${identifier}"`;
 
@@ -244,8 +271,9 @@ export function buildSelect(query: Query, caller: Caller): Built {
   // A request asking for more than the cap gets the cap, not a 400. The cap is
   // there to protect the daily row budget, and a refusal would not save a
   // single row read — it would just leave the caller with nothing.
+  const cap = caller.kind === 'service' ? MAX_LIMIT_SERVICE : MAX_LIMIT;
   const limit = Number.isFinite(query.limit) && query.limit > 0
-    ? Math.min(Math.floor(query.limit), MAX_LIMIT)
+    ? Math.min(Math.floor(query.limit), cap)
     : DEFAULT_LIMIT;
 
   const select = columns.map(quote).join(', ');

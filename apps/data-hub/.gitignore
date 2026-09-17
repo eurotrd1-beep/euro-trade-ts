@@ -3,3 +3,4 @@ out/
 .env.*
 !.env.example
 backup/
+.secrets.local.json

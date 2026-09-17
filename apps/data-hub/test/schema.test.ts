@@ -170,21 +170,46 @@ describe('every primary key access.ts declares is the real one', () => {
         .sort((a, b) => Number(a['pk']) - Number(b['pk']))
         .map((r) => String(r['name']));
 
+      // ── A real primary key is not automatically the conflict target ─────
+      //
+      // `otc_pairs` has one — `id` — and upserts on `(platform, symbol)`
+      // instead, because that is the key the asset scan knows a row by: it has
+      // no idea what id we gave it. So a declared conflictTarget is allowed
+      // even here, and what has to be checked is that it names a REAL unique
+      // constraint. An ON CONFLICT target that matches no unique index is not
+      // an error — it never fires, every upsert becomes an insert, and the
+      // table fills with duplicates while every write reports success.
+      const uniqueIndexes = all(
+        `SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='${table}'`,
+      ).filter((r) => String(r['sql'] ?? '').includes('UNIQUE'));
+
+      // SQLite gives an unnamed UNIQUE(...) table constraint an autoindex with
+      // no SQL, so read its columns from the pragma instead of the text.
+      const autoUnique = all(`PRAGMA index_list(${table})`)
+        .filter((r) => Number(r['unique']) === 1)
+        .map((r) => all(`PRAGMA index_info(${String(r['name'])})`)
+          .map((c) => String(c['name'] ?? ''))
+          .join(', '));
+
       if (real.length > 0) {
         expect([...policy.primaryKey]).toEqual(real);
-        expect(policy.conflictTarget, `${table} has a real key and needs no expression`)
-          .toBeUndefined();
+
+        if (policy.conflictTarget === undefined) return;
+
+        // It named one anyway, so it must be a unique key that exists.
+        const wanted = policy.conflictTarget.replace(/"/g, '').replace(/\s+/g, ' ');
+        const candidates = [real.join(', '), ...autoUnique]
+          .concat(uniqueIndexes.map((r) => String(r['sql'])
+            .replace(/"/g, '').replace(/\s+/g, ' ')
+            .replace(/^.*\(/, '').replace(/\).*$/, '')));
+        expect(
+          candidates.some((c) => c === wanted),
+          `${table}: ON CONFLICT (${wanted}) matches no unique key. Found: ${candidates.join(' | ')}`,
+        ).toBe(true);
         return;
       }
 
-      // No declared primary key: the identity is a unique index instead, and
-      // for signal_daily it is an index on an EXPRESSION — PRAGMA index_info
-      // reports NULL for such a column, which is why conflictTarget exists.
-      // Check the raw target against the index SQL rather than against a
-      // column list it cannot be expressed as.
-      const indexes = all(
-        `SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='${table}'`,
-      ).filter((r) => String(r['sql'] ?? '').includes('UNIQUE'));
+      const indexes = uniqueIndexes;
       expect(indexes.length, `${table} has no primary key and no unique index`).toBeGreaterThan(0);
 
       const target = policy.conflictTarget;

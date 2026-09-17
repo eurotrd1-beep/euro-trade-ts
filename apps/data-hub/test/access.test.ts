@@ -73,17 +73,37 @@ describe('an unknown table', () => {
   });
 });
 
-describe('the tables nobody may read over HTTP', () => {
+describe('the tables no BROWSER may read', () => {
   // `push_subscriptions` holds p256dh and auth keys per device. There is no
   // caller on the internet with any business reading it — including the admin,
   // who has no screen that shows them.
+  //
+  // Three of these read `service` rather than `never`, and the distinction is
+  // the point: `never` refuses the service too, and the service is what reads
+  // them. `push.js` reads the subscription list to send to it, `telegram.js`
+  // asks `telegram_alerts` whether a trade had already cleared the bar, and the
+  // server reads `price_snapshot` to answer before the scraper has prices in
+  // memory. The Postgres rule they were ported from — RLS on with no policy —
+  // never applied to the service key either, which bypasses RLS entirely.
   for (const t of ['push_subscriptions', 'push_alerts', 'telegram_alerts', 'price_snapshot']) {
-    it(`refuses a read of ${t} to everyone, admin and service included`, () => {
-      for (const caller of [pub, user(), admin, service]) {
-        expect(decide(t, 'read', caller).allowed).toBe(false);
+    it(`refuses a read of ${t} to every browser`, () => {
+      for (const caller of [pub, user(), admin]) {
+        expect(decide(t, 'read', caller).allowed, `${t} / ${caller.kind}`).toBe(false);
       }
     });
   }
+
+  it('lets the service read the three it actually reads', () => {
+    for (const t of ['push_subscriptions', 'telegram_alerts', 'price_snapshot']) {
+      expect(decide(t, 'read', service).allowed, t).toBe(true);
+    }
+  });
+
+  it('keeps push_alerts at `never`, because nothing reads it', () => {
+    // A rule is not relaxed for a caller that does not exist. If something
+    // starts reading it, this test is where the decision gets made.
+    expect(decide('push_alerts', 'read', service).allowed).toBe(false);
+  });
 
   it('still lets the service write them', () => {
     expect(decide('push_subscriptions', 'write', service).allowed).toBe(true);
@@ -275,8 +295,9 @@ describe('rank', () => {
   });
 
   it('never lets rank override `never`', () => {
-    // Rank is an ordering, not an override. `never` is outside it.
-    expect(decide('push_subscriptions', 'read', service).allowed).toBe(false);
+    // Rank is an ordering, not an override. `never` is outside it — the
+    // highest-ranked caller there is still cannot read a `never` table.
+    expect(decide('push_alerts', 'read', service).allowed).toBe(false);
   });
 });
 

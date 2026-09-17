@@ -58,7 +58,9 @@
  */
 
 import { decide, type Caller } from './access.js';
-import { buildSelect, buildWrite, parseFilters, parseQuery, type Write } from './db.js';
+import {
+  MAX_ROWS_PER_WRITE, buildSelect, buildWrite, parseFilters, parseQuery, type Write,
+} from './db.js';
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 import { prune } from './prune.js';
 import {
@@ -492,23 +494,46 @@ export default {
         return json({ error: "op must be insert, upsert, update or delete" }, 400);
       }
 
-      const built = buildWrite({
-        table: read[1]!,
-        op,
-        values: body.values ?? {},
-        where: parseFilters(body.where),
-      }, caller);
-      if (!built.ok) return json({ error: built.reason }, built.status);
+      // ── One row, or many ────────────────────────────────────────────────
+      //
+      // A `values` array is the asset scan upserting the whole catalogue. Each
+      // row is built and AUTHORISED separately — the array is a transport
+      // convenience, never a way to smuggle a row past the checks — and the
+      // statements are then applied as one batch.
+      const rows = Array.isArray(body.values) ? body.values : [body.values ?? {}];
+      if (rows.length === 0) return json({ error: 'nothing to write' }, 400);
+      if (rows.length > MAX_ROWS_PER_WRITE) {
+        return json(
+          { error: `${rows.length} rows, over the ${MAX_ROWS_PER_WRITE} allowed in one write` },
+          400,
+        );
+      }
+      const where = parseFilters(body.where);
+
+      const statements = [];
+      for (const values of rows) {
+        if (typeof values !== 'object' || values === null || Array.isArray(values)) {
+          return json({ error: 'each row must be an object' }, 400);
+        }
+        const built = buildWrite(
+          { table: read[1]!, op, values: values as Record<string, unknown>, where },
+          caller,
+        );
+        if (!built.ok) return json({ error: built.reason }, built.status);
+        statements.push(env.DB.prepare(built.statement.sql).bind(...built.statement.binds));
+      }
 
       try {
-        const result = await env.DB.prepare(built.statement.sql)
-          .bind(...built.statement.binds)
-          .run();
+        // `batch` runs them in one round trip and in one transaction, so a
+        // catalogue upsert either lands whole or not at all. A loop of `run`
+        // could leave the scan half-applied with no way to tell which half.
+        const results = await env.DB.batch(statements);
         // The row count is returned because a write that matched nothing is
         // not an error and not a success — an update whose WHERE found no row
         // reports ok, and a caller that assumes otherwise is storing nothing
         // and believing it stored something.
-        return json({ ok: true, rows: result.meta?.changes ?? 0 });
+        const changes = results.reduce((n, r) => n + (r.meta?.changes ?? 0), 0);
+        return json({ ok: true, rows: changes });
       } catch (e) {
         console.error('write failed', read[1], e instanceof Error ? e.message : e);
         return json({ error: 'write failed' }, 500);

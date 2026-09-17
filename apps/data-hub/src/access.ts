@@ -128,8 +128,21 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
       'order', 'created_ms'],
     primaryKey: ['id'],
   },
+  // ── The conflict target is NOT the primary key here ──────────────────────
+  //
+  // The asset scan upserts what Pocket Option advertises, and it knows a symbol
+  // by `(platform, symbol)` — it has no idea what row id we gave it. Conflicting
+  // on `id` instead meant every scan INSERTED: the rows carried no id, a TEXT
+  // primary key accepts NULL in SQLite, and nothing collided. The catalogue
+  // would have grown a duplicate set of every asset on every scan, each one
+  // arriving `enabled = 0`, while the real rows sat beside them untouched.
+  //
+  // Postgres has the same key — `otc_pairs_platform_symbol_key UNIQUE (platform,
+  // symbol)` — and the scan named it explicitly in `onConflict`. This is that
+  // constraint, declared where it cannot be chosen by a caller.
   otc_pairs: {
     read: 'public', write: 'service',
+    conflictTarget: '"platform", "symbol"',
     columns: ['id', 'platform', 'symbol', 'name', 'asset_type', 'subcategory', 'is_otc', 'enabled',
       'order', 'created_ms', 'updated_ms'],
     primaryKey: ['id'],
@@ -258,13 +271,31 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
     primaryKey: ['id'],
   },
 
-  // ── Never over HTTP ──────────────────────────────────────────────────────
+  // ── The service, and nobody else ─────────────────────────────────────────
+  //
   // Postgres: RLS on with NO policy at all — refused to anon and authenticated,
   // reachable only by the service key. `push_subscriptions` is the one that was
   // exposed before; it holds per-device encryption keys and there is no caller
   // on the internet who has any business with it.
+  //
+  // ── WHY THESE READ `service` AND NOT `never` ─────────────────────────────
+  //
+  // They were all `never`, which refuses EVERY caller including the service —
+  // and the proxy reads all three. `push.js` reads the subscription list to
+  // send to it, `telegram.js` reads `telegram_alerts` to ask whether a trade
+  // had already cleared the bar, and the server reads `price_snapshot` to
+  // answer a cold request before the scraper has any prices in memory.
+  //
+  // `never` was the right reading of the Postgres policy and the wrong reading
+  // of who the callers are: the RLS that blocked everyone never applied to the
+  // service key, which bypasses RLS entirely. `service` says the same thing
+  // about the internet — public, user and admin are all below it and all
+  // refused — while letting the one process that owns these rows read them.
+  //
+  // `push_alerts` stays `never`: nothing reads it, and a rule should not be
+  // relaxed for a caller that does not exist.
   push_subscriptions: {
-    read: 'never', write: 'service',
+    read: 'service', write: 'service',
     columns: ['id', 'endpoint', 'user_id', 'subscription', 'symbols', 'plan', 'failures', 'created_ms',
       'updated_ms'],
     primaryKey: ['id'],
@@ -275,12 +306,12 @@ export const POLICY: Readonly<Record<string, TablePolicy>> = {
     primaryKey: ['symbol', 'setup_key', 'stage'],
   },
   telegram_alerts: {
-    read: 'never', write: 'service',
+    read: 'service', write: 'service',
     columns: ['event_key', 'kind', 'sent_ms'],
     primaryKey: ['event_key'],
   },
   price_snapshot: {
-    read: 'never', write: 'service',
+    read: 'service', write: 'service',
     columns: ['id', 'data', 'updated_ms'],
     primaryKey: ['id'],
   },
