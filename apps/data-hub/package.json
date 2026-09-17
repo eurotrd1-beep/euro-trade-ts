@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "migrate:local": "wrangler d1 execute euro-trade --local --file migrations/0001_schema.sql",
-    "migrate:remote": "wrangler d1 execute euro-trade --remote --file migrations/0001_schema.sql"
+    "migrate:remote": "wrangler d1 execute euro-trade --remote --file migrations/0001_schema.sql",
+    "parity": "vitest run --config vitest.parity.config.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250601.0",
