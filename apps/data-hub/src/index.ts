@@ -61,6 +61,10 @@ import { decide, type Caller } from './access.js';
 import { buildSelect, buildWrite, parseQuery, type Write } from './db.js';
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 import { prune } from './prune.js';
+import {
+  expiresAt, planPrune, planRecord, planRefreshDaily, planResolve, utcDay,
+  type IncomingSignal, type Resolution,
+} from './pipeline.js';
 
 export interface Env {
   DB: D1Database;
@@ -294,6 +298,132 @@ export default {
       } catch (e) {
         console.error('click failed', e instanceof Error ? e.message : e);
         return json({ error: 'write failed' }, 500);
+      }
+    }
+
+    // ── The signal pipeline ────────────────────────────────────────────────
+    //
+    // Four endpoints, service-only, mirroring the four Postgres functions the
+    // proxy calls. They write the published record — what a trade's outcome
+    // was and what the statistics say — so there is no caller below `service`
+    // and no way to reach them with an account id.
+    if (url.pathname.startsWith('/v1/pipeline/')) {
+      if (caller.kind !== 'service') return json({ error: 'service only' }, 403);
+
+      let body: Record<string, unknown>;
+      try {
+        body = (await request.json()) as Record<string, unknown>;
+      } catch {
+        return json({ error: 'body must be JSON' }, 400);
+      }
+
+      try {
+        // ── record: insert a batch, or refuse it whole ────────────────────
+        if (url.pathname === '/v1/pipeline/record') {
+          const rows = (Array.isArray(body['rows']) ? body['rows'] : []) as IncomingSignal[];
+          const day = utcDay(Date.now());
+
+          await env.DB.prepare(
+            'INSERT INTO "signal_write_budget" ("day") VALUES (?) ON CONFLICT ("day") DO NOTHING',
+          ).bind(day).run();
+          const budget = await env.DB.prepare(
+            'SELECT "written", "max_rows" FROM "signal_write_budget" WHERE "day" = ?',
+          ).bind(day).first<{ written: number; max_rows: number }>();
+
+          const plan = planRecord(rows, budget ?? { written: 0, max_rows: 20000 });
+
+          if (plan.kind === 'empty') {
+            return json({ inserted: 0, skipped: 0, capped: false, remaining: 0, ids: [] });
+          }
+          if (plan.kind === 'capped') {
+            await env.DB.prepare(
+              'UPDATE "signal_write_budget" SET "capped" = 1 WHERE "day" = ?',
+            ).bind(day).run();
+            return json({
+              inserted: 0, skipped: plan.skipped, capped: true,
+              remaining: plan.remaining, ids: [],
+            });
+          }
+
+          // One statement per row rather than one batch, because the ids of
+          // the rows that actually landed have to come back — a row skipped by
+          // ON CONFLICT must not appear in the list the caller schedules
+          // settlements from.
+          const ids: unknown[] = [];
+          let inserted = 0;
+          for (let i = 0; i < plan.statements.length; i++) {
+            const st = plan.statements[i]!;
+            const res = await env.DB.prepare(st.sql).bind(...st.binds).run();
+            if ((res.meta?.changes ?? 0) === 0) continue;
+            inserted++;
+            const row = rows[i]!;
+            const createdMs = st.binds[st.binds.length - 1] as number;
+            ids.push({
+              id: res.meta?.last_row_id,
+              symbol: row.symbol,
+              entry_price: row.entry_price,
+              expires_at: expiresAt(createdMs, row.expiry_seconds),
+            });
+          }
+
+          await env.DB.prepare(
+            'UPDATE "signal_write_budget" SET "written" = "written" + ? WHERE "day" = ?',
+          ).bind(inserted, day).run();
+
+          const b = budget ?? { written: 0, max_rows: 20000 };
+          return json({
+            inserted,
+            skipped: rows.length - inserted,
+            capped: false,
+            remaining: b.max_rows - b.written - inserted,
+            ids,
+          });
+        }
+
+        // ── resolve: settle, once, only what is still pending ─────────────
+        if (url.pathname === '/v1/pipeline/resolve') {
+          const rows = (Array.isArray(body['rows']) ? body['rows'] : []) as Resolution[];
+          const now = Date.now();
+          let settled = 0;
+          for (const st of planResolve(rows, now)) {
+            const res = await env.DB.prepare(st.sql).bind(...st.binds).run();
+            settled += res.meta?.changes ?? 0;
+          }
+          return json({ settled });
+        }
+
+        // ── refresh: rebuild the aggregate for a range ────────────────────
+        if (url.pathname === '/v1/pipeline/refresh') {
+          const from = String(body['from'] ?? '');
+          const to = String(body['to'] ?? '');
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+            return json({ error: 'from and to must be YYYY-MM-DD' }, 400);
+          }
+          const st = planRefreshDaily(from, to);
+          const res = await env.DB.prepare(st.sql).bind(...st.binds).run();
+          // "changed", not "touched" — see the note in pipeline.ts.
+          return json({ changed: res.meta?.changes ?? 0 });
+        }
+
+        // ── prune: aggregate first, then delete ──────────────────────────
+        if (url.pathname === '/v1/pipeline/prune') {
+          const keepDays = Number(body['keep_days'] ?? 30);
+          if (!Number.isFinite(keepDays) || keepDays < 1) {
+            return json({ error: 'keep_days must be a positive number' }, 400);
+          }
+          const plan = planPrune(keepDays, Date.now());
+          // The summary of what is about to be deleted is made final BEFORE
+          // the delete. The other order leaves those days permanently short,
+          // and they read as a quiet week rather than a missing one.
+          await env.DB.prepare(plan.refresh.sql).bind(...plan.refresh.binds).run();
+          const res = await env.DB.prepare(plan.del.sql).bind(...plan.del.binds).run();
+          return json({ deleted: res.meta?.changes ?? 0, cut: plan.cutDay });
+        }
+
+        return json({ error: 'not found' }, 404);
+      } catch (e) {
+        console.error('pipeline', url.pathname, e instanceof Error ? e.message : e);
+        return json({ error: 'pipeline failed' }, 500);
       }
     }
 
