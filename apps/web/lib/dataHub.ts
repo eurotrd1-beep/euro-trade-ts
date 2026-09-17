@@ -77,6 +77,20 @@ export type DataMode = 'supabase' | 'mirror' | 'd1';
  * touch, rather than by judgement: they touch these and nothing else.
  */
 const SUPABASE_ONLY: ReadonlySet<string> = new Set([
+  // ── configs: because the ADMIN still writes it through Supabase ──────────
+  //
+  // Not part of the pipeline. It is here because a table has to be read from
+  // the database it is written to, and the admin panel has not moved yet: it
+  // writes `configs` with the anon key, and the hub requires the admin secret
+  // for that table, which no browser holds yet.
+  //
+  // Left on D1, the next maintenance banner, VIP grant, theme change or
+  // price_system switch would be written to Supabase and read from D1 — the
+  // admin would see it saved and no user would ever receive it. Nothing would
+  // error. Caught before it cost a config change; it moves back the moment the
+  // admin does.
+  'configs',
+
   'signals',
   'signal_daily',
   'signal_write_budget',

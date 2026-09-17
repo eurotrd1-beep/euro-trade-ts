@@ -141,7 +141,9 @@ describe('mirror mode reads D1 and falls back', () => {
 
   it('falls back when the network throws, not just on a bad status', async () => {
     fetchMock.mockRejectedValue(new Error('offline'));
-    const { data } = await db().from('configs').select('*');
+    // `candles`, not `configs` — configs is pinned to Supabase until the admin
+    // moves, so it never reaches the hub and could never fall back.
+    const { data } = await db().from('candles').select('*');
     expect(data).toEqual([{ from: 'supabase' }]);
     expect(hubStats.fallbacks).toBe(1);
   });
@@ -320,12 +322,23 @@ describe('the signal pipeline does not move', () => {
 
   it('leaves everything else on the hub', async () => {
     fetchMock.mockReturnValue(hubOk([{ from: 'd1' }]));
-    for (const t of ['users', 'signal_history', 'configs', 'candles', 'clicks']) {
+    for (const t of ['users', 'signal_history', 'candles', 'clicks', 'pairs']) {
       supabaseCalls.length = 0;
       const { data } = await db().from(t).select('*');
       expect(data, t).toEqual([{ from: 'd1' }]);
       expect(supabaseCalls, t).toEqual([]);
     }
+  });
+
+  it('keeps configs on Supabase because the ADMIN still writes it there', () => {
+    // Not part of the pipeline. A table has to be read from the database it is
+    // written to, and the admin panel writes configs with the anon key while
+    // the hub requires the admin secret for it — which no browser holds yet.
+    //
+    // Read from D1 and written to Supabase, the next maintenance banner, VIP
+    // grant or price_system switch would be saved by the admin and received by
+    // nobody, with no error anywhere.
+    expect(staysOnSupabase('configs')).toBe(true);
   });
 
   it('keeps strategy_versions because a foreign key points at it', () => {
