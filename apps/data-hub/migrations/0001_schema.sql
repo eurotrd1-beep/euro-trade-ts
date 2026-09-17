@@ -39,7 +39,20 @@ CREATE TABLE IF NOT EXISTS candles (
   data        TEXT NOT NULL CHECK (json_valid(data)),
   updated_ms  INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS candles_updated ON candles (updated_ms);
+-- NO INDEX ON updated_ms, deliberately.
+--
+-- There was one, and it cost more than everything it saved. D1 bills index
+-- writes as row writes, so every candle upsert cost two instead of one — and
+-- candle upserts are the single largest write source in the system, measured
+-- at 1,611 per pair per day. The index doubled the cost of the busiest table
+-- in the database.
+--
+-- Nothing read it. Every query against `candles` is by `key`, which is the
+-- primary key; the table is bounded at one row per symbol+timeframe and is
+-- never pruned by age, so there is no range scan over time to serve.
+--
+-- Halving that write cost is the difference between 22 pairs and 28 at the
+-- same fraction of the daily limit.
 
 CREATE TABLE IF NOT EXISTS price_snapshot (
   id          TEXT PRIMARY KEY,               -- always 'otc_prices'

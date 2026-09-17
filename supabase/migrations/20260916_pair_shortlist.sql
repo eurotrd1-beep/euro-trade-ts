@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- قائمة مختصرة — 18 زوج بدل 89
+-- قائمة مختصرة — 25 زوج بدل 89
 --
 -- الاختيار اتعمل على السيولة والشهرة العالمية للزوج نفسه، مش على أي إحصائية
 -- من بياناتنا. السبب إن اللي متخزّن نافذة 100 شمعة متدحرجة لكل سلسلة، وده
@@ -67,29 +67,35 @@ LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT sym IN (
-    -- رئيسية، سوق حقيقي (بتقفل نهاية الأسبوع)
-    'EURUSD',      -- 1  الأكبر عالميًا
-    'USDJPY',      -- 2
-    'GBPUSD',      -- 3
-    'USDCAD',      -- 4
-    'AUDUSD',      -- 5
-    'USDCHF',      -- 6
+    -- رئيسية، سوق حقيقي
+    'EURUSD',
+    'USDJPY',
+    'GBPUSD',
+    'USDCHF',
+    'USDCAD',
+    'AUDUSD',
     -- كروسات معروفة، سوق حقيقي
-    'EURJPY',      -- أكبر كروس من غير دولار
+    'EURJPY',
     'GBPJPY',
     'EURCHF',
     'AUDJPY',
-    -- رئيسية OTC (٧ أيام)
+    'CHFJPY',
+    'CADJPY',
+    -- OTC — بتشتغل السبت والحد كمان
     'EURUSD_otc',
     'USDJPY_otc',
     'GBPUSD_otc',
+    'USDCHF_otc',
     'USDCAD_otc',
-    'USDCHF_otc',  -- بديل AUDUSD_otc الواقف
-    'NZDUSD_otc',  -- النسخة الوحيدة المتاحة من NZD/USD
-    -- كروسات OTC
-    'GBPJPY_otc',  -- بديل EURJPY_otc الواقف
-    -- معادن OTC
-    'XAUUSD_otc'   -- بديل XAUUSD المجمّد
+    'AUDUSD_otc',
+    'NZDUSD_otc',
+    'EURJPY_otc',
+    'GBPJPY_otc',
+    'EURCHF_otc',
+    'AUDJPY_otc',
+    'CHFJPY_otc',
+    -- الذهب — OTC بس، الحقيقي ميت
+    'XAUUSD_otc'
   );
   -- ── متشالين مؤقتًا، لحد ما نتأكد ─────────────────────────────────────────
   --

@@ -8,7 +8,7 @@
  * what survives in the database. A drift between any two is a bug nobody sees
  * until the health check warns or a pair quietly comes back to life.
  *
- * ── HOW THE EIGHTEEN WERE CHOSEN ───────────────────────────────────────────
+ * ── HOW THE TWENTY-FIVE WERE CHOSEN ────────────────────────────────────────
  *
  * On global liquidity and the fame of the pair itself, never on our own numbers
  * — the stored candles are a rolling window of 100 per series, which cannot
@@ -41,9 +41,14 @@ const keptInSql = (): string[] => {
 const symbols = DEFAULT_CURRENCY_PAIRS.map((p) => p.chartSymbol);
 
 describe('the shortlist', () => {
-  it('is eighteen pairs, and the count says eighteen', () => {
-    expect(DEFAULT_CURRENCY_PAIRS).toHaveLength(18);
-    expect(CATALOGUE_SYMBOLS).toBe(18);
+  it('is twenty-five pairs, and the count says twenty-five', () => {
+    // The number is a BUDGET. Candle upserts are the largest write source in
+    // the system — 1,611 per pair per day, measured — against D1's 100,000
+    // row writes a day. Twenty-five is 49% with the price snapshot included.
+    // Thirty was 57%; before the candles_updated index was dropped, thirty was
+    // 105% — over the limit, which blocks every query until 00:00 UTC.
+    expect(DEFAULT_CURRENCY_PAIRS).toHaveLength(25);
+    expect(CATALOGUE_SYMBOLS).toBe(25);
   });
 
   it('is the same list the migration keeps', () => {
@@ -54,9 +59,9 @@ describe('the shortlist', () => {
     expect(new Set(symbols).size).toBe(symbols.length);
   });
 
-  it('holds the six largest USD pairs and four known crosses, on the real market', () => {
+  it('holds the six largest USD pairs and six known crosses, on the real market', () => {
     for (const s of ['EURUSD', 'USDJPY', 'GBPUSD', 'USDCAD', 'AUDUSD', 'USDCHF',
-                     'EURJPY', 'GBPJPY', 'EURCHF', 'AUDJPY']) {
+                     'EURJPY', 'GBPJPY', 'EURCHF', 'AUDJPY', 'CHFJPY', 'CADJPY']) {
       expect(symbols).toContain(s);
       expect(DEFAULT_CURRENCY_PAIRS.find((p) => p.chartSymbol === s)?.isOtc).toBe(false);
     }
@@ -66,10 +71,10 @@ describe('the shortlist', () => {
     // The real market closes Friday night. Whatever is left has to be OTC, and
     // one or two instruments is not a product.
     const otc = DEFAULT_CURRENCY_PAIRS.filter((p) => p.isOtc);
-    // Eight, down from ten: silver and EUR/GBP were suspended over a price
-    // mismatch and both happened to be OTC. Still enough that a Saturday is the
-    // same product on fewer instruments rather than a different one.
-    expect(otc.length).toBeGreaterThanOrEqual(8);
+    // Thirteen. Silver and EUR/GBP stay suspended over the price mismatch, so
+    // a Saturday is the same product on fewer instruments rather than a
+    // different one.
+    expect(otc.length).toBeGreaterThanOrEqual(12);
   });
 
   it('drops every feed the liveness reading called dead', () => {
@@ -115,14 +120,27 @@ describe('the shortlist', () => {
   });
 
   it('doubles up only on the pairs the weekend needs', () => {
-    // Six pairs are carried in both forms on purpose: the weekend has to be the
-    // same product as the weekday, so the majors and the best-known JPY cross
-    // each have an OTC twin. Everything else appears exactly once.
+    // Eleven pairs are carried in both forms on purpose: the weekend has to be
+    // the same product as the weekday, so every major and every cross that has
+    // a live OTC twin carries one. Everything else appears exactly once.
+    //
+    // NZD/USD and gold are the exceptions in the other direction — they exist
+    // ONLY as OTC, because Pocket Option advertises no real-market NZD/USD and
+    // the real gold feed is dead.
     const both = symbols
       .filter((s) => s.endsWith('_otc'))
       .map((s) => s.slice(0, -4))
       .filter((base) => symbols.includes(base));
-    expect(both.sort()).toEqual(['GBPJPY', 'GBPUSD', 'EURUSD', 'USDCAD', 'USDCHF', 'USDJPY'].sort());
+    expect(both.sort()).toEqual([
+      'AUDJPY', 'AUDUSD', 'CHFJPY', 'EURCHF', 'EURJPY',
+      'EURUSD', 'GBPJPY', 'GBPUSD', 'USDCAD', 'USDCHF', 'USDJPY',
+    ].sort());
+
+    // And the two that are OTC-only.
+    expect(symbols).toContain('NZDUSD_otc');
+    expect(symbols).not.toContain('NZDUSD');
+    expect(symbols).toContain('XAUUSD_otc');
+    expect(symbols).not.toContain('XAUUSD');
   });
 
   it('has no crypto anywhere', () => {
