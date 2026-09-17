@@ -17,6 +17,8 @@
  * Both are best-effort. A signal is never blocked on a notification.
  */
 
+import { isQuotaActive } from './quota';
+
 interface LocalNotificationsPlugin {
   schedule(options: {
     notifications: Array<{
@@ -125,6 +127,16 @@ export function notify(title: string, body: string): void {
   // forgot would be a notification arriving after the user switched them off,
   // which is the exact complaint this exists to prevent.
   if (!alertsEnabled()) return;
+
+  // Nor while D1's daily quota is spent: the signals column is covered with
+  // "signals are paused", and a notification saying otherwise would contradict
+  // it. Here for the same reason as the check above — one place every
+  // notification passes. The engine is untouched and keeps running.
+  //
+  // Nothing is queued. A notification about a moment that happened during the
+  // lockout would be wrong by the time it arrived, so it is dropped rather
+  // than delivered at midnight.
+  if (isQuotaActive()) return;
 
   const plugin = capacitorPlugin();
   if (plugin) {

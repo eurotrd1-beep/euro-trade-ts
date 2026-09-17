@@ -1,11 +1,19 @@
 /**
- * The ported pipeline against the live Postgres one, on the real signals.
+ * The ported pipeline against the Postgres one, on the real signals.
+ *
+ * ── AGAINST THE BACKUP, NOT THE LIVE DATABASE ──────────────────────────────
+ *
+ * It read live Postgres until Postgres was retired. It now reads the pg_dump
+ * taken before the move (`backup/data.sql`), which holds the same rows — every
+ * signal and every aggregate as Postgres built them. As a fixture that is an
+ * improvement: a live table keeps receiving rows, so the same code could get a
+ * different answer on two runs. This file does not move.
  *
  * ── WHAT THIS CATCHES THAT A UNIT TEST CANNOT ──────────────────────────────
  *
  * A unit test checks the rules I understood. This checks the rules I did not.
- * It loads every signal Postgres holds — 12,764 rows across 169 symbols, five
- * timeframes, four slots and every outcome the settlement produces — runs the
+ * It loads every signal Postgres held — thousands of rows across every symbol,
+ * five timeframes, four slots and every outcome the settlement produces — runs the
  * ported SQL over a copy of them in SQLite, and compares the aggregate against
  * the one Postgres built from the same rows.
  *
@@ -21,13 +29,13 @@
  */
 
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { planRefreshDaily, outcomeFor, planRecord, utcDay } from '../src/pipeline.js';
+import { pgBool, pgNumber, pgTime, readTable } from './backup.js';
 
-const SUPABASE_URL = 'https://dlzqdmqkvlvwnjhqxqym.supabase.co';
-const KEY = process.env['SUPABASE_SERVICE_KEY'] ?? '';
+const DUMP = fileURLToPath(new URL('../backup/data.sql', import.meta.url));
 
 interface Db {
   exec(sql: string): void;
@@ -46,33 +54,41 @@ let db: Db;
 let signals: PgSignal[] = [];
 let pgDaily: Record<string, unknown>[] = [];
 
-async function page<T>(path: string): Promise<T[]> {
-  const out: T[] = [];
-  for (let off = 0; ; off += 1000) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}&offset=${off}&limit=1000`, {
-      headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
-    });
-    if (!res.ok) throw new Error(`Supabase ${res.status} on ${path}`);
-    const rows = (await res.json()) as T[];
-    out.push(...rows);
-    if (rows.length < 1000) return out;
-  }
-}
+/** The moment the dump was taken, as the newest signal in it records. */
+let snapshotMs = 0;
 
 beforeAll(async () => {
-  // Deliberately NOT skipped when the key is absent. A parity run that quietly
-  // does not run is the worst outcome here: the summary says green and nothing
-  // was compared.
-  if (!KEY) {
-    throw new Error('SUPABASE_SERVICE_KEY is required — this compares against the live database');
+  // Deliberately NOT skipped when the dump is absent. A parity run that
+  // quietly does not run is the worst outcome here: the summary says green and
+  // nothing was compared.
+  if (!existsSync(DUMP)) {
+    throw new Error(`the backup is required — ${DUMP} is missing`);
   }
 
-  signals = await page<PgSignal>(
-    'signals?select=id,created_at,symbol,timeframe,direction,bar_time,' +
-    'strategy_version_id,slot,confidence,score,entry_price,expiry_seconds,' +
-    'outcome,outcome_price,outcome_at,forced&order=id',
-  );
-  pgDaily = await page<Record<string, unknown>>('signal_daily?select=*&order=day');
+  // Typed to exactly what the REST API used to return, so the comparisons
+  // below are unchanged: ISO strings for times, numbers for numbers, a real
+  // boolean for `forced`.
+  signals = readTable(DUMP, 'signals').map((r): PgSignal => ({
+    id: pgNumber(r['id'])!,
+    created_at: new Date(pgTime(r['created_at'])!).toISOString(),
+    symbol: r['symbol']!,
+    timeframe: r['timeframe']!,
+    direction: r['direction']!,
+    bar_time: new Date(pgTime(r['bar_time'])!).toISOString(),
+    strategy_version_id: r['strategy_version_id'],
+    slot: r['slot']!,
+    confidence: pgNumber(r['confidence']),
+    score: pgNumber(r['score']),
+    entry_price: pgNumber(r['entry_price'])!,
+    expiry_seconds: pgNumber(r['expiry_seconds'])!,
+    outcome: r['outcome']!,
+    outcome_price: pgNumber(r['outcome_price']),
+    outcome_at: r['outcome_at'] === null ? null : new Date(pgTime(r['outcome_at'])!).toISOString(),
+    forced: pgBool(r['forced']),
+  })).sort((a, b) => a.id - b.id);
+
+  pgDaily = readTable(DUMP, 'signal_daily');
+  snapshotMs = Math.max(...signals.map((s) => Date.parse(s.created_at)));
 
   const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
   db = new DatabaseSync(':memory:') as Db;
@@ -99,7 +115,7 @@ beforeAll(async () => {
 });
 
 describe('there is something to compare', () => {
-  it('read the live signals', () => {
+  it('read the signals from the backup', () => {
     expect(signals.length).toBeGreaterThan(1000);
   });
 
@@ -143,7 +159,12 @@ describe('refresh_signal_daily, row by row against Postgres', () => {
     //
     // Every completed day is stable: no new signals arrive for it and the
     // rollup has long since run.
-    const today = new Date().toISOString().slice(0, 10);
+    //
+    // "Today" is the day the DUMP was taken, not the day this runs. Measured
+    // from the wall clock, a run next week would count the dump's last day as
+    // complete — and that day was still being rolled up when the dump was
+    // made, so it would fail on lag that has nothing to do with the port.
+    const today = new Date(snapshotMs).toISOString().slice(0, 10);
     const days = [...new Set(signals.map((s) => s.created_at.slice(0, 10)))]
       .filter((d) => d < today)
       .sort();

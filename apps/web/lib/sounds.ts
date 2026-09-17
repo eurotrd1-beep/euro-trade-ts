@@ -14,6 +14,8 @@
  * context is created once and reused.
  */
 
+import { isQuotaActive } from './quota';
+
 let ctx: AudioContext | null = null;
 
 type Ctor = typeof AudioContext;
@@ -58,6 +60,12 @@ interface Note {
 }
 
 function play(notes: Note[]): void {
+  // Silent while D1's daily quota is spent. The signals column says "signals
+  // are paused" then, and a signal sound under that cover would contradict it.
+  // The check is here, where every sound passes, rather than in the engine —
+  // the engine keeps generating exactly as before; only the sound is withheld.
+  if (isQuotaActive()) return;
+
   const c = audioContext();
   if (c === null) return;
   if (c.state === 'suspended') void c.resume();
