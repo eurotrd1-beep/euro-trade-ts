@@ -13,6 +13,7 @@
 
 import { supabase, hasChosen } from '@euro/shared';
 import { configureDataSource, db, dbBool, setDataAccount } from './dataHub';
+import { configureLive } from './live';
 import { loadSession } from './session';
 
 export type BootDestination =
@@ -85,7 +86,14 @@ async function applyDataSource(): Promise<void> {
       .select('data')
       .eq('id', 'data_source')
       .maybeSingle();
-    configureDataSource(data?.['data']);
+    const config = data?.['data'];
+    configureDataSource(config);
+    // Same row, same address: the live channel lives on the hub, so a config
+    // that names no hub has no live channel either — and the app falls back to
+    // the value it read at startup rather than to a socket pointing nowhere.
+    configureLive(typeof (config as { url?: unknown } | undefined)?.url === 'string'
+      ? String((config as { url: string }).url)
+      : '');
   } catch {
     // Unreachable means stay on Supabase, which is where we already are.
   }

@@ -31,6 +31,21 @@
     "crons": ["17 * * * *"]
   },
 
+  // ── The live channel ─────────────────────────────────────────────────────
+  // One Durable Object, one named instance, every open app attached to it. A
+  // Worker cannot hold a socket between requests; this can.
+  //
+  // SQLite-backed, because that is the only kind the Workers Free plan offers.
+  // Nothing here stores anything — the sockets live in the runtime, not in the
+  // object — but the backend still has to be declared, and declaring the one
+  // the free plan does not have fails at deploy.
+  "durable_objects": {
+    "bindings": [{ "name": "LIVE", "class_name": "LiveHub" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["LiveHub"] }
+  ],
+
   "observability": { "enabled": true }
 
   // ── SECRETS, not vars ────────────────────────────────────────────────────

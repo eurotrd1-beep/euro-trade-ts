@@ -11,22 +11,24 @@
  *
  * So: never replace these with polling.
  *
- * ── AND THE PART THAT DOES NOT MOVE TO D1 ─────────────────────────────────
+ * ── AND HOW THE PUSH WORKS NOW ────────────────────────────────────────────
  *
- * The migration splits this file in two. The INITIAL read of each row goes
- * through `db()`, so it comes from D1 as soon as the mode says so. The
- * subscriptions below stay on Supabase, because D1 has nothing like them:
- * there is no way to be told that a row changed.
+ * This file used to say Supabase kept this one job after everything else had
+ * moved, because D1 has no way to tell anyone a row changed. That is still true
+ * of D1 — the push comes from the Worker instead, which is the only thing that
+ * knows a row changed, through a Durable Object holding one socket per open
+ * app (`lib/live.ts`).
  *
- * That is not a gap left by accident, and the note above says why it cannot be
- * closed by the obvious means. Realtime sends a snapshot and then deltas; a 30
- * second poll re-downloaded everything for every user and burned 5.6 GB in two
- * days. Replacing these with polling is how that bill comes back.
+ * The shape is the same as before in the way that matters: a snapshot on
+ * arrival and a nudge per change, never a poll. The warning above still governs
+ * this file.
  *
- * So Supabase keeps this one job after everything else has moved, and the real
- * replacement is a push from the Worker — the hub already holds a socket per
- * client for prices, and a config change is the same shape of message. Until
- * that exists, this file is the reason the Supabase project stays alive.
+ * One difference worth knowing. A Supabase delta carried the new ROW; this
+ * carries only `{ table, ids }` and the listener re-reads. That is a security
+ * decision — `users` is owner-scoped, and a socket is not a credential, so a
+ * broadcast carrying rows would hand every open browser somebody else's role
+ * and ban state. It also means a reconnect can simply refetch, which is how a
+ * missed message becomes "a few seconds late" instead of "wrong until reload".
  *
  * One difference from Dart, and it is a deliberate improvement rather than a
  * behaviour change: the Dart screen opens ~10 separate `.stream()` calls, one
@@ -36,9 +38,10 @@
  * The data each listener sees is identical.
  */
 
-import { supabase, type UserRow } from '@euro/shared';
+import type { UserRow } from '@euro/shared';
 import { db } from './dataHub';
-import type { ConfigRow, PairRow } from '@euro/shared';
+import { onChange, onResync } from './live';
+import type { PairRow } from '@euro/shared';
 
 type ConfigListener = (data: Record<string, unknown>) => void;
 
@@ -74,32 +77,48 @@ const WATCHED_CONFIG_IDS = [
 ] as const;
 
 const configListeners = new Map<string, Set<ConfigListener>>();
-let configChannel: ReturnType<ReturnType<typeof supabase>['channel']> | null = null;
+let configWired = false;
 /** Last known value per row, so a late subscriber gets the snapshot at once. */
 const configCache = new Map<string, Record<string, unknown>>();
 
-function ensureConfigChannel(): void {
-  if (configChannel) return;
-
-  // One channel, one filtered subscription per row. Handlers must all be
-  // registered BEFORE subscribe() — postgres_changes bindings added afterwards
-  // are silently ignored — which is why the list is a constant rather than
-  // being grown as callers arrive.
-  let channel = supabase().channel('configs:watched');
-  for (const id of WATCHED_CONFIG_IDS) {
-    channel = channel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'configs', filter: `id=eq.${id}` },
-      (payload) => {
-        const row = (payload.new ?? payload.old) as ConfigRow | null;
-        if (!row?.id) return;
-        const data = (row.data ?? {}) as Record<string, unknown>;
-        configCache.set(row.id, data);
-        for (const fn of configListeners.get(row.id) ?? []) fn(data);
-      },
-    );
+/** Re-reads one row and hands it to whoever is watching it. */
+async function refetchConfig(id: string): Promise<void> {
+  try {
+    const { data } = await db()
+      .from<{ data: Record<string, unknown> }>('configs')
+      .select('data')
+      .eq('id', id)
+      .maybeSingle();
+    const value = (data?.['data'] ?? {}) as Record<string, unknown>;
+    configCache.set(id, value);
+    for (const fn of configListeners.get(id) ?? []) fn(value);
+  } catch {
+    // Leave every listener on the value it already has. A failed refetch is a
+    // stale screen for a few seconds; clearing the cache would be a blank one.
   }
-  configChannel = channel.subscribe();
+}
+
+function ensureConfigChannel(): void {
+  if (configWired) return;
+  configWired = true;
+
+  // The nudge names the rows that changed, so only those are re-read. A write
+  // that names none — which nothing does today — refetches everything watched,
+  // because "something in configs changed" with no id is not a reason to
+  // ignore it.
+  onChange((change) => {
+    if (change.table !== 'configs') return;
+    const ids = change.ids.length > 0
+      ? change.ids.filter((id) => configListeners.has(id))
+      : [...configListeners.keys()];
+    for (const id of ids) void refetchConfig(id);
+  });
+
+  // Nothing is queued for a client that was not connected, so a reconnect
+  // re-reads everything anybody is watching.
+  onResync(() => {
+    for (const id of configListeners.keys()) void refetchConfig(id);
+  });
 }
 
 /**
@@ -133,24 +152,9 @@ export function watchConfig(id: string, onData: ConfigListener): () => void {
   if (cached) {
     onData(cached);
   } else {
-    void (async () => {
-      try {
-        // The FIRST read goes through the data layer, which is D1 once the
-        // mode says so. The live subscription above stays on Supabase
-        // Realtime, because D1 has no equivalent — see the note at the top of
-        // this file.
-        const { data } = await db()
-          .from<{ data: Record<string, unknown> }>('configs')
-          .select('data')
-          .eq('id', id)
-          .maybeSingle();
-        const value = (data?.['data'] ?? {}) as Record<string, unknown>;
-        configCache.set(id, value);
-        onData(value);
-      } catch {
-        // Leave the caller on its documented default.
-      }
-    })();
+    // The snapshot. Same read the nudge triggers, so there is one code path
+    // for "what does this row say" rather than two that can drift.
+    void refetchConfig(id);
   }
 
   return () => {
@@ -162,34 +166,32 @@ export function watchConfig(id: string, onData: ConfigListener): () => void {
 export function watchPairs(onData: (pairs: PairRow[]) => void): () => void {
   let cancelled = false;
 
-  void (async () => {
+  // A delta could be applied in place, but the table is twenty-five rows and
+  // changes when an admin edits it — re-reading keeps ordering and filtering
+  // trivially correct, and costs one small query.
+  const read = async (onFail: 'empty' | 'keep'): Promise<void> => {
     try {
-      const { data } = await db().from<PairRow>('pairs').select('*').order('order');
+      const { data } = await db().from<PairRow>('pairs').select('*').order('order').limit(200);
       if (!cancelled) onData((data as PairRow[] | null) ?? []);
     } catch {
-      if (!cancelled) onData([]);
+      // On the FIRST read an empty list is the honest answer and the caller
+      // falls back to its built-in catalogue. On a later one it would replace a
+      // good list with nothing, so the previous list stays.
+      if (onFail === 'empty' && !cancelled) onData([]);
     }
-  })();
+  };
 
-  const channel = supabase()
-    .channel('pairs:all')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pairs' }, () => {
-      // A delta could be applied in place, but the table is tiny and changes
-      // are rare — re-reading keeps ordering and filtering trivially correct.
-      void (async () => {
-        try {
-          const { data } = await db().from<PairRow>('pairs').select('*').order('order');
-          if (!cancelled) onData((data as PairRow[] | null) ?? []);
-        } catch {
-          // Keep the previous list.
-        }
-      })();
-    })
-    .subscribe();
+  void read('empty');
+
+  const offChange = onChange((change) => {
+    if (change.table === 'pairs') void read('keep');
+  });
+  const offResync = onResync(() => { void read('keep'); });
 
   return () => {
     cancelled = true;
-    void supabase().removeChannel(channel);
+    offChange();
+    offResync();
   };
 }
 
@@ -205,23 +207,27 @@ export function watchUser(
       const { data } = await db().from<UserRow>('users').select('*').eq('id', accountId).maybeSingle();
       if (!cancelled) onData((data as Record<string, unknown> | null) ?? null);
     } catch {
-      // Keep the last known state rather than downgrading the user.
+      // Keep the last known state rather than downgrading the user. A failed
+      // read must never look like "this account lost its VIP".
     }
   }
 
   void read();
 
-  const channel = supabase()
-    .channel(`users:${accountId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'users', filter: `id=eq.${accountId}` },
-      () => void read(),
-    )
-    .subscribe();
+  // The nudge carries ids, never rows — `users` is owner-scoped and a socket is
+  // not a credential, so the hub tells everybody that *an* id changed and each
+  // client re-reads under its own scope. A client that asks for somebody else's
+  // row gets nothing, which is why naming the id in the clear is safe.
+  const offChange = onChange((change) => {
+    if (change.table !== 'users') return;
+    if (change.ids.length > 0 && !change.ids.includes(accountId)) return;
+    void read();
+  });
+  const offResync = onResync(() => { void read(); });
 
   return () => {
     cancelled = true;
-    void supabase().removeChannel(channel);
+    offChange();
+    offResync();
   };
 }

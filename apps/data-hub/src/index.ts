@@ -63,6 +63,7 @@ import {
 } from './db.js';
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 import { countWrites, shouldShed } from './budget.js';
+import { BROADCAST_TABLES, LiveHub } from './live.js';
 import { prune } from './prune.js';
 import {
   expiresAt, planPrune, planRecord, planRefreshDaily, planResolve, utcDay,
@@ -75,6 +76,8 @@ export interface Env {
   SERVICE_SECRET: string;
   /** The admin panel. */
   ADMIN_SECRET: string;
+  /** The live channel every open app is attached to. */
+  LIVE: DurableObjectNamespace;
 }
 
 const CORS: Record<string, string> = {
@@ -206,6 +209,8 @@ function json(body: unknown, status = 200): Response {
     headers: { 'Content-Type': 'application/json', ...CORS },
   });
 }
+
+export { LiveHub };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -450,6 +455,23 @@ export default {
       }
     }
 
+    // ── The live channel ────────────────────────────────────────────────────
+    //
+    // Open to anyone, and it does not need to be anything else: the only thing
+    // that crosses it is "row X of table Y changed". Nothing about a row's
+    // CONTENTS is sent, so a listener learns nothing it could not learn by
+    // watching the admin panel from across the room — and to actually read the
+    // row it still has to satisfy the same rules as any other read.
+    //
+    // One named instance, so every app in the world lands on the same object.
+    if (url.pathname === '/v1/live') {
+      if (request.headers.get('Upgrade') !== 'websocket') {
+        return json({ error: 'expected a websocket upgrade' }, 426);
+      }
+      const id = env.LIVE.idFromName('global');
+      return env.LIVE.get(id).fetch(new Request('https://live/connect', request));
+    }
+
     // ── The read path ───────────────────────────────────────────────────────
     //
     // GET /v1/<table>?cols=…&eq=col:value&order=col.desc&limit=n&count=1
@@ -574,6 +596,39 @@ export default {
         // Counted after the fact, from what D1 reports it actually wrote — an
         // UPDATE that matched nothing costs nothing and should not be charged.
         ctx.waitUntil(countWrites(changes));
+
+        // ── Tell the open apps ────────────────────────────────────────────
+        //
+        // Only when rows actually changed. An upsert that wrote the same values
+        // reports `changes: 0`, and waking every phone to re-read a row that is
+        // identical is the kind of chatter that made the old subscription
+        // expensive in the first place.
+        //
+        // `waitUntil`, so a slow or failed broadcast cannot turn a successful
+        // write into a failed request. The app's own read is the source of
+        // truth; this is a nudge, and a missed nudge costs a stale screen until
+        // the next one, not a lost write.
+        if (changes > 0 && BROADCAST_TABLES.includes(read[1]!)) {
+          const ids = rows
+            .map((r) => (r as Record<string, unknown>)?.['id'])
+            .filter((v): v is string | number => v !== undefined && v !== null)
+            .map(String);
+          const fromWhere = where
+            .flatMap((f) => (f.values ? f.values : f.value !== undefined ? [f.value] : []))
+            .map(String);
+          ctx.waitUntil(
+            env.LIVE.get(env.LIVE.idFromName('global')).fetch('https://live/publish', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                t: 'changed',
+                table: read[1],
+                ids: [...new Set([...ids, ...fromWhere])].slice(0, 50),
+              }),
+            }).then(() => undefined, () => undefined),
+          );
+        }
+
         return json({ ok: true, rows: changes });
       } catch (e) {
         console.error('write failed', read[1], e instanceof Error ? e.message : e);
