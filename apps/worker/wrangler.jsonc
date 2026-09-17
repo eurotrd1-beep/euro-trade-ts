@@ -21,7 +21,7 @@
   // semantics, so it stays pinned to what was live.
   "compatibility_date": "2025-06-01",
   "vars": {
-    "ORIGIN_URL": "https://euro-trade-proxy.onrender.com"
+    "ORIGIN_URL": "https://euro-trade-proxy-tbpg.onrender.com"
   },
   "observability": { "enabled": true }
 }
