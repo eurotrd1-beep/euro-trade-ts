@@ -337,6 +337,67 @@ class UpdateChain {
   }
 }
 
+// ── The two ported Postgres functions ───────────────────────────────────────
+//
+// Neither is a table read, so neither goes through the chain above. They follow
+// the same mode rules: mirror falls back, d1 does not.
+
+/**
+ * `signal_stats`, as an aggregate the hub computes.
+ *
+ * Returns null when the caller should use Supabase — either the mode says so,
+ * or the hub failed and we are in a mode that may fall back. Null is "ask the
+ * other one", not "no data": an empty array here would render as a screen with
+ * no trades on it, which is a different and much worse answer.
+ */
+export async function statsViaHub(
+  params: Record<string, string | null>,
+): Promise<Record<string, unknown>[] | null> {
+  if (mode === 'supabase') return null;
+
+  const query = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== null) query.set(k, v);
+
+  try {
+    hubStats.reads++;
+    const res = await fetch(`${hubUrl}/v1/stats?${query}`);
+    if (!res.ok) throw new Error(`${res.status}`);
+    const body = (await res.json()) as { rows?: Record<string, unknown>[] };
+    return body.rows ?? [];
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    hubStats.lastError = `stats: ${message}`;
+    if (mode === 'mirror') { hubStats.fallbacks++; return null; }
+    hubStats.errors++;
+    throw new Error(message);
+  }
+}
+
+/**
+ * `increment_click`, the one thing the public may write.
+ *
+ * Silent on failure in every mode, which is the behaviour it already had: a
+ * counter that did not increment is not a reason to interrupt somebody
+ * signing in, and the RPC was fire-and-forget too.
+ */
+export async function countClick(row: string, field: string): Promise<void> {
+  try {
+    if (mode === 'd1') {
+      await fetch(`${hubUrl}/v1/click`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row, field }),
+      });
+      return;
+    }
+    await supabase().rpc('increment_click', { row_id: row, field_name: field });
+  } catch {
+    // Analytics only. A counter that did not increment is not a reason to
+    // interrupt a login or block an advert, and neither original awaited a
+    // result either.
+  }
+}
+
 /** The entry point. `db().from('candles').select('*').eq('key', k)`. */
 export function db(): { from: <Row = Record<string, unknown>>(table: string) => Table<Row> } {
   return { from: <Row,>(table: string) => new Table<Row>(table) };

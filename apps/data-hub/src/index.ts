@@ -59,6 +59,7 @@
 
 import { decide, type Caller } from './access.js';
 import { buildSelect, buildWrite, parseQuery, type Write } from './db.js';
+import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 
 export interface Env {
   DB: D1Database;
@@ -240,6 +241,59 @@ export default {
         // would make a scoped allow indistinguishable from an open one.
         scopedBy: d.scope?.column ?? null,
       }, d.allowed ? 200 : 403);
+    }
+
+    // ── The two ported Postgres functions ──────────────────────────────────
+    //
+    // Fixed statements a request supplies values to, which is what a function
+    // was. They are separate from the generic path on purpose: "we need one
+    // more query" is how a generic path becomes a place to express arbitrary
+    // SQL.
+
+    // GET /v1/stats?from=&to=&group_by=&slot=&version=&symbol=
+    if (url.pathname === '/v1/stats' && request.method === 'GET') {
+      if (!statsReadableBy(caller)) return json({ error: 'not allowed' }, 403);
+
+      const filter = parseStats(url.searchParams);
+      if (filter === null) {
+        // A malformed date would compare as text against a real one and return
+        // a silently wrong range — worse than a refusal, because it looks like
+        // an answer.
+        return json({ error: 'from and to must be YYYY-MM-DD' }, 400);
+      }
+
+      try {
+        const { sql, binds } = buildStats(filter);
+        const result = await env.DB.prepare(sql).bind(...binds).all();
+        return json({ rows: result.results ?? [] });
+      } catch (e) {
+        console.error('stats failed', e instanceof Error ? e.message : e);
+        return json({ error: 'query failed' }, 500);
+      }
+    }
+
+    // POST /v1/click  { "row": "brokers", "field": "pocketLogins" }
+    //
+    // The one thing the public may write, and it can only make a number
+    // larger by one. `clicks` itself stays service-write.
+    if (url.pathname === '/v1/click' && request.method === 'POST') {
+      let body: { row?: unknown; field?: unknown };
+      try {
+        body = (await request.json()) as { row?: unknown; field?: unknown };
+      } catch {
+        return json({ error: 'body must be JSON' }, 400);
+      }
+
+      const statement = buildClick(String(body.row ?? ''), String(body.field ?? ''));
+      if (statement === null) return json({ error: 'bad counter name' }, 400);
+
+      try {
+        await env.DB.prepare(statement.sql).bind(...statement.binds).run();
+        return json({ ok: true });
+      } catch (e) {
+        console.error('click failed', e instanceof Error ? e.message : e);
+        return json({ error: 'write failed' }, 500);
+      }
     }
 
     // ── The read path ───────────────────────────────────────────────────────

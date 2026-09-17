@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, tr } from '@euro/shared';
+import { countClick } from '@/lib/dataHub';
 import { TelegramIcon } from './BrandIcons';
 import styles from './PromoOverlay.module.css';
 
@@ -49,11 +50,9 @@ function fmtCountdown(ms: number): string {
 }
 
 function bump(field: 'views' | 'cta'): void {
-  void supabase()
-    .rpc('increment_click', { row_id: 'promo', field_name: field })
-    .then(undefined, () => {
-      // Analytics only — never block the ad on a counter.
-    });
+  // Analytics only — never block the ad on a counter. countClick swallows its
+  // own failures, so there is nothing left to catch here.
+  void countClick('promo', field);
 }
 
 export function PromoOverlay({

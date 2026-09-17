@@ -8,7 +8,7 @@
  */
 
 import { saveSession } from './session';
-import { db, setDataAccount } from './dataHub';
+import { countClick, db, setDataAccount } from './dataHub';
 import {
   supabase,
   getDeviceId,
@@ -152,14 +152,11 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
 
     // Analytics: one counter for the login, one for the original click.
     const loginKey = clickFieldFor(req.brokerKey, req.broker);
-    await sb.rpc('increment_click', { row_id: 'brokers', field_name: `${loginKey}Logins` });
+    await countClick('brokers', `${loginKey}Logins`);
 
     if (lastClickedBroker) {
       const savedKey = readLocal('last_clicked_broker_key');
-      await sb.rpc('increment_click', {
-        row_id: 'brokers',
-        field_name: clickFieldFor(savedKey, lastClickedBroker),
-      });
+      await countClick('brokers', clickFieldFor(savedKey, lastClickedBroker));
     }
 
     return {
