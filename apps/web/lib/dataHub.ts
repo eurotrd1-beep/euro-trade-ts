@@ -305,7 +305,14 @@ class Table<Row> {
     return this.hubWrite('upsert', values, []);
   }
 
-  async update(values: Record<string, unknown>): Promise<UpdateChain> {
+  /**
+   * Synchronous, like the Supabase builder it stands in for.
+   *
+   * It returned a Promise<UpdateChain> at first, which made every call site
+   * write `(await update(x)).eq(...)` — and an awaited chain that has not been
+   * given its `.eq()` yet is an UPDATE with no WHERE waiting to happen.
+   */
+  update(values: Record<string, unknown>): UpdateChain {
     return new UpdateChain(this.name, values);
   }
 
@@ -441,6 +448,40 @@ export async function countClick(row: string, field: string): Promise<void> {
     // interrupt a login or block an advert, and neither original awaited a
     // result either.
   }
+}
+
+/**
+ * A `users` row, written for whichever database owns it.
+ *
+ * ── TWO COLUMNS DO NOT SURVIVE A STRAIGHT COPY ─────────────────────────────
+ *
+ * `vip_expiry` is a timestamptz in Postgres and `vip_expiry_ms` an INTEGER in
+ * D1; `created_at` and `created_ms` likewise. Sending the Postgres names to D1
+ * is refused by the column whitelist, which is the good outcome — the bad one
+ * is sending an ISO STRING to a column typed for milliseconds, because SQLite
+ * would store it happily and every later comparison against a number would be
+ * false. A VIP account whose expiry compares as never-expired, or as
+ * always-expired, and no error either way.
+ *
+ * So the translation lives here, once, rather than at the call site.
+ */
+export function usersRowFor(values: Record<string, unknown>): Record<string, unknown> {
+  if (mode !== 'd1') return values;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values)) {
+    if (key === 'vip_expiry' || key === 'created_at') {
+      const column = key === 'vip_expiry' ? 'vip_expiry_ms' : 'created_ms';
+      if (value === null || value === undefined) { out[column] = null; continue; }
+      const ms = typeof value === 'number' ? value : Date.parse(String(value));
+      // A date that will not parse is left out rather than written as NaN or
+      // 0 — 0 is 1970, which reads as an expiry that passed long ago.
+      if (Number.isFinite(ms)) out[column] = Math.round(ms);
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
 }
 
 /** The entry point. `db().from('candles').select('*').eq('key', k)`. */

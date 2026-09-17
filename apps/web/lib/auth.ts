@@ -8,7 +8,7 @@
  */
 
 import { saveSession } from './session';
-import { countClick, db, setDataAccount } from './dataHub';
+import { countClick, db, setDataAccount, usersRowFor } from './dataHub';
 import {
   supabase,
   getDeviceId,
@@ -129,7 +129,11 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
       }
 
       if (Object.keys(updates).length > 0) {
-        await sb.from('users').update(updates).eq('id', accountId);
+        // Through db(), so the write lands wherever the reads come from. It
+        // used to go straight to Supabase, which in d1 mode would have meant
+        // a device rebinding that the app could never see — reading one
+        // database and writing the other.
+        await db().from('users').update(usersRowFor(updates)).eq('id', accountId).run();
       }
 
       return { ok: true, role, vipExpiry };
@@ -140,7 +144,7 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
     const grant = await globalVipGrant();
 
     setDataAccount(accountId);
-    await sb.from('users').upsert({
+    await db().from('users').upsert(usersRowFor({
       id: accountId,
       broker: req.broker,
       role: grant.role,
@@ -148,7 +152,7 @@ export async function verifyAccount(req: LoginRequest): Promise<LoginResult> {
       device_id: deviceId,
       clicked_broker: lastClickedBroker,
       created_at: new Date().toISOString(),
-    });
+    }));
 
     // Analytics: one counter for the login, one for the original click.
     const loginKey = clickFieldFor(req.brokerKey, req.broker);
