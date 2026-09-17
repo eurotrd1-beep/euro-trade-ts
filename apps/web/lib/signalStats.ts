@@ -25,7 +25,7 @@
  */
 
 import { supabase } from '@euro/shared';
-import { statsViaHub } from './dataHub';
+import { statsViaHub, staysOnSupabase } from './dataHub';
 
 /** A binary option paying 80–90% needs this much just to return the stake. */
 export const BREAKEVEN_LOW = 52.6;
@@ -149,9 +149,11 @@ export interface StatsFilter {
 
 /** One aggregate query. `groupBy` decides how many rows come back, never more than ~200. */
 export async function fetchStats(f: StatsFilter, groupBy: 'total' | 'day' | 'symbol' | 'slot' | 'version'): Promise<Bucket[]> {
-  // The hub first. Null means "ask Supabase" — the mode says so, or the hub
-  // failed in a mode that may fall back. It never means "no trades".
-  const viaHub = await statsViaHub({
+  // signal_daily stays on Supabase with the rest of the pipeline, so the
+  // aggregate over it does too — the hub would be summing a copy that stopped
+  // being written. The port is kept and tested for the stage where the
+  // pipeline itself moves.
+  const viaHub = staysOnSupabase('"signal_daily"') ? null : await statsViaHub({
     from: f.from,
     to: f.to,
     group_by: groupBy,

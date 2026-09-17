@@ -22,6 +22,15 @@
     }
   ],
 
+  // Retention, hourly. Not daily: each run deletes a bounded number of rows so
+  // a first pass cannot blow the 100,000 daily write limit, and hourly lets it
+  // catch up within a day instead of taking a week.
+  //
+  // 17 past the hour rather than :00, where every cron on the platform fires.
+  "triggers": {
+    "crons": ["17 * * * *"]
+  },
+
   "observability": { "enabled": true }
 
   // ── SECRETS, not vars ────────────────────────────────────────────────────

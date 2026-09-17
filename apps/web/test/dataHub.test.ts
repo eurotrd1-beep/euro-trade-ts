@@ -41,7 +41,7 @@ vi.mock('@euro/shared', () => {
 });
 
 const {
-  db, configureDataSource, currentMode, hubStats, setDataAccount, dbBool,
+  db, configureDataSource, currentMode, hubStats, setDataAccount, dbBool, staysOnSupabase,
 } = await import('../lib/dataHub.js');
 
 const HUB = 'https://data.example.com';
@@ -194,13 +194,16 @@ describe('the request the hub receives', () => {
 
   it('carries the filters, the order and the limit', async () => {
     fetchMock.mockReturnValue(hubOk([]));
-    await db().from('signals').select('id,symbol').eq('outcome', 'win')
-      .order('created_ms', { ascending: false }).limit(25);
+    // Any hub table. It used to be `signals`, which now stays on Supabase
+    // with the rest of the pipeline and so never reaches the hub at all — the
+    // table was incidental to what this checks.
+    await db().from('candles').select('key,data').eq('key', 'EURUSD_otc_1')
+      .order('updated_ms', { ascending: false }).limit(25);
     const url = new URL(String(fetchMock.mock.calls[0]![0]));
-    expect(url.pathname).toBe('/v1/signals');
-    expect(url.searchParams.get('cols')).toBe('id,symbol');
-    expect(url.searchParams.getAll('eq')).toEqual(['outcome:win']);
-    expect(url.searchParams.get('order')).toBe('created_ms.desc');
+    expect(url.pathname).toBe('/v1/candles');
+    expect(url.searchParams.get('cols')).toBe('key,data');
+    expect(url.searchParams.getAll('eq')).toEqual(['key:EURUSD_otc_1']);
+    expect(url.searchParams.get('order')).toBe('updated_ms.desc');
     expect(url.searchParams.get('limit')).toBe('25');
   });
 
@@ -272,5 +275,63 @@ describe('dbBool reads a boolean from either database', () => {
     expect(dbBool('t')).toBe(true);
     expect(dbBool('1')).toBe(true);
     expect(dbBool('false')).toBe(false);
+  });
+});
+
+/**
+ * The tables that stay on Supabase whatever the mode says.
+ *
+ * Four Postgres functions own the signal pipeline, and resolve_signals decides
+ * what a trade's outcome is. Porting that is changing settlement, and a mistake
+ * in it does not throw — it changes results. So the pipeline stays, and these
+ * tests are what stops a later edit quietly moving it.
+ */
+describe('the signal pipeline does not move', () => {
+  const PIPELINE = [
+    'signals', 'signal_daily', 'signal_write_budget',
+    'strategy_versions', 'strategy_version_stats',
+  ];
+
+  beforeEach(() => configureDataSource({ mode: 'd1', url: HUB }));
+
+  it('names every table the four functions touch', () => {
+    // Established by listing what record_signals, resolve_signals,
+    // refresh_signal_daily and prune_signals actually write — not by judgement.
+    for (const t of PIPELINE) expect(staysOnSupabase(t), t).toBe(true);
+  });
+
+  it('reads them from Supabase even in d1 mode', async () => {
+    fetchMock.mockReturnValue(hubOk([{ from: 'd1' }]));
+    for (const t of PIPELINE) {
+      supabaseCalls.length = 0;
+      const { data } = await db().from(t).select('*');
+      expect(data, t).toEqual([{ from: 'supabase' }]);
+      expect(supabaseCalls, t).toEqual([`read:${t}`]);
+    }
+    // Never once asked the hub.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('writes them to Supabase even in d1 mode', async () => {
+    await db().from('signals').upsert({ id: 1 });
+    expect(supabaseCalls).toEqual(['upsert:signals']);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves everything else on the hub', async () => {
+    fetchMock.mockReturnValue(hubOk([{ from: 'd1' }]));
+    for (const t of ['users', 'signal_history', 'configs', 'candles', 'clicks']) {
+      supabaseCalls.length = 0;
+      const { data } = await db().from(t).select('*');
+      expect(data, t).toEqual([{ from: 'd1' }]);
+      expect(supabaseCalls, t).toEqual([]);
+    }
+  });
+
+  it('keeps strategy_versions because a foreign key points at it', () => {
+    // signals.strategy_version_id REFERENCES strategy_versions(id). Publishing
+    // a version to D1 that Postgres never heard of would fail the next insert
+    // — a key split across two databases is a key that stopped being enforced.
+    expect(staysOnSupabase('strategy_versions')).toBe(true);
   });
 });

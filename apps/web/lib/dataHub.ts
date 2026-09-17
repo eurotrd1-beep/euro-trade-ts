@@ -46,6 +46,50 @@ import { supabase } from '@euro/shared';
 export type DataMode = 'supabase' | 'mirror' | 'd1';
 
 /**
+ * Tables that stay on Supabase whatever the mode says.
+ *
+ * ── THE SIGNAL PIPELINE IS NOT MOVING ──────────────────────────────────────
+ *
+ * Four Postgres functions own these — record_signals, resolve_signals,
+ * refresh_signal_daily and prune_signals — and the proxy calls all four. They
+ * are not helpers around the pipeline; they ARE the pipeline, and
+ * resolve_signals decides what a trade's outcome is:
+ *
+ *     WHEN i.price IS NULL          THEN 'unresolved'
+ *     WHEN i.outcome IN (win,loss,tie) THEN i.outcome
+ *     ELSE 'unresolved'   -- an outcome nobody understands is NOT a tie
+ *
+ * Porting that is changing settlement, and a mistake in it does not throw —
+ * it changes results. So it stays where it is, and these tables stay with it.
+ *
+ * ── WHY EACH ONE ───────────────────────────────────────────────────────────
+ *
+ *   signals              written by record_signals, updated by resolve_signals
+ *   signal_daily         built by refresh_signal_daily
+ *   signal_write_budget  read and written inside record_signals
+ *   strategy_versions    signals.strategy_version_id REFERENCES it. Moving the
+ *                        writes would let a version be published to D1 that
+ *                        Postgres has never heard of, and the next insert
+ *                        would fail a foreign key — a split key is a key that
+ *                        has stopped being enforced.
+ *
+ * The first three were established by listing every table the four functions
+ * touch, rather than by judgement: they touch these and nothing else.
+ */
+const SUPABASE_ONLY: ReadonlySet<string> = new Set([
+  'signals',
+  'signal_daily',
+  'signal_write_budget',
+  'strategy_versions',
+  // The view over strategy_versions and signal_daily. Its sources stay, so the
+  // D1 copy would answer from rows that stopped being updated.
+  'strategy_version_stats',
+]);
+
+/** True when this table answers from Supabase no matter what the mode is. */
+export const staysOnSupabase = (table: string): boolean => SUPABASE_ONLY.has(table);
+
+/**
  * Reads a boolean column from either database.
  *
  * ── WHY THIS IS NOT PARANOIA ───────────────────────────────────────────────
@@ -178,7 +222,8 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
   maybeSingle(): this { this.single = true; this.rowLimit = 1; return this; }
 
   async run(): Promise<{ data: Row[] | null; error: Error | null; count?: number }> {
-    if (mode === 'supabase') return this.viaSupabase();
+    // Not a fallback — a home. These never reach the hub in any mode.
+    if (mode === 'supabase' || staysOnSupabase(this.table)) return this.viaSupabase();
 
     try {
       hubStats.reads++;
@@ -253,7 +298,7 @@ class Table<Row> {
    * that is wrong.
    */
   async upsert(values: Record<string, unknown>): Promise<{ error: Error | null }> {
-    if (mode !== 'd1') {
+    if (mode !== 'd1' || staysOnSupabase(this.name)) {
       const { error } = await supabase().from(this.name).upsert(values);
       return { error: error as Error | null };
     }
@@ -304,7 +349,7 @@ class UpdateChain {
   }
 
   async run(): Promise<{ error: Error | null }> {
-    if (mode !== 'd1') {
+    if (mode !== 'd1' || staysOnSupabase(this.table)) {
       let q = supabase().from(this.table).update(this.values) as unknown as {
         eq: (c: string, v: string) => typeof q;
       };

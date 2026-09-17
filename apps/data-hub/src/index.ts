@@ -60,6 +60,7 @@
 import { decide, type Caller } from './access.js';
 import { buildSelect, buildWrite, parseQuery, type Write } from './db.js';
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
+import { prune } from './prune.js';
 
 export interface Env {
   DB: D1Database;
@@ -365,5 +366,33 @@ export default {
     }
 
     return json({ error: 'not found' }, 404);
+  },
+
+  /**
+   * Retention, on a timer.
+   *
+   * ── WHY THE WORKER AND NOT THE PROXY ───────────────────────────────────
+   *
+   * The proxy calls Postgres's prune functions today, so the obvious move was
+   * to have it call these too. It is the wrong home: the proxy is a process
+   * that can be down, redeploying, or asleep on a free dyno, and retention
+   * that stops running is invisible — the tables simply keep growing, and the
+   * first symptom is a storage or row-read limit reached weeks later.
+   *
+   * A Cron Trigger runs whether or not anything else is up, and it is the only
+   * part of this migration that has no request behind it at all.
+   */
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil((async () => {
+      const results = await prune(env.DB);
+      for (const r of results) {
+        // Logged per table rather than as a total. A prune that deletes
+        // nothing because a column name is wrong looks identical to one that
+        // deletes nothing because there was nothing to delete, unless the
+        // error is named.
+        if (r.error) console.error(`prune ${r.table} failed: ${r.error}`);
+        else if (r.deleted > 0) console.log(`prune ${r.table}: ${r.deleted}`);
+      }
+    })());
   },
 } satisfies ExportedHandler<Env>;

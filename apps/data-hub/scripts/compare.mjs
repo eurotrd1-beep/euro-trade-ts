@@ -27,6 +27,23 @@
  */
 
 import './env.mjs';
+
+/**
+ * Tables that are NOT migrating, and so are not expected to match.
+ *
+ * The signal pipeline stays on Supabase — four Postgres functions own it and
+ * resolve_signals decides what a trade's outcome is. D1 still holds the copy
+ * loaded before that decision, and it drifts in both directions: Supabase
+ * prunes and D1 does not, so D1 reads AHEAD; Supabase keeps generating, so it
+ * reads behind. Neither means anything, because nothing reads or writes the D1
+ * copy of these.
+ *
+ * Reporting them as differences would bury the three that matter under four
+ * that do not, which is how a comparison stops being read.
+ */
+const NOT_MIGRATING = new Set([
+  'signals', 'signal_daily', 'signal_write_budget', 'strategy_versions',
+]);
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -140,9 +157,10 @@ for (const [table, map] of Object.entries(MAPPING)) {
   try {
     const [pg, d1] = await Promise.all([supabaseCount(map.from), d1Count(table)]);
     const gap = pg - d1;
-    if (gap > 0) behind++;
-    if (gap < 0) ahead++;
-    rows.push({ table, pg, d1, gap });
+    const migrating = !NOT_MIGRATING.has(table);
+    if (migrating && gap > 0) behind++;
+    if (migrating && gap < 0) ahead++;
+    rows.push({ table, pg, d1, gap, migrating });
   } catch (e) {
     failed++;
     rows.push({ table, pg: null, d1: null, gap: null, error: String(e.message ?? e) });
@@ -156,14 +174,18 @@ for (const r of rows) {
     console.log(`${r.table.padEnd(24)}  ${r.error}`);
     continue;
   }
-  const mark = r.gap === 0 ? '' : r.gap > 0 ? '  behind' : '  AHEAD';
+  const mark = !r.migrating
+    ? '  (stays on supabase)'
+    : r.gap === 0 ? '' : r.gap > 0 ? '  behind' : '  AHEAD';
   console.log(
     `${r.table.padEnd(24)}${String(r.pg).padStart(9)}${String(r.d1).padStart(9)}` +
     `${String(r.gap).padStart(8)}${mark}`,
   );
 }
 
-const total = rows.reduce((n, r) => n + (r.gap ?? 0), 0);
+const total = rows
+  .filter((r) => r.migrating && (r.gap ?? 0) > 0)
+  .reduce((n, r) => n + (r.gap ?? 0), 0);
 console.log('─'.repeat(50));
 
 if (failed > 0) console.log(`${failed} table(s) could not be compared.`);
