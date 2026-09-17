@@ -562,22 +562,6 @@ export default {
       //
       // 429 rather than 403 — this is "not now", not "not allowed", and the
       // distinction matters to anyone reading the log at 3am.
-      // ── Temporary: who is writing? ──────────────────────────────────────
-      //
-      // Two proxy instances are recording signals into this database and only
-      // one is accounted for. A service write carries the same secret whoever
-      // sends it, so the credential cannot tell them apart — but the source
-      // address and colo can, and they are on every request already.
-      //
-      // Remove once the second writer is found and stopped.
-      if (caller.kind === 'service') {
-        const cf = (request as Request & { cf?: { colo?: string } }).cf;
-        console.log(
-          `svc-write table=${read[1]} ip=${request.headers.get('cf-connecting-ip') ?? '?'} ` +
-          `colo=${cf?.colo ?? '?'} ua=${(request.headers.get('user-agent') ?? '-').slice(0, 40)}`,
-        );
-      }
-
       const budget = await shouldShed(read[1]!);
       if (budget.shed) {
         console.warn(
