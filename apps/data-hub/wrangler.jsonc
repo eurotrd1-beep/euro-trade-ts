@@ -28,7 +28,11 @@
   //
   // 17 past the hour rather than :00, where every cron on the platform fires.
   "triggers": {
-    "crons": ["17 * * * *"]
+    // :17 hourly — retention. Every five minutes — drain the signal spool, so
+    // rows waiting out a D1 outage land within minutes of it ending rather
+    // than up to an hour later. A drain with nothing to drain is one read of
+    // the spool's own storage and touches D1 not at all.
+    "crons": ["17 * * * *", "*/5 * * * *"]
   },
 
   // ── The live channel ─────────────────────────────────────────────────────
@@ -40,10 +44,16 @@
   // object — but the backend still has to be declared, and declaring the one
   // the free plan does not have fails at deploy.
   "durable_objects": {
-    "bindings": [{ "name": "LIVE", "class_name": "LiveHub" }]
+    "bindings": [
+      { "name": "LIVE", "class_name": "LiveHub" },
+      // Signals D1 could not take. Its storage is its own SQLite, separate
+      // from D1, so an outage there does not reach it.
+      { "name": "SPOOL", "class_name": "SignalSpool" }
+    ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["LiveHub"] }
+    { "tag": "v1", "new_sqlite_classes": ["LiveHub"] },
+    { "tag": "v2", "new_sqlite_classes": ["SignalSpool"] }
   ],
 
   "observability": { "enabled": true }

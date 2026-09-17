@@ -71,6 +71,18 @@ export const utcDay = (ms: number): string => new Date(ms).toISOString().slice(0
 export function planRecord(
   rows: readonly IncomingSignal[],
   budget: BudgetRow,
+  /**
+   * When the rows are being recorded. Defaults to now, which is what every
+   * live call uses and what Postgres did with `DEFAULT now()`.
+   *
+   * The spool passes the moment the record call was originally MADE. A row
+   * replayed three hours after an outage would otherwise be stamped with the
+   * replay time — and a signal generated at 23:50 and replayed at 02:00 would
+   * be counted on the wrong day. Passing the original moment reproduces what
+   * would have been written had D1 been up, which is the only honest thing a
+   * replay can write.
+   */
+  now: number = Date.now(),
 ): RecordPlan {
   const n = rows.length;
   if (n === 0) return { kind: 'empty' };
@@ -113,7 +125,7 @@ export function planRecord(
       // recorded without it is counted in the published rate, so the default
       // has to be the one that cannot inflate it.
       r.forced === true ? 1 : 0,
-      Date.now(),
+      now,
     ],
   }));
 

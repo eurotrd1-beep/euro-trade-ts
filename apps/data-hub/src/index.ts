@@ -64,6 +64,8 @@ import {
 import { buildClick, buildStats, parseStats, statsReadableBy } from './rpc.js';
 import { countWrites, shouldShed } from './budget.js';
 import { BROADCAST_TABLES, LiveHub } from './live.js';
+import { classifyD1Error, shouldSpool } from './d1errors.js';
+import { DRAIN_BATCH, EXISTS_SQL, SignalSpool, existsBinds, type SpooledRow } from './spool.js';
 import { prune } from './prune.js';
 import {
   expiresAt, planPrune, planRecord, planRefreshDaily, planResolve, utcDay,
@@ -92,6 +94,8 @@ export interface Env {
   ADMIN_SECRET: string;
   /** The live channel every open app is attached to. */
   LIVE: DurableObjectNamespace;
+  /** Signals D1 could not take, waiting to be replayed. */
+  SPOOL: DurableObjectNamespace;
 }
 
 const CORS: Record<string, string> = {
@@ -230,7 +234,152 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-export { LiveHub };
+
+// ── Recording signals ───────────────────────────────────────────────────────
+
+/** The one spool instance. Named, so every isolate reaches the same storage. */
+const spool = (env: Env): DurableObjectStub => env.SPOOL.get(env.SPOOL.idFromName('signals'));
+
+/**
+ * `record_signals`, as the route has always run it.
+ *
+ * Lifted out of the route unchanged so the spool can replay through the SAME
+ * code rather than a second copy of it — a replay that recorded rows by a
+ * different rule would be a quiet second implementation of the thing whose
+ * output is the published record. The only difference is `now`, which the
+ * live path takes from the clock and the replay takes from when the call was
+ * originally made.
+ *
+ * Throws on any D1 failure. The caller decides what that means.
+ */
+async function recordSignals(env: Env, rows: IncomingSignal[], now: number): Promise<Response> {
+  // Billed against the day the write HAPPENS. The budget is a guard on how
+  // much is written today; the row's own timestamp is a separate question.
+  const day = utcDay(Date.now());
+
+  await env.DB.prepare(
+    'INSERT INTO "signal_write_budget" ("day") VALUES (?) ON CONFLICT ("day") DO NOTHING',
+  ).bind(day).run();
+  const budget = await env.DB.prepare(
+    'SELECT "written", "max_rows" FROM "signal_write_budget" WHERE "day" = ?',
+  ).bind(day).first<{ written: number; max_rows: number }>();
+
+  const plan = planRecord(rows, budget ?? { written: 0, max_rows: 20000 }, now);
+
+  if (plan.kind === 'empty') {
+    return json({ inserted: 0, skipped: 0, capped: false, remaining: 0, ids: [] });
+  }
+  if (plan.kind === 'capped') {
+    await env.DB.prepare(
+      'UPDATE "signal_write_budget" SET "capped" = 1 WHERE "day" = ?',
+    ).bind(day).run();
+    return json({
+      inserted: 0, skipped: plan.skipped, capped: true,
+      remaining: plan.remaining, ids: [],
+    });
+  }
+
+  // One statement per row rather than one batch, because the ids of the rows
+  // that actually landed have to come back — a row skipped by ON CONFLICT
+  // must not appear in the list the caller schedules settlements from.
+  const ids: unknown[] = [];
+  let inserted = 0;
+  for (let i = 0; i < plan.statements.length; i++) {
+    const st = plan.statements[i]!;
+    const res = await env.DB.prepare(st.sql).bind(...st.binds).run();
+    if ((res.meta?.changes ?? 0) === 0) continue;
+    inserted++;
+    const row = rows[i]!;
+    const createdMs = st.binds[st.binds.length - 1] as number;
+    ids.push({
+      id: res.meta?.last_row_id,
+      symbol: row.symbol,
+      entry_price: row.entry_price,
+      expires_at: expiresAt(createdMs, row.expiry_seconds),
+    });
+  }
+
+  await env.DB.prepare(
+    'UPDATE "signal_write_budget" SET "written" = "written" + ? WHERE "day" = ?',
+  ).bind(inserted, day).run();
+
+  const b = budget ?? { written: 0, max_rows: 20000 };
+  return json({
+    inserted,
+    skipped: rows.length - inserted,
+    capped: false,
+    remaining: b.max_rows - b.written - inserted,
+    ids,
+  });
+}
+
+/**
+ * Moves spooled rows into D1, oldest first.
+ *
+ * Row by row, and each one is checked before it is written. A row can be
+ * inserted and then fail to be acknowledged — the insert lands, the delete
+ * does not — and the next drain would write it again. The unique index cannot
+ * stop that for a NULL version; `EXISTS_SQL` can.
+ *
+ * Stops at the first D1 failure. D1 is evidently still down, and the rows stay
+ * where they are, in order, for the next run.
+ */
+export async function drainSpool(env: Env): Promise<{ moved: number; dropped: number; left: number }> {
+  const res = await spool(env).fetch(`https://spool/take?limit=${DRAIN_BATCH}`);
+  const { rows, depth } = (await res.json()) as { rows: SpooledRow[]; depth: number };
+  if (rows.length === 0) return { moved: 0, dropped: 0, left: 0 };
+
+  const done: number[] = [];
+  let moved = 0;
+  let dropped = 0;
+
+  for (const item of rows) {
+    try {
+      const already = await env.DB.prepare(EXISTS_SQL).bind(...existsBinds(item.row)).first();
+      if (already) {
+        // Recorded already — by an earlier drain whose acknowledgement was
+        // lost, or by the generator itself. Either way it is not a new row.
+        done.push(item.id);
+        dropped++;
+        continue;
+      }
+      const out = await recordSignals(env, [item.row], item.at_ms);
+      const body = (await out.json()) as { inserted: number; capped: boolean };
+      // Capped today: leave it. Tomorrow's budget will take it, and a signal
+      // that waits a day is still a signal — one dropped here is not.
+      if (body.capped) break;
+      done.push(item.id);
+      moved += body.inserted;
+    } catch (e) {
+      const kind = classifyD1Error(e);
+      if (shouldSpool(kind)) {
+        // D1 is still down. Stop; the rows stay in order for the next run.
+        console.warn(`spool drain stopped — D1 still ${kind}:`, e instanceof Error ? e.message : e);
+        break;
+      }
+      // D1 answered, and refused THIS row. Set it aside and carry on — one
+      // bad row must not hold every row behind it hostage. Parked, not
+      // deleted: a signal is never discarded without a trace.
+      console.error(`spool: parking row ${item.id} (${kind}):`, e instanceof Error ? e.message : e);
+      await spool(env).fetch('https://spool/park', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, error: e instanceof Error ? e.message : String(e) }),
+      });
+    }
+  }
+
+  if (done.length > 0) {
+    await spool(env).fetch('https://spool/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: done }),
+    });
+  }
+  return { moved, dropped, left: depth - done.length };
+}
+
+export { LiveHub, SignalSpool };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -358,6 +507,15 @@ export default {
         }
       }
 
+      // ── How many signals are waiting out an outage, and since when ─────
+      //
+      // A GET, so it sits here with the other one rather than below the body
+      // parse, which refuses anything without JSON.
+      if (url.pathname === '/v1/pipeline/spool' && request.method === 'GET') {
+        const res = await spool(env).fetch('https://spool/depth');
+        return json(await res.json());
+      }
+
       let body: Record<string, unknown>;
       try {
         body = (await request.json()) as Record<string, unknown>;
@@ -369,63 +527,41 @@ export default {
         // ── record: insert a batch, or refuse it whole ────────────────────
         if (url.pathname === '/v1/pipeline/record') {
           const rows = (Array.isArray(body['rows']) ? body['rows'] : []) as IncomingSignal[];
-          const day = utcDay(Date.now());
-
-          await env.DB.prepare(
-            'INSERT INTO "signal_write_budget" ("day") VALUES (?) ON CONFLICT ("day") DO NOTHING',
-          ).bind(day).run();
-          const budget = await env.DB.prepare(
-            'SELECT "written", "max_rows" FROM "signal_write_budget" WHERE "day" = ?',
-          ).bind(day).first<{ written: number; max_rows: number }>();
-
-          const plan = planRecord(rows, budget ?? { written: 0, max_rows: 20000 });
-
-          if (plan.kind === 'empty') {
-            return json({ inserted: 0, skipped: 0, capped: false, remaining: 0, ids: [] });
-          }
-          if (plan.kind === 'capped') {
-            await env.DB.prepare(
-              'UPDATE "signal_write_budget" SET "capped" = 1 WHERE "day" = ?',
-            ).bind(day).run();
+          const calledAt = Date.now();
+          try {
+            return await recordSignals(env, rows, calledAt);
+          } catch (e) {
+            // ── D1 refused. The spool takes the batch. ──────────────────
+            //
+            // Success is returned on purpose, so the generator drops the rows
+            // from memory: ownership moves in ONE step. If this answered with
+            // an error the generator would keep them too, both would replay,
+            // and with every version NULL the unique index would let both in.
+            //
+            // If the spool itself fails, the error propagates and the
+            // generator keeps the batch — still exactly one owner.
+            // Only when D1 could not take the rows — quota spent, overloaded,
+            // connection lost. A row D1 REJECTED for its content is not held:
+            // it would fail every replay for ever. It propagates as it always
+            // did, and the generator keeps it, which is what happened before
+            // this spool existed. An unrecognised error takes that same path,
+            // so a reworded message degrades to the old behaviour, not to a
+            // poison row.
+            const kind = classifyD1Error(e);
+            console.error(`record → D1 failed (${kind})`, rows.length, e instanceof Error ? e.message : e);
+            if (rows.length === 0 || !shouldSpool(kind)) throw e;
+            const res = await spool(env).fetch('https://spool/put', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rows, at_ms: calledAt }),
+            });
+            if (!res.ok) throw e;
+            const { depth } = (await res.json()) as { depth: number };
             return json({
-              inserted: 0, skipped: plan.skipped, capped: true,
-              remaining: plan.remaining, ids: [],
+              inserted: 0, skipped: 0, capped: false, remaining: 0, ids: [],
+              spooled: rows.length, spool_depth: depth,
             });
           }
-
-          // One statement per row rather than one batch, because the ids of
-          // the rows that actually landed have to come back — a row skipped by
-          // ON CONFLICT must not appear in the list the caller schedules
-          // settlements from.
-          const ids: unknown[] = [];
-          let inserted = 0;
-          for (let i = 0; i < plan.statements.length; i++) {
-            const st = plan.statements[i]!;
-            const res = await env.DB.prepare(st.sql).bind(...st.binds).run();
-            if ((res.meta?.changes ?? 0) === 0) continue;
-            inserted++;
-            const row = rows[i]!;
-            const createdMs = st.binds[st.binds.length - 1] as number;
-            ids.push({
-              id: res.meta?.last_row_id,
-              symbol: row.symbol,
-              entry_price: row.entry_price,
-              expires_at: expiresAt(createdMs, row.expiry_seconds),
-            });
-          }
-
-          await env.DB.prepare(
-            'UPDATE "signal_write_budget" SET "written" = "written" + ? WHERE "day" = ?',
-          ).bind(inserted, day).run();
-
-          const b = budget ?? { written: 0, max_rows: 20000 };
-          return json({
-            inserted,
-            skipped: rows.length - inserted,
-            capped: false,
-            remaining: b.max_rows - b.written - inserted,
-            ids,
-          });
         }
 
         // ── resolve: settle, once, only what is still pending ─────────────
@@ -657,7 +793,24 @@ export default {
    * A Cron Trigger runs whether or not anything else is up, and it is the only
    * part of this migration that has no request behind it at all.
    */
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Every five minutes: the spool. It reads the spool's own storage first and
+    // touches D1 only if something is waiting, so an empty spool costs nothing
+    // against the D1 budget.
+    if (controller.cron === '*/5 * * * *') {
+      ctx.waitUntil((async () => {
+        try {
+          const r = await drainSpool(env);
+          if (r.moved > 0 || r.dropped > 0 || r.left > 0) {
+            console.log(`spool: moved ${r.moved}, already present ${r.dropped}, still waiting ${r.left}`);
+          }
+        } catch (e) {
+          console.error('spool drain failed:', e instanceof Error ? e.message : e);
+        }
+      })());
+      return;
+    }
+
     ctx.waitUntil((async () => {
       const results = await prune(env.DB);
       for (const r of results) {
