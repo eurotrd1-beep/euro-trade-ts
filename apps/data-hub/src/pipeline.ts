@@ -65,6 +65,20 @@ export type RecordPlan =
   | { kind: 'capped'; skipped: number; remaining: number }
   | { kind: 'insert'; statements: Statement[] };
 
+/**
+ * What stands in for a missing strategy version, in a unique key.
+ *
+ * NULLs are distinct in a unique index, so a key containing a nullable column
+ * stops enforcing anything the moment that column is NULL — which is every
+ * signal the running strategy writes. Substituting a fixed value makes two
+ * missing versions equal, which is what "the same signal" means here.
+ *
+ * `refresh_signal_daily` already used this exact value for the same reason,
+ * and Postgres hit the problem there first. One answer in this file, so the
+ * rollup and the duplicate guard cannot drift onto different sentinels.
+ */
+export const VERSION_SENTINEL = '00000000-0000-0000-0000-000000000000';
+
 /** The UTC date `record_signals` bills the write budget against. */
 export const utcDay = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
@@ -107,12 +121,24 @@ export function planRecord(
     sql:
       `INSERT INTO "signals" (${columns.map((c) => `"${c}"`).join(', ')})` +
       ` VALUES (${columns.map(() => '?').join(', ')})` +
-      // Identical to the Postgres index, including what it leaves out. NULLs
-      // are distinct in a unique index in BOTH engines, so a row with no
-      // version never conflicts — which is every row the running strategy
-      // writes. The guard is therefore inactive today in Postgres too, and
-      // reproducing that exactly is the point of a port.
-      ` ON CONFLICT ("strategy_version_id", "symbol", "timeframe", "bar_ms") DO NOTHING`,
+      // ── A DELIBERATE DIFFERENCE FROM POSTGRES ────────────────────────
+      //
+      // This used to name the same four columns as the Postgres index, which
+      // was a faithful port of a guard that had never worked. NULLs are
+      // distinct in a unique index in both engines, so a row with no version
+      // never conflicted — and every row the running strategy writes has no
+      // version. The day two processes were live it cost 94 duplicate rows,
+      // two of which disagreed about whether the trade won.
+      //
+      // `COALESCE` makes two missing versions equal. `slot` is added with it
+      // and must be: one bar carries four rows, one per slot, and making NULLs
+      // equal WITHOUT slot would collapse them and drop three signals in four.
+      //
+      // The expression has to match `signals_identity_slot` exactly — SQLite
+      // resolves an ON CONFLICT target against a real index, and a target that
+      // matches none is an error on every insert rather than a silent miss.
+      ` ON CONFLICT (COALESCE("strategy_version_id", '${VERSION_SENTINEL}'),` +
+      ` "symbol", "timeframe", "bar_ms", "slot") DO NOTHING`,
     binds: [
       r.symbol, r.timeframe, r.direction, r.bar_ms, r.strategy_version_id, r.slot,
       r.confidence, r.score,

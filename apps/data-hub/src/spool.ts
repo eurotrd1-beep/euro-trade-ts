@@ -44,7 +44,7 @@
  * equal to NULL — the comparison the index itself cannot make.
  */
 
-import type { IncomingSignal } from './pipeline.js';
+import { VERSION_SENTINEL, type IncomingSignal } from './pipeline.js';
 
 /** A spooled batch, exactly as the generator sent it, plus when it arrived. */
 export interface SpooledRow {
@@ -60,18 +60,26 @@ export const DRAIN_BATCH = 200;
 /**
  * Does D1 already hold this signal?
  *
- * The identity the data actually has: symbol, timeframe, bar, slot and version.
- * The unique index covers four of those — it has no `slot`, which is why four
- * rows per bar coexist — and cannot match a NULL version at all. `IS` can.
+ * The identity the data actually has: version, symbol, timeframe, bar and slot
+ * — the same five the unique index is built on, written as the same expression
+ * so the planner can use it. A COALESCE on one side and a bare column on the
+ * other would not match the index, and every check would scan the table.
  *
- * Written against the index's column order so SQLite can use it: `IS` is an
- * equality constraint as far as the planner is concerned, so all four leading
- * columns are bound and `slot` is checked on the handful of rows that remain.
+ * It was `strategy_version_id IS ?` while the index was the old four-column
+ * one. That worked because `IS` compares NULL to NULL, which the index could
+ * not; now the index does the substituting instead, and the query has to say
+ * it the same way.
+ *
+ * Still needed even though ON CONFLICT now catches duplicates: a replay
+ * inserts and then acknowledges, and an insert that lands whose acknowledgement
+ * is lost would otherwise be retried. ON CONFLICT would refuse it silently,
+ * which is correct — but the check makes the drain's own count honest about
+ * what it moved.
  */
 export const EXISTS_SQL =
   'SELECT 1 FROM "signals"' +
-  ' WHERE "strategy_version_id" IS ? AND "symbol" = ? AND "timeframe" = ?' +
-  ' AND "bar_ms" = ? AND "slot" = ? LIMIT 1';
+  ` WHERE COALESCE("strategy_version_id", '${VERSION_SENTINEL}') = COALESCE(?, '${VERSION_SENTINEL}')` +
+  ' AND "symbol" = ? AND "timeframe" = ? AND "bar_ms" = ? AND "slot" = ? LIMIT 1';
 
 export const existsBinds = (r: IncomingSignal): unknown[] => [
   r.strategy_version_id ?? null, r.symbol, r.timeframe, r.bar_ms, r.slot,

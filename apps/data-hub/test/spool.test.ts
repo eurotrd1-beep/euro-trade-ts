@@ -11,7 +11,7 @@
  */
 
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { EXISTS_SQL, existsBinds } from '../src/spool.js';
@@ -25,11 +25,22 @@ const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as {
   DatabaseSync: new (path: string) => DatabaseSync;
 };
 
-const SCHEMA = readFileSync(fileURLToPath(new URL('../migrations/0001_schema.sql', import.meta.url)), 'utf8');
+/**
+ * Every migration in order, not just the first.
+ *
+ * `0001_schema.sql` is the schema as it was created, and three migrations have
+ * changed it since — including the one that replaced the duplicate guard these
+ * tests are about. A database built from 0001 alone would still carry the old
+ * index, and the tests would describe a schema that has not existed for hours.
+ */
+const MIGRATIONS = readdirSync(fileURLToPath(new URL('../migrations', import.meta.url)))
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => readFileSync(fileURLToPath(new URL(`../migrations/${f}`, import.meta.url)), 'utf8'));
 
 const fresh = (): DatabaseSync => {
   const db = new DatabaseSync(':memory:');
-  db.exec(SCHEMA);
+  for (const sql of MIGRATIONS) db.exec(sql);
   return db;
 };
 
@@ -49,16 +60,45 @@ const insert = (db: DatabaseSync, rows: IncomingSignal[], now?: number): void =>
 const exists = (db: DatabaseSync, r: IncomingSignal): boolean =>
   db.prepare(EXISTS_SQL).get(...(existsBinds(r) as never[])) !== undefined;
 
-describe('why the spool has to check before it writes', () => {
-  it('the unique index does NOT stop a second copy of a NULL-version signal', () => {
-    // This is the premise of the whole design, so it is asserted rather than
-    // assumed. If this test ever fails, the index started working and the
-    // check below became belt-and-braces rather than the only guard.
+describe('the duplicate guard, now that it works', () => {
+  it('refuses a second copy of a NULL-version signal', () => {
+    // It did not, for as long as this schema existed: NULLs are distinct in a
+    // unique index and every signal has a NULL version, so ON CONFLICT never
+    // fired. That is how 94 duplicates were written in a day.
     const db = fresh();
     insert(db, [signal()]);
     insert(db, [signal()]);
     const n = db.prepare('SELECT count(*) AS n FROM signals').get() as { n: number };
+    expect(n.n).toBe(1);
+  });
+
+  it('keeps all four slots on one bar', () => {
+    // The trap in the fix. Making NULLs compare equal WITHOUT adding `slot`
+    // collapses the four rows a bar really carries into one — three signals in
+    // four, dropped silently by DO NOTHING.
+    const db = fresh();
+    for (const slot of ['instant_free', 'instant_paid', 'monitoring_free', 'monitoring_paid']) {
+      insert(db, [signal({ slot })]);
+    }
+    const n = db.prepare('SELECT count(*) AS n FROM signals').get() as { n: number };
+    expect(n.n).toBe(4);
+  });
+
+  it('still records a genuinely new bar', () => {
+    const db = fresh();
+    insert(db, [signal({ bar_ms: 1000 })]);
+    insert(db, [signal({ bar_ms: 2000 })]);
+    const n = db.prepare('SELECT count(*) AS n FROM signals').get() as { n: number };
     expect(n.n).toBe(2);
+  });
+
+  it('separates two real versions of the same bar and slot', () => {
+    const db = fresh();
+    insert(db, [signal({ strategy_version_id: 'v1' })]);
+    insert(db, [signal({ strategy_version_id: 'v2' })]);
+    insert(db, [signal({ strategy_version_id: null })]);
+    const n = db.prepare('SELECT count(*) AS n FROM signals').get() as { n: number };
+    expect(n.n).toBe(3);
   });
 });
 
@@ -110,7 +150,7 @@ describe('the existence check', () => {
     const plan = db.prepare(`EXPLAIN QUERY PLAN ${EXISTS_SQL}`)
       .all(...(existsBinds(signal()) as never[])) as Array<{ detail: string }>;
     const detail = plan.map((p) => p.detail).join(' ');
-    expect(detail).toMatch(/signals_identity/);
+    expect(detail).toMatch(/signals_identity_slot/);
     expect(detail).not.toMatch(/SCAN signals/);
   });
 });
