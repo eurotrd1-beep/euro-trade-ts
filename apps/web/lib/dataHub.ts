@@ -49,44 +49,28 @@ export type DataMode = 'supabase' | 'mirror' | 'd1';
 /**
  * Tables that stay on Supabase whatever the mode says.
  *
- * ── WHAT USED TO BE HERE ───────────────────────────────────────────────────
+ * ── THE LIST IS EMPTY, AND THAT IS THE POINT ───────────────────────────────
  *
- * The whole signal pipeline: `signals`, `signal_daily`, `signal_write_budget`,
- * `strategy_versions` and the view over them. They were pinned because four
- * Postgres functions owned them and one of those functions decides what a
- * trade's outcome is — porting that is changing settlement, and a mistake in
- * settlement does not throw, it changes published results.
+ * It held the signal pipeline while four Postgres functions still owned it, and
+ * then `configs` while the proxy still read and wrote that table with the
+ * service key. Both have moved: the pipeline was ported and compared row by
+ * row, and the scraper now routes its tables through the hub, including the
+ * five config rows the browser and the scraper hand to each other —
+ * `telegram`, `otc_scan`, `otc_status`, `otc_token`, `captcha_balance`.
  *
- * They are gone from this list because the port happened, row-by-row compared
- * against Postgres, and the proxy now records and resolves into D1. Leaving
- * them pinned after that was the same bug in the other direction: the admin's
- * signals screen read Supabase while every new signal landed in D1, so the
- * screen showed a record that had simply stopped growing.
+ * The mechanism stays because the reason for it will come back. A table has to
+ * be read from the database it is written TO, and the moment one writer moves
+ * without the other, this is where that gets recorded — with the names of both
+ * writers, not just the table.
  *
- * ── WHAT IS STILL HERE, AND WHAT WOULD HAVE TO CHANGE ──────────────────────
+ * ── THE ONE THING STILL READ FROM SUPABASE ─────────────────────────────────
  *
- * `configs`, and it is not about the admin panel any more — that moved with
- * this change. It is about the PROXY, which reads and writes the same table
- * with the service key, straight to Postgres:
- *
- *   telegram         the admin writes it; `telegram.js` reads it to decide
- *                    whether alerts go out at all, and at what depth
- *   otc_scan         the panel requests a scan, `po-scraper.js` performs it
- *   otc_status       the scraper publishes it, the health screen reads it
- *   otc_token        the scraper stores and reloads its session there
- *   captcha_balance  the scraper writes it, the panel displays it
- *
- * Every one of those is a value handed between the browser and the scraper. If
- * the browser moved to D1 on its own, each would be written to one database
- * and read from the other, and none of them would error — telegram alerts
- * would quietly ignore every change the admin made, and the scan button would
- * do nothing at all.
- *
- * So `configs` moves when the proxy's config access moves, not before.
+ * `configs.data_source`, and not through this list. `boot` fetches it directly,
+ * because a flag that says which database to use cannot live in the database it
+ * controls: that is exactly the row you need when that database is unreachable.
+ * It is a single read of a single row on cold start, and it is the rollback.
  */
-const SUPABASE_ONLY: ReadonlySet<string> = new Set([
-  'configs',
-]);
+const SUPABASE_ONLY: ReadonlySet<string> = new Set([]);
 
 /** True when this table answers from Supabase no matter what the mode is. */
 export const staysOnSupabase = (table: string): boolean => SUPABASE_ONLY.has(table);

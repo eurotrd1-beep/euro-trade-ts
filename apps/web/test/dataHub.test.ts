@@ -331,19 +331,20 @@ describe('the signal pipeline has moved, and the pin list says so', () => {
     }
   });
 
-  it('keeps configs on Supabase, because the PROXY still reads and writes it there', async () => {
-    // The admin panel moved with this change; the scraper did not. `configs`
-    // is where the two hand values to each other — `telegram` decides whether
-    // alerts go out, `otc_scan` asks for a scan, `otc_status` and
-    // `captcha_balance` report back. Split across two databases, none of them
-    // would error: telegram alerts would simply ignore every change the admin
-    // made, and the scan button would do nothing.
-    expect(staysOnSupabase('configs')).toBe(true);
+  it('keeps nothing on Supabase, now that the proxy routes its tables too', async () => {
+    // `configs` was the last one, and it was never about the admin panel: the
+    // SCRAPER read and wrote the same table with the service key. `telegram`
+    // decides whether alerts go out, `otc_scan` asks for a scan, `otc_status`
+    // and `captcha_balance` report back — every one of them a value handed
+    // between the browser and the scraper. Split across two databases none of
+    // them would error; the alerts would simply ignore every change the admin
+    // made. Both writers moved together, so the pin came off.
+    expect(staysOnSupabase('configs')).toBe(false);
 
     fetchMock.mockReturnValue(hubOk([{ from: 'd1' }]));
     const { data } = await db().from('configs').select('*');
-    expect(data).toEqual([{ from: 'supabase' }]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(data).toEqual([{ from: 'd1' }]);
+    expect(supabaseCalls).toEqual([]);
   });
 
   it('is the only thing left on Supabase', () => {

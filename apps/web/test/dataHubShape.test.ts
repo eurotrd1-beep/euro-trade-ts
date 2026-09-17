@@ -218,14 +218,15 @@ describe('the admin secret rides along when this browser holds one', () => {
   });
 });
 
-describe('the tables pinned to Supabase never reach the hub', () => {
-  it('reads configs from Supabase even in d1 mode', async () => {
-    // Pinned while the admin still wrote it with the anon key. The pin is what
-    // keeps the app and the admin looking at the same row, and it is removed
-    // in the same change that moves the admin writes.
-    await db().from('configs').select('data').eq('id', 'promo').maybeSingle();
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(supabaseCalls).toContain('read:configs');
+describe('nothing is pinned to Supabase any more', () => {
+  it('reads configs from the hub in d1 mode', async () => {
+    // It was pinned while the scraper still read and wrote it with the service
+    // key. The scraper routes it now, so both writers are on the same database
+    // and the pin came off with them.
+    fetchMock.mockReturnValueOnce(hubOk([{ id: 'promo', data: '{"enabled":true}' }]));
+    const { data } = await db().from('configs').select('data').eq('id', 'promo').maybeSingle();
+    expect(supabaseCalls).toEqual([]);
+    expect(data?.['data']).toEqual({ enabled: true });
   });
 });
 
