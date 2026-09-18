@@ -12,10 +12,9 @@ import { useEffect, useState } from 'react';
 import { tr } from '@euro/shared';
 import styles from './AccountCard.module.css';
 
-/** The channel VIP subscriptions go through. */
-const TELEGRAM_VIP_URL = 'https://t.me/euro_trd';
-
 export interface AccountCardProps {
+  /** Where "اشترك الآن" goes — from the `social` config row, via the page. */
+  vipUrl: string;
   accountId: string;
   broker: string;
   isVip: boolean;
@@ -36,7 +35,7 @@ function shortRemaining(expiry: Date): string | null {
   return tr(`${hours}س ${minutes}د`, `${hours}h ${minutes}m`);
 }
 
-export function AccountCard({ accountId, broker, isVip, vipExpiry }: AccountCardProps) {
+export function AccountCard({ vipUrl, accountId, broker, isVip, vipExpiry }: AccountCardProps) {
   const [remaining, setRemaining] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,7 +70,7 @@ export function AccountCard({ accountId, broker, isVip, vipExpiry }: AccountCard
         )
       ) : (
         <a
-          href={TELEGRAM_VIP_URL}
+          href={vipUrl}
           target="_blank"
           rel="noopener noreferrer"
           className={styles.subscribe}

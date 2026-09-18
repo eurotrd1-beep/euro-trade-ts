@@ -45,6 +45,7 @@ import { requestNotificationPermission } from '@/lib/signalNotify';
 import { QuotaPause } from '@/components/QuotaPause';
 import { unlockAudio } from '@/lib/sounds';
 import { AccountCard } from '@/components/AccountCard';
+import { promoLink, vipLink } from '@/lib/social';
 import { AppHeader } from '@/components/AppHeader';
 import { WatchSettings } from '@/components/WatchSettings';
 import { ChartProgress } from '@/components/ChartProgress';
@@ -411,7 +412,7 @@ export default function MainScreen() {
   return (
     <main className={styles.screen}>
       {/* The ad gates itself; it renders nothing unless all four conditions hold. */}
-      <PromoOverlay accountId={accountId} telegram={config.social.telegram} />
+      <PromoOverlay accountId={accountId} telegram={promoLink(config.social)} />
 
       <AppHeader
         accountId={accountId}
@@ -424,6 +425,7 @@ export default function MainScreen() {
       <div className={styles.layout}>
         <section className={styles.chartColumn}>
           <AccountCard
+            vipUrl={vipLink(config.social)}
             accountId={accountId}
             broker={broker}
             isVip={isVip}

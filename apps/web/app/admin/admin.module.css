@@ -231,6 +231,12 @@
   margin-bottom: 14px;
 }
 
+/* Inline notes under one field, rather than the boxed .error / .warn which
+   are sized for a whole card. */
+.fieldError { font-size: 11.5px; color: var(--admin-danger); }
+.fieldWarn { font-size: 11.5px; color: var(--admin-gold); }
+.fieldLink { font-size: 11.5px; color: var(--admin-primary); align-self: flex-start; }
+
 .switchRow {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 12px 0;

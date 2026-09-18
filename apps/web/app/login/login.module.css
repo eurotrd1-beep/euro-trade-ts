@@ -249,3 +249,6 @@
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 191, 66, 0.35);
 }
+
+/* The extra social icons under the two channel cards. */
+.socialRow { margin-top: 12px; }

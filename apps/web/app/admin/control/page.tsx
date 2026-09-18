@@ -12,6 +12,17 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DEFAULT_PROXY_URL } from '@/lib/proxyUrl';
 import { db } from '@/lib/dataHub';
+import {
+  NO_SOCIAL_LINKS,
+  SOCIAL_CONFIG_ID,
+  SOCIAL_PLATFORMS,
+  readSocialLinks,
+  socialHostWarning,
+  socialLinksToData,
+  socialUrlError,
+  type SocialId,
+  type SocialLinks,
+} from '@/lib/social';
 import styles from '../admin.module.css';
 
 interface ControlState {
@@ -30,6 +41,8 @@ interface ControlState {
   telegramOutcomes: 'all' | 'wins' | 'losses';
   /** Hours ahead of UTC, as typed. Stored as minutes. */
   telegramSummaryOffset: string;
+  /** Every social address, as typed. Normalised on save, not on each keystroke. */
+  social: SocialLinks;
 }
 
 const EMPTY: ControlState = {
@@ -60,6 +73,9 @@ const EMPTY: ControlState = {
   // UTC until the row says otherwise, which is what the summary did before
   // this field existed.
   telegramSummaryOffset: '0',
+  // Empty, which means every social button is hidden until somebody fills the
+  // row in — the honest starting state for a link nobody has given us.
+  social: NO_SOCIAL_LINKS,
 };
 
 export default function AppControlView() {
@@ -107,6 +123,7 @@ export default function AppControlView() {
         telegramSummaryOffset: String(
           (Number(get('telegram')['summaryOffsetMinutes']) || 0) / 60,
         ),
+        social: readSocialLinks(get(SOCIAL_CONFIG_ID)),
       });
       setLoaded(true);
     } catch {
@@ -162,6 +179,22 @@ export default function AppControlView() {
       summaryOffsetMinutes: Math.round(
         Math.max(-14, Math.min(14, Number(merged.telegramSummaryOffset) || 0)) * 60,
       ),
+    });
+  }
+
+  /**
+   * One link, as typed.
+   *
+   * Spelled out rather than `{ ...s.social, [id]: value }` because the computed
+   * key widens the record's type and the compiler stops checking the field
+   * names — the one thing worth checking in a table of eight near-identical
+   * strings.
+   */
+  function editSocial(id: SocialId, value: string): void {
+    setState((s) => {
+      const social: SocialLinks = { ...s.social };
+      social[id] = value;
+      return { ...s, social };
     });
   }
 
@@ -402,6 +435,60 @@ export default function AppControlView() {
             <strong> ٠</strong> ≈ ٥٢٪ فوز (١٥٠ إشارة) · <strong>٢</strong> ≈ ٧٥٪ (٤٩) ·{' '}
             <strong>٣</strong> ≈ ٧٩٪ (٣٤) · <strong>٥</strong> ≈ ٧٦٪ (١٦).
           </p>
+        </div>
+      </div>
+
+      {/* ── Social links ─────────────────────────────────────────────── */}
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>🔗 روابط السوشيال</h2>
+        <div className={styles.warn}>
+          كل زرار سوشيال في التطبيق بيقرا من هنا، ومفيش ولا لينك متكتوب جوه الكود.
+          اللينك الفاضي معناه إن الزرار بتاعه مش بيظهر خالص — ما عدا زر الاشتراك
+          وعرض الترقية، ليهم لينك افتراضي عشان ميبقاش زرار ميت.
+        </div>
+
+        {SOCIAL_PLATFORMS.map((p) => {
+          const value = state.social[p.id];
+          const bad = socialUrlError(value);
+          const odd = bad ? null : socialHostWarning(p, value);
+          return (
+            <div key={p.id} className={styles.field}>
+              <label className={styles.label} htmlFor={`social-${p.id}`}>
+                {p.ar} · {p.where}
+              </label>
+              <input
+                id={`social-${p.id}`}
+                value={value}
+                onChange={(e) => editSocial(p.id, e.target.value)}
+                className={styles.input}
+                dir="ltr"
+                placeholder={p.sample}
+              />
+              {bad && <span className={styles.fieldError}>{bad}</span>}
+              {odd && <span className={styles.fieldWarn}>{odd}</span>}
+              {!bad && value.trim() !== '' && (
+                <a
+                  href={value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.fieldLink}
+                >
+                  جرّب اللينك ↗
+                </a>
+              )}
+            </div>
+          );
+        })}
+
+        <div className={styles.actions}>
+          <button
+            type="button"
+            disabled={busy || SOCIAL_PLATFORMS.some((p) => socialUrlError(state.social[p.id]))}
+            onClick={() => void setConfig(SOCIAL_CONFIG_ID, socialLinksToData(state.social))}
+            className={styles.primaryBtn}
+          >
+            حفظ الروابط
+          </button>
         </div>
       </div>
 

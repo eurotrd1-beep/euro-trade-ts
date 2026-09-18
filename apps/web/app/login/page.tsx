@@ -27,6 +27,14 @@ import {
 } from '@/lib/auth';
 import { LiveTicker } from '@/components/LiveTicker';
 import { TelegramIcon, YouTubeIcon } from '@/components/BrandIcons';
+import { SocialRow } from '@/components/SocialLinks';
+import {
+  NO_SOCIAL_LINKS,
+  SOCIAL_CONFIG_ID,
+  readSocialLinks,
+  vipLink,
+  type SocialLinks,
+} from '@/lib/social';
 import {
   BASE_STATS,
   communityStats,
@@ -36,14 +44,6 @@ import {
 } from '@/lib/communityStats';
 import styles from './login.module.css';
 
-/** The chat VIP subscriptions go through. */
-const TELEGRAM_VIP_URL = 'https://t.me/euro_trd';
-
-interface Social {
-  telegram: string;
-  youtube: string;
-}
-
 export default function LoginPage() {
   const router = useRouter();
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
   const [accountId, setAccountId] = useState('');
   const [promo, setPromo] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [social, setSocial] = useState<Social>({ telegram: '', youtube: '' });
+  const [social, setSocial] = useState<SocialLinks>(NO_SOCIAL_LINKS);
   // Prerendered HTML must not depend on "today", or hydration mismatches.
   const [stats, setStats] = useState<CommunityStats>(BASE_STATS);
 
@@ -70,7 +70,7 @@ export default function LoginPage() {
       try {
         const [b, s] = await Promise.all([
           db().from('brokers').select('*').eq('is_active', true).order('order'),
-          db().from('configs').select('data').eq('id', 'social').maybeSingle(),
+          db().from('configs').select('data').eq('id', SOCIAL_CONFIG_ID).maybeSingle(),
         ]);
         if (cancelled) return;
 
@@ -79,8 +79,7 @@ export default function LoginPage() {
         const last = localStorage.getItem('last_clicked_broker');
         setSelected(list.find((x) => x.name === last) ?? list[0] ?? null);
 
-        const cfg = (s.data?.['data'] ?? {}) as Record<string, string>;
-        setSocial({ telegram: cfg['telegram'] ?? '', youtube: cfg['youtube'] ?? '' });
+        setSocial(readSocialLinks(s.data?.['data'] as Record<string, unknown> | undefined));
       } catch {
         if (!cancelled) setBrokers([]);
       }
@@ -300,9 +299,9 @@ export default function LoginPage() {
               {tr('الحق مكانك — الأرقام بتزيد كل يوم', 'Claim your spot — the numbers grow daily')}
             </p>
 
-            {/* VIP offer → the owner's chat */}
+            {/* VIP offer → wherever the admin points it */}
             <a
-              href={TELEGRAM_VIP_URL}
+              href={vipLink(social)}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.vipCard}
@@ -345,6 +344,14 @@ export default function LoginPage() {
                 />
               )}
             </div>
+
+            {/* Everything else that is configured. Renders nothing when none
+                of them are, so the column does not grow an empty gap. */}
+            <SocialRow
+              links={social}
+              only={['whatsapp', 'instagram', 'tiktok', 'facebook', 'x']}
+              className={styles.socialRow}
+            />
           </div>
         </aside>
       </div>

@@ -1,0 +1,35 @@
+/* Icon buttons for the configured social links. `--brand` is set per link by
+   the component, so one rule covers every platform. */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glow);
+  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  color: var(--text-secondary);
+  transition: color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.chip:hover,
+.chip:focus-visible {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 55%, transparent);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip { transition: color 160ms ease, border-color 160ms ease; }
+  .chip:hover,
+  .chip:focus-visible { transform: none; }
+}

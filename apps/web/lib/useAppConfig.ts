@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { watchConfig, watchPairs, watchUser } from './realtime';
 import { dbBool } from './dataHub';
 import type { PairRow } from '@euro/shared';
+import { NO_SOCIAL_LINKS, readSocialLinks, type SocialLinks } from './social';
 
 export interface AppConfig {
   /** 'sim' | 'scraping' — anything other than 'sim' resolves to 'scraping'. */
@@ -41,7 +42,8 @@ export interface AppConfig {
   /** 'po' | 'all' — which data source users may see. */
   displaySource: string;
   maintenance: { isActive: boolean; message: string; endsAt: string | null };
-  social: { telegram: string; whatsapp: string; youtube: string };
+  /** Every social address, from the `social` row. Empty means "not set". */
+  social: SocialLinks;
 }
 
 const INITIAL: AppConfig = {
@@ -55,7 +57,7 @@ const INITIAL: AppConfig = {
   loaded: false,
   displaySource: 'all',
   maintenance: { isActive: false, message: '', endsAt: null },
-  social: { telegram: '', whatsapp: '', youtube: '' },
+  social: NO_SOCIAL_LINKS,
 };
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
@@ -97,15 +99,10 @@ export function useAppConfig(): AppConfig {
         }),
       ),
 
-      watchConfig('social', (d) =>
-        patch({
-          social: {
-            telegram: str(d['telegram']),
-            whatsapp: str(d['whatsapp']),
-            youtube: str(d['youtube']),
-          },
-        }),
-      ),
+      // The whole row, whatever is in it: the platform table decides which
+      // keys mean something, so adding one there reaches the app without a
+      // change here.
+      watchConfig('social', (d) => patch({ social: readSocialLinks(d) })),
 
     ];
 

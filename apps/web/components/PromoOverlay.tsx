@@ -21,8 +21,6 @@ import { countClick } from '@/lib/dataHub';
 import { TelegramIcon } from './BrandIcons';
 import styles from './PromoOverlay.module.css';
 
-const FALLBACK_TELEGRAM = 'https://t.me/euro_trd1';
-
 interface Promo {
   title: string;
   message: string;
@@ -62,6 +60,7 @@ export function PromoOverlay({
 }: {
   accountId: string;
   /** The social Telegram link; falls back to the owner's channel. */
+  /** Already resolved by the page — never empty. */
   telegram: string;
 }) {
   const [promo, setPromo] = useState<Promo | null>(null);
@@ -214,7 +213,7 @@ export function PromoOverlay({
         )}
 
         <a
-          href={telegram !== '' ? telegram : FALLBACK_TELEGRAM}
+          href={telegram}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => bump('cta')}
