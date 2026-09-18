@@ -222,6 +222,19 @@ export function planResolve(rows: readonly Resolution[], nowMs: number): Stateme
  * original's comment on removing it: that clause was what kept the running
  * strategy out of every number on the screen.
  */
+/**
+ * Midnight UTC at the start of a `YYYY-MM-DD` day, in milliseconds.
+ *
+ * `date("created_ms" / 1000, 'unixepoch')` is the UTC date of a row, so a day
+ * is exactly the half-open range [midnight, midnight + 24h). The division is
+ * integer division on an INTEGER column, so the two agree to the millisecond.
+ */
+export function dayStartMs(day: string): number {
+  return Date.parse(day + 'T00:00:00.000Z');
+}
+
+const DAY_MS = 86_400_000;
+
 export function planRefreshDaily(fromDay: string, toDay: string): Statement {
   return {
     sql:
@@ -239,7 +252,21 @@ export function planRefreshDaily(fromDay: string, toDay: string): Statement {
       `   COUNT(CASE WHEN "outcome" = 'pending' THEN 1 END),` +
       `   COUNT(CASE WHEN "forced" = 1 THEN 1 END)` +
       ` FROM "signals"` +
+      // ── WHY THE SAME FILTER IS WRITTEN TWICE ────────────────────────────
+      //
+      // `date("created_ms" / 1000, 'unixepoch')` is a function of the column,
+      // so no index can answer it and SQLite scans the whole table — every
+      // row of the 30-day retention window, to rebuild three days of counters.
+      // At 218 runs a day that was 3.1 million row reads, 88% of everything
+      // this database read and most of the way to a daily limit whose ceiling
+      // blocks reads as well as writes.
+      //
+      // The range on the raw column is what `signals_created` can seek on. The
+      // `date()` clause stays because it is the one that DEFINES the result:
+      // the range narrows what is scanned and cannot widen what is matched, so
+      // the rows counted are the same rows either way.
       ` WHERE date("created_ms" / 1000, 'unixepoch') BETWEEN ? AND ?` +
+      `   AND "created_ms" >= ? AND "created_ms" < ?` +
       ` GROUP BY d, "strategy_version_id", "symbol", "timeframe", "slot"` +
       ` ON CONFLICT ("day",` +
       `   COALESCE("strategy_version_id", '00000000-0000-0000-0000-000000000000'),` +
@@ -263,7 +290,7 @@ export function planRefreshDaily(fromDay: string, toDay: string): Statement {
       `    OR "signal_daily"."unresolved" IS NOT excluded."unresolved"` +
       `    OR "signal_daily"."pending" IS NOT excluded."pending"` +
       `    OR "signal_daily"."forced" IS NOT excluded."forced"`,
-    binds: [fromDay, toDay],
+    binds: [fromDay, toDay, dayStartMs(fromDay), dayStartMs(toDay) + DAY_MS],
   };
 }
 
@@ -290,8 +317,12 @@ export function planPrune(keepDays: number, nowMs: number): {
     cutDay,
     refresh: planRefreshDaily(weekBefore, cutDay),
     del: {
-      sql: `DELETE FROM "signals" WHERE date("created_ms" / 1000, 'unixepoch') <= ?`,
-      binds: [cutDay],
+      // Same pairing as the refresh above: `date()` defines the cut, the raw
+      // range is what the index can seek on.
+      sql:
+        `DELETE FROM "signals" WHERE date("created_ms" / 1000, 'unixepoch') <= ?` +
+        ` AND "created_ms" < ?`,
+      binds: [cutDay, dayStartMs(cutDay) + DAY_MS],
     },
   };
 }
