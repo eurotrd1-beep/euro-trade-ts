@@ -22,8 +22,17 @@ import { onChange, onResync } from './live';
 /**
  * Fallback until the config row loads, so the app works on first paint and if
  * the hub is unreachable.
+ *
+ * This is the address `proxy_server_url` actually holds, and it is deliberately
+ * not the Render service behind it: every client already goes through the cache
+ * worker, so the fallback should land where a loaded config would.
+ *
+ * It used to be `euro-trade-proxy.onrender.com`, which stopped existing when
+ * that Render service was deleted — a fallback nobody exercises rots quietly,
+ * and this one would only have been reached on the day the hub was down, which
+ * is the one day it has to work.
  */
-export const DEFAULT_PROXY_URL = 'https://euro-trade-proxy.onrender.com';
+export const DEFAULT_PROXY_URL = 'https://euro-trade-cache-v2.vxbtc.workers.dev';
 
 let proxyUrl = DEFAULT_PROXY_URL;
 const proxyListeners = new Set<(url: string) => void>();
