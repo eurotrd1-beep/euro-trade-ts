@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { getProxyUrl, formatPrice } from '@euro/shared';
+import { formatPrice } from '@euro/shared';
+import { getProxyUrl } from '@/lib/proxyUrl';
 import styles from './LiveTicker.module.css';
 
 /** Refreshed slowly: this is decoration on a login page, not a trading view. */

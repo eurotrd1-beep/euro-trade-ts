@@ -11,7 +11,7 @@
  *     /admin/theme. Takes precedence when present.
  */
 
-import { supabase } from '@euro/shared';
+
 import { db } from './dataHub';
 import { THEME_TOKENS, parseThemeConfig, type ThemeConfig } from './themePresets';
 

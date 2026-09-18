@@ -6,4 +6,3 @@
 export * from './database.js';
 export * from './language.js';
 export * from './constants.js';
-export * from './supabase.js';

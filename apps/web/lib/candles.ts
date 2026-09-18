@@ -6,7 +6,7 @@
  * (`o/h/l/c/t`) and `t` is in SECONDS, not milliseconds.
  */
 
-import { getProxyUrl } from '@euro/shared';
+import { getProxyUrl } from './proxyUrl';
 import type { Candle } from '@euro/engine';
 
 /**

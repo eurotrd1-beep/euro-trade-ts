@@ -20,36 +20,21 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/**
+ * Kept as a tripwire, not as a stand-in.
+ *
+ * Nothing imports the Supabase client any more — the package that exported it
+ * is gone. These assertions that `supabaseCalls` stays empty are what would
+ * notice if something reintroduced it.
+ */
 const supabaseCalls: string[] = [];
-
-vi.mock('@euro/shared', () => {
-  const chain = (table: string) => {
-    const q = {
-      select: () => q,
-      eq: (c: string, v: string) => { supabaseCalls.push(`eq:${c}=${v}`); return q; },
-      in: (c: string, v: string[]) => { supabaseCalls.push(`in:${c}=${v.join('|')}`); return q; },
-      order: () => q,
-      limit: () => q,
-      insert: async () => { supabaseCalls.push(`insert:${table}`); return { error: null }; },
-      upsert: async () => { supabaseCalls.push(`upsert:${table}`); return { error: null }; },
-      update: () => { supabaseCalls.push(`update:${table}`); return q; },
-      delete: () => { supabaseCalls.push(`delete:${table}`); return q; },
-      then: (resolve: (v: unknown) => unknown) => {
-        supabaseCalls.push(`read:${table}`);
-        return Promise.resolve(resolve({ data: [{ from: 'supabase' }], error: null }));
-      },
-    };
-    return q;
-  };
-  return { supabase: () => ({ from: (table: string) => chain(table) }) };
-});
 
 vi.mock('../lib/adminAuth', () => ({ adminSecret: () => held }));
 let held: string | null = null;
 
-const { db, configureDataSource, hubStats } = await import('../lib/dataHub.js');
+const { db, hubStats, hubUrl } = await import('../lib/dataHub.js');
 
-const HUB = 'https://data.example.com';
+const HUB = hubUrl;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 const hubOk = (rows: unknown[]) =>
@@ -61,7 +46,6 @@ beforeEach(() => {
   hubStats.errors = 0; hubStats.lastError = '';
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
-  configureDataSource({ mode: 'd1', url: HUB });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -151,13 +135,6 @@ describe('an update or delete with no filter never leaves the browser', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('refuses it in Supabase mode too, where nothing else would', async () => {
-    // The hub refuses an unfiltered write; Postgres with open RLS does not.
-    configureDataSource({ mode: 'supabase', url: HUB });
-    const { error } = await db().from('pairs').delete().run();
-    expect(error).not.toBeNull();
-    expect(supabaseCalls).not.toContain('delete:pairs');
-  });
 
   it('allows it once the rows are named', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: true, status: 200, json: async () => ({}) }));
@@ -192,11 +169,6 @@ describe('naming many rows at once', () => {
     expect(bodyOf()).toMatchObject({ where: [{ column: 'id', values: [] }] });
   });
 
-  it('passes an IN list through to Supabase as an IN, not a series of eq', async () => {
-    configureDataSource({ mode: 'supabase', url: HUB });
-    await db().from('users').update({ role: 'vip' }).in('id', ['a', 'b']).run();
-    expect(supabaseCalls).toContain('in:id=a|b');
-  });
 });
 
 describe('the admin secret rides along when this browser holds one', () => {
@@ -218,11 +190,8 @@ describe('the admin secret rides along when this browser holds one', () => {
   });
 });
 
-describe('nothing is pinned to Supabase any more', () => {
-  it('reads configs from the hub in d1 mode', async () => {
-    // It was pinned while the scraper still read and wrote it with the service
-    // key. The scraper routes it now, so both writers are on the same database
-    // and the pin came off with them.
+describe('every table goes to the hub', () => {
+  it('configs included — it was the last one pinned to Postgres', async () => {
     fetchMock.mockReturnValueOnce(hubOk([{ id: 'promo', data: '{"enabled":true}' }]));
     const { data } = await db().from('configs').select('data').eq('id', 'promo').maybeSingle();
     expect(supabaseCalls).toEqual([]);
@@ -259,12 +228,6 @@ describe('a boolean filter reaches each database in its own spelling', () => {
     expect(decodeURIComponent(urlOf())).toContain('eq=enabled:0');
   });
 
-  it('stays a real boolean on the way to Postgres', async () => {
-    // The rollback target still has a `boolean` column, and '1' is not one.
-    configureDataSource({ mode: 'supabase', url: HUB });
-    await db().from('pairs').select('chart_symbol').eq('enabled', true);
-    expect(supabaseCalls).toContain('eq:enabled=true');
-  });
 });
 
 describe('a renamed column is translated in both directions', () => {
@@ -287,11 +250,6 @@ describe('a renamed column is translated in both directions', () => {
     expect(decodeURIComponent(urlOf())).toContain('eq=vip_expiry_ms:123');
   });
 
-  it('leaves the Postgres spelling alone in Supabase mode', async () => {
-    configureDataSource({ mode: 'supabase', url: HUB });
-    await db().from('users').select('*').eq('vip_expiry', 123);
-    expect(supabaseCalls).toContain('eq:vip_expiry=123');
-  });
 
   it('translates a write filter too', async () => {
     fetchMock.mockReturnValueOnce(Promise.resolve({ ok: true, status: 200, json: async () => ({}) }));
@@ -344,10 +302,4 @@ describe('jsonb columns survive the crossing to TEXT and back', () => {
     expect(data?.['data']).toBe('{"a":1}');
   });
 
-  it('is not applied on the Supabase path, where jsonb is already an object', async () => {
-    configureDataSource({ mode: 'supabase', url: HUB });
-    await db().from('clicks').upsert({ id: 'promo', data: { views: 0 } });
-    expect(supabaseCalls).toContain('upsert:clicks');
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
 });

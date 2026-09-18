@@ -15,7 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CATALOGUE_SYMBOLS, supabase, tr, type BrokerRow } from '@euro/shared';
+import { CATALOGUE_SYMBOLS, tr, type BrokerRow } from '@euro/shared';
 import { db } from '@/lib/dataHub';
 import {
   verifyAccount,

@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
-  "scripts": { "typecheck": "tsc --noEmit" },
-  "dependencies": { "@supabase/supabase-js": "^2.49.0" },
-  "devDependencies": { "typescript": "^5.7.2", "@types/node": "^22" }
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22"
+  }
 }

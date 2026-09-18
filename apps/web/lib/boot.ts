@@ -11,8 +11,8 @@
  *   4. destination  — main screen if verified, otherwise the notice screen
  */
 
-import { supabase, hasChosen } from '@euro/shared';
-import { configureDataSource, db, dbBool, setDataAccount } from './dataHub';
+import { hasChosen } from '@euro/shared';
+import { db, dbBool, hubUrl, setDataAccount } from './dataHub';
 import { configureLive } from './live';
 import { loadSession } from './session';
 
@@ -66,43 +66,13 @@ async function fetchBanState(accountId: string): Promise<{ banned: boolean; reas
   }
 }
 
-/**
- * Reads `configs.data_source` and sets the mode.
- *
- * ── STRAIGHT FROM SUPABASE, DELIBERATELY ───────────────────────────────────
- *
- * Not through `db()`. A switch stored in the database it switches away from is
- * useless at the only moment it is needed — D1 unreachable, and the way back
- * unreadable because the way back is where the answer lives.
- *
- * It also has to come first. Every read after this point goes through `db()`,
- * and `db()` before this returns Supabase, so the cost of being wrong here is
- * a few reads from the old database rather than a failure.
- */
-async function applyDataSource(): Promise<void> {
-  try {
-    const { data } = await supabase()
-      .from('configs')
-      .select('data')
-      .eq('id', 'data_source')
-      .maybeSingle();
-    const config = data?.['data'];
-    configureDataSource(config);
-    // Same row, same address: the live channel lives on the hub, so a config
-    // that names no hub has no live channel either — and the app falls back to
-    // the value it read at startup rather than to a socket pointing nowhere.
-    configureLive(typeof (config as { url?: unknown } | undefined)?.url === 'string'
-      ? String((config as { url: string }).url)
-      : '');
-  } catch {
-    // Unreachable means stay on Supabase, which is where we already are.
-  }
-}
-
 /** Resolves where the app should go after the splash. */
 export async function resolveBootDestination(): Promise<BootDestination> {
-  // Before the maintenance read below, which is itself a `db()` call.
-  await applyDataSource();
+  // The live channel is on the hub, whose address is built in — there is no
+  // config row to read first any more. `configs.data_source` used to be read
+  // from Postgres here, before anything else, because it named which database
+  // to use; with one database left it named one thing and has been removed.
+  configureLive(hubUrl);
   // Reads from localStorage OR the cookie, and repairs whichever was lost.
   const session = loadSession();
   const isVerified = session !== null;

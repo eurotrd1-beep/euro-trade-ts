@@ -1,80 +1,46 @@
 'use client';
 
 /**
- * Where the app reads and writes its data — Supabase, D1, or both.
+ * Where the app reads and writes its data.
  *
- * ── THE SHAPE IS DELIBERATE ────────────────────────────────────────────────
+ * ── WHAT THIS USED TO BE ───────────────────────────────────────────────────
  *
- * This presents the same fluent chain the Supabase client does, so a call site
- * moves across by changing `supabase()` to `db()` and nothing else. That is
- * not laziness about the API: twenty edited call sites is twenty chances to
- * change a filter by accident during a migration, and a `.eq()` that quietly
- * became a `.neq()` in the middle of a data move is a bug nobody would think
- * to look for. One shim, one place to read, one place to roll back.
+ * A shim presenting the Supabase client's fluent chain over either database,
+ * with three modes — `supabase`, `mirror` and `d1` — so a call site moved
+ * across by changing `supabase()` to `db()` and nothing else. That shape did
+ * its job: twenty-odd call sites crossed without one of them changing a filter
+ * by accident, and `mirror` let reads come from D1 while writes still went to
+ * Postgres, so a fallback was invisible.
  *
- * ── THREE MODES, AND WHY THE MIDDLE ONE EXISTS ─────────────────────────────
+ * Postgres is gone now. The modes went with it, and so did every fallback:
+ * there is one database, and a failed read is an error rather than a quieter
+ * answer from somewhere staler. What is left is the chain itself, which the
+ * call sites are written against and which has nothing to do with Supabase.
  *
- *   supabase   everything from Supabase. The rollback target, and the state
- *              the app is in today.
- *   mirror     READ from D1, WRITE to Supabase. A read that fails falls back
- *              to Supabase.
- *   d1         read and write D1. No fallback.
+ * ── THE ADDRESS IS BUILT IN ────────────────────────────────────────────────
  *
- * The fallback lives in `mirror` and only in `mirror`, and that is the whole
- * point of having a middle mode. While writes still go to Supabase the two
- * databases hold the same rows, so a fallback returns the same answer and the
- * user sees nothing — the hub can be wrong all afternoon and the app keeps
- * working while the errors show up in the health screen.
+ * It used to come from `configs.data_source`, a row read from Postgres at
+ * startup that named the mode and the hub. A flag saying which database to use
+ * could not live in the database it controlled — that is exactly the row you
+ * need when that database is unreachable — so Postgres kept one job after
+ * everything else moved.
  *
- * In `d1` mode the same fallback would be a disaster. Writes would be landing
- * in D1 while reads quietly came from a Supabase that was getting staler by
- * the hour, and everything would look fine: a user's trade history would just
- * stop growing. So in `d1` a failed read is an error, loudly, and the way back
- * is the flag — not a silent second source.
+ * With one database left the flag has one setting, and a switch with one
+ * position is not a switch. The address is now baked in at build time and
+ * overridable with NEXT_PUBLIC_DATA_HUB_URL, which costs a rebuild to change
+ * and depends on nothing at runtime.
  *
- * ── THE FLAG IS READ FROM SUPABASE, ON PURPOSE ─────────────────────────────
+ * ── WHAT IT STILL TRANSLATES ───────────────────────────────────────────────
  *
- * `configs.data_source` says which mode is live, and it is fetched from
- * Supabase even in `d1` mode. It has to be: a flag stored in the database it
- * controls cannot be used to switch away from that database when it is down,
- * which is exactly the moment it is needed. Rolling back stays a row edit in
- * a system that is, by definition, still working.
+ * SQLite is not Postgres, and each difference fails silently rather than
+ * loudly: renamed columns answer `undefined`, `enabled = true` matches nothing
+ * against a column holding 1, and a jsonb column read back as TEXT is a string
+ * whose `.length` is a character count. All three are handled here so no call
+ * site has to know which engine answered.
  */
 
-import { supabase } from '@euro/shared';
 import { adminSecret } from './adminAuth';
 import { isQuotaActive, noteHubResponse, reportResumed, setQuotaProbe } from './quota';
-
-export type DataMode = 'supabase' | 'mirror' | 'd1';
-
-/**
- * Tables that stay on Supabase whatever the mode says.
- *
- * ── THE LIST IS EMPTY, AND THAT IS THE POINT ───────────────────────────────
- *
- * It held the signal pipeline while four Postgres functions still owned it, and
- * then `configs` while the proxy still read and wrote that table with the
- * service key. Both have moved: the pipeline was ported and compared row by
- * row, and the scraper now routes its tables through the hub, including the
- * five config rows the browser and the scraper hand to each other —
- * `telegram`, `otc_scan`, `otc_status`, `otc_token`, `captcha_balance`.
- *
- * The mechanism stays because the reason for it will come back. A table has to
- * be read from the database it is written TO, and the moment one writer moves
- * without the other, this is where that gets recorded — with the names of both
- * writers, not just the table.
- *
- * ── THE ONE THING STILL READ FROM SUPABASE ─────────────────────────────────
- *
- * `configs.data_source`, and not through this list. `boot` fetches it directly,
- * because a flag that says which database to use cannot live in the database it
- * controls: that is exactly the row you need when that database is unreachable.
- * It is a single read of a single row on cold start, and it is the rollback.
- */
-const SUPABASE_ONLY: ReadonlySet<string> = new Set([]);
-
-/** True when this table answers from Supabase no matter what the mode is. */
-export const staysOnSupabase = (table: string): boolean => SUPABASE_ONLY.has(table);
 
 /**
  * Reads a boolean column from either database.
@@ -104,8 +70,7 @@ export function dbBool(value: unknown): boolean {
 }
 
 /** Where the hub lives. Overridden by `configs.data_source.url`. */
-let hubUrl = '';
-let mode: DataMode = 'supabase';
+
 
 /**
  * Reads that fell back to Supabase, and reads that failed outright.
@@ -114,22 +79,24 @@ let mode: DataMode = 'supabase';
  * where "it seems fine" is doing the work of a number is a migration that gets
  * finished on a feeling.
  */
-export const hubStats = { reads: 0, fallbacks: 0, errors: 0, lastError: '' };
+/**
+ * The hub's address, fixed at build time.
+ *
+ * The default is the deployed Worker, so a build with no environment set still
+ * produces a working app — a blank address would produce one that loads and
+ * then answers nothing, which is the worse failure.
+ */
+export const hubUrl = (process.env['NEXT_PUBLIC_DATA_HUB_URL']
+  ?? 'https://euro-trade-data.vxbtc.workers.dev').replace(/\/+$/, '');
 
-export function configureDataSource(config: unknown): void {
-  const c = (config ?? {}) as { mode?: unknown; url?: unknown };
-  mode = c.mode === 'mirror' || c.mode === 'd1' ? c.mode : 'supabase';
-  hubUrl = typeof c.url === 'string' ? c.url.replace(/\/+$/, '') : '';
-  // A mode that names no hub is a mode that cannot work. Falling back to
-  // Supabase is the safe reading of a half-filled config row, and saying so
-  // beats discovering it as a wall of failed reads.
-  if (mode !== 'supabase' && hubUrl === '') {
-    hubStats.lastError = 'data_source names a mode but no url — staying on Supabase';
-    mode = 'supabase';
-  }
-}
-
-export const currentMode = (): DataMode => mode;
+/**
+ * Counters for the health screen.
+ *
+ * `fallbacks` is gone with the mode that could fall back. A read either
+ * answers or errors now, and a counter that can only ever be zero is a line on
+ * a screen that says nothing.
+ */
+export const hubStats = { reads: 0, errors: 0, lastError: '' };
 
 // ── The request ─────────────────────────────────────────────────────────────
 
@@ -439,9 +406,6 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
   }
 
   async run(): Promise<{ data: Row[] | null; error: Error | null; count?: number }> {
-    // Not a fallback — a home. These never reach the hub in any mode.
-    if (mode === 'supabase' || staysOnSupabase(this.table)) return this.viaSupabase();
-
     try {
       hubStats.reads++;
       const body = await hubRead(
@@ -460,51 +424,15 @@ class Query<Row> implements PromiseLike<{ data: Row[] | null; error: Error | nul
       const message = e instanceof Error ? e.message : String(e);
       hubStats.lastError = `${this.table}: ${message}`;
 
-      // `mirror` only. In `d1` the two databases have diverged, and a silent
-      // second source would serve a stale answer that looks exactly like a
-      // fresh one.
-      if (mode === 'mirror') {
-        hubStats.fallbacks++;
-        return this.viaSupabase();
-      }
+      // No second source to try. A failed read is an error, and that is the
+      // only honest answer: the alternative used to be Postgres holding the
+      // same rows, and it holds nothing current now.
       hubStats.errors++;
       return { data: null, error: new Error(message) };
     }
   }
 
-  private async viaSupabase(): Promise<
-    { data: Row[] | null; error: Error | null; count?: number }
-  > {
-    let q = supabase().from(this.table).select(
-      this.cols === null ? '*' : this.cols.join(','),
-      this.wantCount ? { count: 'exact' } : undefined,
-    ) as unknown as {
-      eq: (c: string, v: unknown) => typeof q;
-      neq: (c: string, v: unknown) => typeof q;
-      in: (c: string, v: unknown[]) => typeof q;
-      gte: (c: string, v: unknown) => typeof q;
-      lte: (c: string, v: unknown) => typeof q;
-      order: (c: string, o: { ascending: boolean }) => typeof q;
-      limit: (n: number) => typeof q;
-      then: unknown;
-    };
-    for (const f of this.filters) {
-      if (f.gte !== undefined) q = q.gte(f.column, f.gte);
-      if (f.lte !== undefined) q = q.lte(f.column, f.lte);
-      if (f.gte !== undefined || f.lte !== undefined) continue;
-      if (f.ne !== undefined) { q = q.neq(f.column, f.ne); continue; }
-      q = f.values ? q.in(f.column, f.values) : q.eq(f.column, f.value);
-    }
-    if (this.orderBy) q = q.order(this.orderBy.column, { ascending: !this.orderBy.desc });
-    if (this.rowLimit !== null) q = q.limit(this.rowLimit);
-
-    const res = (await (q as unknown as Promise<{
-      data: Row[] | null; error: Error | null; count?: number;
-    }>));
-    return res;
-  }
-
-  // Awaiting the chain runs it, exactly as the Supabase builder does.
+  // Awaiting the chain runs it, the way the builder it replaced did.
   then<R1 = { data: Row[] | null; error: Error | null; count?: number }, R2 = never>(
     onFulfilled?: ((v: { data: Row[] | null; error: Error | null; count?: number }) => R1 | PromiseLike<R1>) | null,
     onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
@@ -552,10 +480,6 @@ class Table<Row> {
    * that is wrong.
    */
   async upsert(values: Record<string, unknown>): Promise<{ error: Error | null }> {
-    if (mode !== 'd1' || staysOnSupabase(this.name)) {
-      const { error } = await supabase().from(this.name).upsert(values);
-      return { error: error as Error | null };
-    }
     return this.hubWrite('upsert', values, []);
   }
 
@@ -568,10 +492,6 @@ class Table<Row> {
    * replacing the existing row would lose whatever it held.
    */
   async insert(values: Record<string, unknown>): Promise<{ error: Error | null }> {
-    if (mode !== 'd1' || staysOnSupabase(this.name)) {
-      const { error } = await supabase().from(this.name).insert(values);
-      return { error: error as Error | null };
-    }
     return this.hubWrite('insert', values, []);
   }
 
@@ -680,8 +600,6 @@ class WriteChain {
       return { error: new Error(message), rows: null };
     }
 
-    if (mode !== 'd1' || staysOnSupabase(this.table)) return this.viaSupabase();
-
     const res = await fetch(`${hubUrl}/v1/${this.table}`, {
       method: 'POST',
       headers: hubHeaders({ 'Content-Type': 'application/json' }),
@@ -705,19 +623,6 @@ class WriteChain {
     return { error: null, rows: typeof body.rows === 'number' ? body.rows : null };
   }
 
-  private async viaSupabase(): Promise<{ error: Error | null; rows: number | null }> {
-    const base = supabase().from(this.table);
-    let q = (this.op === 'delete' ? base.delete() : base.update(this.values)) as unknown as {
-      eq: (c: string, v: unknown) => typeof q;
-      in: (c: string, v: unknown[]) => typeof q;
-    };
-    for (const f of this.filters) {
-      q = f.values ? q.in(f.column, f.values) : q.eq(f.column, f.value);
-    }
-    const { error } = await (q as unknown as Promise<{ error: Error | null }>);
-    return { error, rows: null };
-  }
-
   then<R1, R2 = never>(
     onFulfilled?: ((v: { error: Error | null; rows: number | null }) => R1 | PromiseLike<R1>) | null,
     onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
@@ -734,16 +639,14 @@ class WriteChain {
 /**
  * `signal_stats`, as an aggregate the hub computes.
  *
- * Returns null when the caller should use Supabase — either the mode says so,
- * or the hub failed and we are in a mode that may fall back. Null is "ask the
- * other one", not "no data": an empty array here would render as a screen with
- * no trades on it, which is a different and much worse answer.
+ * It used to be able to return null, meaning "ask Postgres instead". There is
+ * no other one to ask, so a failure throws: an empty array would render as a
+ * screen with no trades on it, which is a different and much worse answer than
+ * an error.
  */
 export async function statsViaHub(
   params: Record<string, string | null>,
 ): Promise<Record<string, unknown>[] | null> {
-  if (mode === 'supabase') return null;
-
   const query = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== null) query.set(k, v);
 
@@ -756,7 +659,6 @@ export async function statsViaHub(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     hubStats.lastError = `stats: ${message}`;
-    if (mode === 'mirror') { hubStats.fallbacks++; return null; }
     hubStats.errors++;
     throw new Error(message);
   }
@@ -771,19 +673,17 @@ export async function statsViaHub(
  */
 export async function countClick(row: string, field: string): Promise<void> {
   try {
-    if (mode === 'd1') {
-      await fetch(`${hubUrl}/v1/click`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row, field }),
-      });
-      return;
-    }
-    await supabase().rpc('increment_click', { row_id: row, field_name: field });
+    // One fixed mutation, not a table write: `clicks` is closed to the public,
+    // and this endpoint can only ever make one counter larger by one. That was
+    // the shape of the Postgres function it replaced, and carrying it over is
+    // what keeps an anonymous caller from being able to set a counter.
+    await fetch(`${hubUrl}/v1/click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ row, field }),
+    });
   } catch {
-    // Analytics only. A counter that did not increment is not a reason to
-    // interrupt a login or block an advert, and neither original awaited a
-    // result either.
+    // A lost click is a lost analytics event, never a failed user action.
   }
 }
 
@@ -803,8 +703,6 @@ export async function countClick(row: string, field: string): Promise<void> {
  * So the translation lives here, once, rather than at the call site.
  */
 export function usersRowFor(values: Record<string, unknown>): Record<string, unknown> {
-  if (mode !== 'd1') return values;
-
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(values)) {
     if (key === 'vip_expiry' || key === 'created_at') {

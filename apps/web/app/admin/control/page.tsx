@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { DEFAULT_PROXY_URL } from '@euro/shared';
+import { DEFAULT_PROXY_URL } from '@/lib/proxyUrl';
 import { db } from '@/lib/dataHub';
 import styles from '../admin.module.css';
 

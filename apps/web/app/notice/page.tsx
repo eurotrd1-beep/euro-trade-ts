@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase, tr, type BrokerRow } from '@euro/shared';
+import { tr, type BrokerRow } from '@euro/shared';
 import { db } from '@/lib/dataHub';
 import { TradingBackground } from '@/components/TradingBackground';
 import styles from './notice.module.css';

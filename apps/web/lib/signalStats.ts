@@ -24,8 +24,8 @@
  * forced wins is not a measurement of anything.
  */
 
-import { supabase } from '@euro/shared';
-import { db, statsViaHub, staysOnSupabase } from './dataHub';
+
+import { db, statsViaHub } from './dataHub';
 
 /** A binary option paying 80–90% needs this much just to return the stake. */
 export const BREAKEVEN_LOW = 52.6;
@@ -149,11 +149,11 @@ export interface StatsFilter {
 
 /** One aggregate query. `groupBy` decides how many rows come back, never more than ~200. */
 export async function fetchStats(f: StatsFilter, groupBy: 'total' | 'day' | 'symbol' | 'slot' | 'version'): Promise<Bucket[]> {
-  // signal_daily stays on Supabase with the rest of the pipeline, so the
-  // aggregate over it does too — the hub would be summing a copy that stopped
-  // being written. The port is kept and tested for the stage where the
-  // pipeline itself moves.
-  const viaHub = staysOnSupabase('signal_daily') ? null : await statsViaHub({
+  // One aggregate, computed by the hub. It used to fall back to the Postgres
+  // `signal_stats` function when the pipeline still lived there; the port was
+  // compared against it row by row across 18,144 numbers before the fallback
+  // came out.
+  const rows = await statsViaHub({
     from: f.from,
     to: f.to,
     group_by: groupBy,
@@ -161,18 +161,7 @@ export async function fetchStats(f: StatsFilter, groupBy: 'total' | 'day' | 'sym
     version: f.versionId ?? null,
     symbol: f.symbol ?? null,
   });
-  if (viaHub !== null) return viaHub as unknown as Bucket[];
-
-  const { data, error } = await supabase().rpc('signal_stats', {
-    p_from: f.from,
-    p_to: f.to,
-    p_group_by: groupBy,
-    p_slot: f.slot ?? null,
-    p_version: f.versionId ?? null,
-    p_symbol: f.symbol ?? null,
-  });
-  if (error) throw new Error(error.message);
-  return (data as Bucket[] | null) ?? [];
+  return (rows ?? []) as unknown as Bucket[];
 }
 
 /**

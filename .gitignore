@@ -43,3 +43,9 @@ npm-debug.log*
 
 # Built APKs — artefacts, not source.
 *.apk
+
+# Render environment, generated with real secrets — never committed.
+render.env
+
+# Generated VAPID keypair — never committed.
+vapid.local.json

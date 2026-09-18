@@ -18,16 +18,8 @@
  */
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  getLanguage,
-  loadLanguage,
-  onLanguageChange,
-  setLanguage as applyLanguage,
-  direction,
-  locale,
-  type AppLanguage,
-} from '@euro/shared';
-import { loadProxyUrl, startProxyRealtime } from '@euro/shared';
+import { getLanguage, loadLanguage, onLanguageChange, setLanguage as applyLanguage, direction, locale, type AppLanguage } from '@euro/shared';
+import { loadProxyUrl, startProxyRealtime } from '@/lib/proxyUrl';
 import { loadAppTheme } from '@/lib/theme';
 import { initBackButton, initNetworkWatch, initStatusBar, hideSplash } from '@/lib/native';
 

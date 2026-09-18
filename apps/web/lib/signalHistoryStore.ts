@@ -41,8 +41,8 @@
  * settled while the network was down.
  */
 
-import { supabase } from '@euro/shared';
-import { db, currentMode } from './dataHub';
+
+import { db } from './dataHub';
 import type { TradingSignal } from '@euro/engine';
 
 /** The Dart cap, kept: fifty settled signals per account. */
@@ -256,11 +256,15 @@ export async function pushRemoteHistory(
     // server clock, because a client's clock can be wrong or lied about.
     // The same difference, on the way out. The hub's CHECK (json_valid)
     // refuses anything that is not JSON text, and Postgres wants the array.
-    await db().from(TABLE).upsert(
-      currentMode() === 'd1'
-        ? { account_id: accountId, signals: JSON.stringify(trimmed), updated_ms: Date.now() }
-        : { account_id: accountId, signals: trimmed },
-    );
+    // `updated_ms` rather than letting a trigger set it: Postgres had one and
+    // SQLite does not, so the writer supplies the time. The client stringifies
+    // `signals` on its way out — the CHECK refuses anything that is not JSON
+    // text — so it is passed as the array it is.
+    await db().from(TABLE).upsert({
+      account_id: accountId,
+      signals: trimmed,
+      updated_ms: Date.now(),
+    });
   } catch {
     // Offline, blocked, or the migration has not been run yet.
   }

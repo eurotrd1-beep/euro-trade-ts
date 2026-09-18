@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { getProxyUrl, onProxyUrlChange } from '@euro/shared';
+import { getProxyUrl, onProxyUrlChange } from '@/lib/proxyUrl';
 
 /** The global chart.js installs on `window`. */
 interface CandleChartApi {

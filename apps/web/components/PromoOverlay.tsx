@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase, tr } from '@euro/shared';
+import { tr } from '@euro/shared';
 import { db } from '@/lib/dataHub';
 import { countClick } from '@/lib/dataHub';
 import { TelegramIcon } from './BrandIcons';

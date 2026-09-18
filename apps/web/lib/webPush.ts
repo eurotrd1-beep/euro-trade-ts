@@ -27,7 +27,7 @@
  * redeploy of the front end. The private half never leaves the server.
  */
 
-import { getProxyUrl } from '@euro/shared';
+import { getProxyUrl } from './proxyUrl';
 
 /** What the button needs to know to draw itself. */
 export type PushState =

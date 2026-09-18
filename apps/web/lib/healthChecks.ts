@@ -9,16 +9,14 @@
 
 import { CATALOGUE_SYMBOLS } from '@euro/shared';
 import { restartLive } from './live';
-import { db, currentMode, hubStats } from './dataHub';
+import { db, hubStats } from './dataHub';
 
 // ── Fixed infra endpoints (Dart: _kWorker / _kOrigin / _kRef …) ────────────
 
 export const K_WORKER = 'https://euro-trade-cache.eurotrade.workers.dev';
 /** The working proxy / worker origin. */
 export const K_ORIGIN = 'https://euro-trade-proxy-1.onrender.com';
-const K_REF = 'dlzqdmqkvlvwnjhqxqym';
 export const K_RENDER_DASH = 'https://dashboard.render.com';
-export const K_SUPA_USAGE = `https://supabase.com/dashboard/project/${K_REF}/reports`;
 
 export type RStatus = 'checking' | 'ok' | 'warn' | 'fail' | 'na' | 'unknown';
 
@@ -64,7 +62,6 @@ export const SECTIONS: Array<[string, string]> = [
   ['proxy', '⚙️ البروكسي / Render'],
   ['worker', '⚡ Cloudflare Worker'],
   ['data', '📊 الأسعار والبيانات'],
-  ['supabase', '🗄️ Supabase'],
   ['po', '🔑 جلسة Pocket Option'],
   ['captcha', '💸 رصيد 2captcha'],
   ['gwin', '🎯 ضمان الفوز'],
@@ -243,41 +240,6 @@ export const CHECKS: RCheck[] = [
     },
   },
 
-  // ── 4) Supabase ──
-  {
-    id: 's_alive',
-    section: 'supabase',
-    title: 'الاتصال حي + زمن الاستجابة',
-    help: {
-      measure: 'استعلام configs?select=id&limit=1 مع توقيت.',
-      why: 'كل حاجة معتمدة على Supabase.',
-      whenRed: 'فشل/522 = الداتابيز Unhealthy.',
-      deepFix: 'Settings → Infrastructure → Restart project، ولو تكرّر كبّر المعالج.',
-    },
-  },
-  {
-    id: 's_tables',
-    section: 'supabase',
-    title: 'الجداول موجودة وفيها بيانات',
-    help: {
-      measure: 'count: configs/pairs/otc_pairs/users/candles.',
-      why: 'مشروع فاضي/غلط = التطبيق مايشتغلش.',
-      whenRed: 'أي جدول 404 أو 0.',
-    },
-  },
-  {
-    id: 's_usage',
-    section: 'supabase',
-    title: 'الاستهلاك (connections/messages/egress) + صحة المشروع',
-    help: {
-      measure: 'عبر البروكسي (/api/supabase-usage) بمفتاح Management. الأرقام الكاملة من الداشبورد.',
-      why: 'تجاوز الحدود = قطع الخدمة. الحدود: 500 اتصال، 5M رسالة/شهر، 250GB Egress.',
-      whenRed: 'المشروع Unhealthy أو أي مقياس فوق 90%.',
-      external: 'صفحة Usage في الداشبورد',
-    },
-  },
-
-  // ── 5) PO session (view only) ──
   {
     id: 'po_token',
     section: 'po',
@@ -972,100 +934,6 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
       }
 
       // ---- supabase ----
-      case 's_alive': {
-        const t0 = performance.now();
-        try {
-          const { error } = await db().from('configs').select('id').limit(1);
-          if (error) throw error;
-          const ms = Math.round(performance.now() - t0);
-          return res(ms > 3000 ? 'warn' : 'ok', `200 في ${ms}ms`, {
-            cause: ms > 3000 ? 'بطيء — ممكن ضغط على النانو' : '',
-          });
-        } catch (e) {
-          return res('fail', `فشل: ${short(e)}`, {
-            cause: 'الداتابيز Unhealthy / 522',
-            fix: 'Settings → Infrastructure → Restart project (لو تكرّر: كبّر المعالج)',
-            externalUrl: `https://supabase.com/dashboard/project/${K_REF}`,
-            externalLabel: 'Supabase',
-          });
-        }
-      }
-
-      case 's_tables': {
-        // `candles` is keyed by `key` and has NO `id` column, so probing `id`
-        // there would throw and show a false "خطأ". Probe each by a real column.
-        const probe: Record<string, string> = {
-          configs: 'id',
-          pairs: 'id',
-          otc_pairs: 'id',
-          users: 'id',
-          candles: 'key',
-        };
-        const miss: string[] = [];
-        for (const [table, col] of Object.entries(probe)) {
-          try {
-            const n = await count(table, col);
-            if (n <= 0) miss.push(`${table} (0)`);
-          } catch {
-            miss.push(`${table} (خطأ)`);
-          }
-        }
-        if (miss.length === 0) return res('ok', 'كل الجداول موجودة وفيها بيانات ✅');
-        return res('fail', `مشكلة: ${miss.join('، ')}`, { cause: 'مشروع فاضي/غلط' });
-      }
-
-      case 's_usage': {
-        const u = await json(`${K_ORIGIN}/api/supabase-usage`);
-        if (u === null || u['available'] !== true) {
-          return res('na', 'الأرقام مش متاحة من التطبيق', {
-            cause: u?.['reason'] === undefined ? 'البروكسي/التوكن مش جاهز' : String(u['reason']),
-            fix: 'الأرقام الكاملة (اتصالات/رسائل/Egress) من صفحة Usage في الداشبورد',
-            externalUrl: K_SUPA_USAGE,
-            externalLabel: 'افتح Usage',
-          });
-        }
-        const ps = u['projectStatus'] === undefined ? '?' : String(u['projectStatus']);
-        const healthy = ps === 'ACTIVE_HEALTHY';
-        let over: string | null = null;
-        const usage = u['usage'];
-        if (usage !== null && typeof usage === 'object') {
-          for (const [k, v] of Object.entries(usage as Record<string, unknown>)) {
-            if (v === null || typeof v !== 'object') continue;
-            const row = v as { usage?: unknown; limit?: unknown };
-            if (
-              typeof row.usage === 'number' &&
-              typeof row.limit === 'number' &&
-              row.limit > 0 &&
-              row.usage / row.limit > 0.9
-            ) {
-              over = k;
-            }
-          }
-        }
-        if (!healthy) {
-          return res('warn', `المشروع: ${ps}`, {
-            cause: 'المشروع مش ACTIVE_HEALTHY',
-            fix: 'راجع الداشبورد',
-            externalUrl: K_SUPA_USAGE,
-            externalLabel: 'افتح Usage',
-          });
-        }
-        if (over !== null) {
-          return res('warn', `مقياس فوق 90%: ${over}`, {
-            cause: 'قرّب على الحد',
-            fix: 'راجع Usage',
-            externalUrl: K_SUPA_USAGE,
-            externalLabel: 'افتح Usage',
-          });
-        }
-        return res('ok', `المشروع صحّي (${ps}) — الأرقام التفصيلية على الداشبورد فقط`, {
-          fix: 'الاستهلاك (اتصالات/رسائل/Egress، حد 500/5M/250GB) من صفحة Usage',
-          externalUrl: K_SUPA_USAGE,
-          externalLabel: 'افتح Usage',
-        });
-      }
-
-      // ---- PO session ----
       case 'po_token': {
         const st = await otcStatus(ctx.activeProxy);
         const authLen = st?.authLen ?? 0;
@@ -1120,35 +988,22 @@ export async function runOne(check: RCheck, ctx: RunContext): Promise<RResult> {
         return res('ok', `$${bal.toFixed(2)} ✅`);
       }
 
-      // ---- the migration ----
+      // ---- the hub ----
       case 'data_source': {
-        const mode = currentMode();
-        const { reads, fallbacks, errors, lastError } = hubStats;
+        const { reads, errors, lastError } = hubStats;
 
-        if (mode === 'supabase') {
-          return res('ok', 'Supabase — الوضع الأصلي');
-        }
-
-        // A fallback is the app covering for a hub that failed. In `mirror`
-        // both databases hold the same rows, so the user sees nothing — which
-        // is exactly why it has to be counted rather than felt. Moving to `d1`
-        // while this is above zero removes the cover without fixing the cause.
-        if (fallbacks > 0) {
-          return res('warn', `${mode} — ${fallbacks} رجوع لـSupabase من ${reads} قراءة`, {
-            cause: lastError || 'الـhub رجّع خطأ',
-            fix: 'شوف سبب الفشل قبل نقل الكتابة — الرجوع ده مش هيبقى موجود في وضع d1',
-          });
-        }
-
+        // There is no fallback count any more. It measured the app covering
+        // for a failing hub with a read from Postgres, which is not something
+        // that can happen: one database, and a failed read is an error.
         if (errors > 0) {
-          return res('fail', `${mode} — ${errors} قراءة فشلت`, {
+          return res('fail', `${errors} قراءة فشلت من ${reads}`, {
             cause: lastError || 'الـhub مش بيرد',
-            fix: 'رجّع configs.data_source لـsupabase',
+            fix: 'شوف لوج الـWorker — مفيش قاعدة تانية نرجع لها',
             danger: true,
           });
         }
 
-        return res('ok', `${mode} — ${reads} قراءة، مفيش رجوع ✅`);
+        return res('ok', `${reads} قراءة، مفيش أخطاء ✅`);
       }
 
       // ---- gwin ----

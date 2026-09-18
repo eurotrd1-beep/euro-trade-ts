@@ -119,7 +119,7 @@ export default function SignalStatsView() {
     } catch (e) {
       setError(
         e instanceof Error && /does not exist|schema cache/i.test(e.message)
-          ? 'الجداول لسه مترفعتش — شغّل supabase/migrations/20260811_signal_stats.sql الأول.'
+          ? 'الـhub مش بيرد على استعلام الإحصائيات. شوف لوج الـWorker.'
           : `تعذّر التحميل: ${e instanceof Error ? e.message : ''}`,
       );
     } finally {
