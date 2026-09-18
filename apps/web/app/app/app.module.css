@@ -1,67 +1,131 @@
+/*
+ * The signals screen.
+ *
+ * ── WHAT CHANGED AND WHY ───────────────────────────────────────────────────
+ *
+ * The two columns were siblings in the markup and strangers on screen: the
+ * chart card was square with a hard border, the cards beside it were 20px
+ * rounded and nearly borderless, and the gaps between them varied by module.
+ * Everything now sits on the shared shell in globals.css, so the page reads as
+ * one surface with sections in it rather than a stack of separate widgets.
+ *
+ * The column split is unchanged — chart left, signals right — because that is
+ * the one thing about the layout that was already right: the thing you watch
+ * is wide, the thing you act on is a column you read top to bottom.
+ */
+
 .screen { min-height: 100dvh; display: flex; flex-direction: column; }
 
 .layout {
   flex: 1;
   display: grid;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--s4);
+  padding: var(--s4);
   grid-template-columns: 1fr;
-  max-width: 1400px;
+  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
 }
 
 /* Desktop: chart left, signal + history right — matches _buildDesktopLayout. */
 @media (min-width: 1024px) {
-  .layout { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 372px;
+    align-items: start;
+    gap: var(--s4);
+    padding: var(--s5) var(--s4);
+  }
 }
 
-.chartColumn { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.sideColumn  { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.chartColumn { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.sideColumn  { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
 
-/* Square corners by request. `overflow: hidden` is kept — chart.js draws its
-   canvas to the edges and would otherwise paint over the border. */
+/* `overflow: hidden` is kept — chart.js draws its canvas to the edges and
+   would otherwise paint over the border. */
 .chartCard {
-  border-radius: 0;
-  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
-  border: 1px solid var(--border-glow);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
   overflow: hidden;
 }
 
 .chartHead {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 12px 14px;
-  border-bottom: 1px solid var(--border-glow);
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.pairName { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+/* The pair, as a label rather than a headline: the chart underneath is the
+   subject, and a 14px cyan title above it was competing with its own content. */
+.pairName {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
 
-.timeframes { display: flex; gap: 6px; }
+.timeframes {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
 
+/* A segmented control, not four floating pills. One border around the group
+   says "pick one of these"; four separate outlines said "here are four
+   buttons" and left the eye to work out the rest. */
 .tfBtn {
-  padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-glow);
-  background: color-mix(in srgb, var(--space-bg) 60%, transparent);
-}
-
-.tfActive {
-  color: var(--accent-cyan);
-  border-color: var(--accent-cyan);
-  background: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
-}
-
-.tfBtn:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
-
-.chartBody { height: clamp(280px, 46vh, 460px); }
-
-/* Shown only on a genuine feed stall (>60s), never on poll jitter. */
-.reconnecting {
-  padding: 10px 13px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
+  padding: 5px 12px;
+  font-size: var(--fs-label);
   font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border-inline-start: 1px solid var(--hairline);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.tfBtn:first-child { border-inline-start: none; }
+
+.tfBtn:hover:not(:disabled) { color: var(--text-primary); }
+
+.tfActive,
+.tfActive:hover {
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
+}
+
+.tfBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.tfBtn:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: -2px; }
+
+.chartBody { height: clamp(300px, 52vh, 520px); }
+
+/*
+ * Notices.
+ *
+ * One shape for every one of them, and the colour carries the meaning: amber
+ * for "something is degraded", plain for "this is just information". They used
+ * to be amber-tinted boxes either way, which made an ordinary note about
+ * another tab look like a fault.
+ */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s3) var(--s3);
+  border-radius: var(--radius);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-inline-start: 2px solid var(--hairline-strong);
+}
+
+.noticeWarn {
   color: var(--warning-orange);
-  background: color-mix(in srgb, var(--warning-orange) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warning-orange) 32%, transparent);
+  border-inline-start-color: var(--warning-orange);
+  background: color-mix(in srgb, var(--warning-orange) 7%, transparent);
 }

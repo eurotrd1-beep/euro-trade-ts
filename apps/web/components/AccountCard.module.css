@@ -1,100 +1,85 @@
-/* One compact row — deliberately short so it costs almost no vertical space. */
+/*
+ * The account strip.
+ *
+ * ── WHY IT STOPPED GLOWING ─────────────────────────────────────────────────
+ *
+ * This was the loudest object on the screen: a gold gradient, two glow
+ * shadows, a text-shadow on the plan, a filled gradient button, and a sheen
+ * sweeping across it every six seconds. It sat directly above the chart, so
+ * the one element that moved on an idle screen was the one with no information
+ * on it — and the trade card underneath had to shout to be seen over it.
+ *
+ * The plan still reads instantly, because the colour is on the word VIP where
+ * the meaning is, rather than on 340 pixels of background behind it.
+ */
+
 .strip {
-  position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-inline-start: 2px solid var(--hairline-strong);
 }
 
-/* Standard — silver. */
-.silver {
-  border-color: rgba(203, 213, 225, 0.4);
-  background:
-    linear-gradient(120deg, rgba(226, 232, 240, 0.14) 0%, rgba(148, 163, 184, 0.06) 60%, rgba(100, 116, 139, 0.1) 100%),
-    var(--card-bg);
-  box-shadow:
-    0 0 16px rgba(203, 213, 225, 0.13),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
+.silver { border-inline-start-color: var(--hairline-strong); }
+.gold   { border-inline-start-color: var(--warning-orange); }
 
-/* VIP — gold. */
-.gold {
-  border-color: rgba(245, 191, 66, 0.55);
-  background:
-    linear-gradient(120deg, rgba(255, 214, 102, 0.18) 0%, rgba(245, 158, 11, 0.08) 60%, rgba(180, 116, 6, 0.14) 100%),
-    var(--card-bg);
-  box-shadow:
-    0 0 22px rgba(245, 158, 11, 0.24),
-    inset 0 1px 0 rgba(255, 236, 179, 0.2);
-}
-
-.sheen {
-  position: absolute;
-  top: 0;
-  inset-inline-start: -50%;
-  width: 40%;
-  height: 100%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  animation: sweep 6s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes sweep {
-  0%   { transform: translateX(0); opacity: 0; }
-  35%  { opacity: 1; }
-  100% { transform: translateX(360%); opacity: 0; }
-}
+/* The sheen is gone; the element stays so the markup does not change shape. */
+.sheen { display: none; }
 
 .plan {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; font-weight: 900; letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
   flex-shrink: 0;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.1em;
 }
 
-.silver .plan { color: #e2e8f0; text-shadow: 0 0 10px rgba(226, 232, 240, 0.35); }
-.gold   .plan { color: #ffd666; text-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
+.silver .plan { color: var(--text-secondary); }
+.gold   .plan { color: var(--warning-orange); }
 
 .account {
-  position: relative;
-  flex: 1; min-width: 0;
-  font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
-  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-.remaining {
-  position: relative;
-  font-size: 11.5px; font-weight: 700;
-  color: #ffd666;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.subscribe {
-  position: relative;
-  padding: 5px 13px;
-  border-radius: 999px;
-  font-size: 11px; font-weight: 800;
-  color: var(--space-bg);
-  background: linear-gradient(90deg, #ffd666, var(--warning-orange));
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.subscribe:hover { filter: brightness(1.08); }
+.remaining {
+  flex-shrink: 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An outlined control. It is an offer, not the action this screen is for. */
+.subscribe {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: var(--radius-control);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--warning-orange);
+  border: 1px solid color-mix(in srgb, var(--warning-orange) 40%, transparent);
+  transition: background-color 140ms ease;
+}
+
+.subscribe:hover { background: color-mix(in srgb, var(--warning-orange) 10%, transparent); }
 
 .subscribe:focus-visible {
   outline: 2px solid var(--warning-orange);
   outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sheen { animation: none; opacity: 0; }
 }

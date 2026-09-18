@@ -440,7 +440,7 @@ export default function MainScreen() {
           />
 
           {!market.healthy && (
-            <div className={styles.reconnecting} role="status">
+            <div className={`${styles.notice} ${styles.noticeWarn}`} role="status">
               {tr('جاري إعادة الاتصال بمزوّد الأسعار...', 'Reconnecting to the price provider…')}
             </div>
           )}
@@ -453,7 +453,7 @@ export default function MainScreen() {
             for one setup and then overwrite each other's cycle.
           */}
           {!engine.watchOwner && (
-            <div className={styles.reconnecting} role="status">
+            <div className={styles.notice} role="status">
               {tr(
                 'المراقبة شغالة في تاب تاني من نفس الحساب. التاب ده بيعرض الأسعار والسجل عادي، بس مش هو اللي بيفتح الصفقات.',
                 'Watching is running in another tab of this account. This tab shows live prices and history, but is not the one opening trades.',
@@ -590,9 +590,7 @@ export default function MainScreen() {
             onStopMonitoring={monitoring.stop}
           />
 
-          <LiveFeed logs={socialLogs} />
-
-          {/* Above the history: what is happening now, before what already did. */}
+          {/* What is being watched now, before what already happened. */}
           <WatchCard
             watched={watchedPairs}
             pairs={visiblePairs}
@@ -606,6 +604,20 @@ export default function MainScreen() {
           />
 
           <SignalHistory history={engine.history} />
+
+          {/*
+            ── WHY THIS MOVED TO THE BOTTOM ────────────────────────────────
+
+            It used to sit second, directly under the signal panel, above the
+            user's own watch list and their own results. It is other people's
+            trades — the most promotional thing in the column — and putting it
+            above a user's own numbers is the arrangement that makes a tool
+            read as a pitch.
+
+            Order in this column is now: what you are about to do, what is
+            being watched, what you have done, and then everybody else.
+          */}
+          <LiveFeed logs={socialLogs} />
         </QuotaPause>
       </div>
 

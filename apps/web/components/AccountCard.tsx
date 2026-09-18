@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { tr } from '@euro/shared';
+import { ShieldIcon } from './UiIcons';
 import styles from './AccountCard.module.css';
 
 export interface AccountCardProps {
@@ -54,7 +55,7 @@ export function AccountCard({ vipUrl, accountId, broker, isVip, vipExpiry }: Acc
       <div className={styles.sheen} aria-hidden="true" />
 
       <span className={styles.plan}>
-        <span aria-hidden="true">{isVip ? '👑' : '🛡️'}</span>
+        <ShieldIcon size={13} />
         {isVip ? 'VIP' : tr('عادي', 'STANDARD')}
       </span>
 

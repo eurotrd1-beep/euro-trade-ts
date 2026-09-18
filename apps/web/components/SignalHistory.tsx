@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react';
 import { formatPrice, tr } from '@euro/shared';
 import type { TradingSignal } from '@euro/engine';
+import { ChartIcon } from './UiIcons';
 import styles from './SignalHistory.module.css';
 
 type Filter = 'today' | 'yesterday' | 'custom';
@@ -82,7 +83,7 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
       {/* Header */}
       <header className={styles.head}>
         <span className={styles.headIcon} aria-hidden="true">
-          📊
+          <ChartIcon size={15} />
         </span>
         <h2 className={styles.title}>{tr('إحصائيات وسجل صفقات الـ VIP', 'VIP stats & trade history')}</h2>
       </header>
@@ -143,9 +144,19 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
       <div className={styles.stats}>
         <div className={styles.stat}>
           <span className={styles.statLabel}>{tr('نسبة النجاح', 'Win rate')}</span>
-          <span className={`${styles.statRate} ${winRate >= 70 ? styles.rateGood : styles.rateBad}`}>
-            {winRate.toFixed(1)}%
-          </span>
+          {/*
+            No settled trades is not a 0% win rate. It was rendered as one, in
+            red, the size of a headline — so a brand-new account and an account
+            that had lost every trade said exactly the same thing, in exactly
+            the same colour, before either had traded at all.
+          */}
+          {decidedCount === 0 ? (
+            <span className={styles.statRate}>—</span>
+          ) : (
+            <span className={`${styles.statRate} ${winRate >= 70 ? styles.rateGood : styles.rateBad}`}>
+              {winRate.toFixed(1)}%
+            </span>
+          )}
         </div>
 
         <div className={styles.stat}>
@@ -223,7 +234,7 @@ export function SignalHistory({ history }: { history: TradingSignal[] }) {
                       {isCall ? tr('صعود', 'Up') : tr('هبوط', 'Down')}
                     </span>
                     <span className={`${styles.originBadge} ${isMon ? styles.originMon : styles.originInstant}`}>
-                      {isMon ? tr('🎯 بعد انتظار', '🎯 After waiting') : tr('⚡ أول شمعة', '⚡ First candle')}
+                      {isMon ? tr('بعد انتظار', 'After waiting') : tr('أول شمعة', 'First candle')}
                     </span>
                   </span>
                   <span className={styles.prices}>

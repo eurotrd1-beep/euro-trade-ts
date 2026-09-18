@@ -1,18 +1,20 @@
 .card {
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
-  border: 1px solid var(--border-glow);
+  composes: panelShell from global;
 }
 
-.head { display: flex; align-items: center; justify-content: space-between; }
+.head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--hairline);
+}
 
-.title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.title { margin: 0; font-size: var(--fs-title); font-weight: 700; color: var(--text-primary); }
 
 .live {
   display: flex; align-items: center; gap: 6px;
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
-  color: var(--text-secondary);
+  font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .dot {
@@ -28,14 +30,14 @@
 
 /* A plain list with hairline separators — no per-row card, no badge column. */
 .list {
-  list-style: none; margin: 8px 0 0; padding: 0;
+  list-style: none; margin: var(--s2) 0 0; padding: 0;
   max-height: 250px; overflow-y: auto;
 }
 
 .row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 2px;
-  border-top: 1px solid color-mix(in srgb, var(--border-glow) 55%, transparent);
+  padding: var(--s3) 0;
+  border-top: 1px solid color-mix(in srgb, var(--hairline) 60%, transparent);
   animation: fadeIn 240ms ease-out;
 }
 
@@ -50,15 +52,15 @@
 
 .name {
   display: flex; align-items: baseline; gap: 6px;
-  font-size: 12.5px; font-weight: 600; color: var(--text-primary);
+  font-size: var(--fs-body); font-weight: 600; color: var(--text-primary);
 }
 
-.userId { font-size: 10px; font-weight: 400; color: var(--text-secondary); opacity: 0.65; }
+.userId { font-size: var(--fs-micro); font-weight: 400; color: var(--text-faint); }
 
 .meta {
   display: flex; align-items: center; gap: 8px;
-  font-size: 10.5px; color: var(--text-secondary);
-  white-space: nowrap;
+  font-size: var(--fs-micro); color: var(--text-faint);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 
 .call { color: var(--call-green); font-weight: 600; }
@@ -66,9 +68,9 @@
 
 .profit {
   flex-shrink: 0;
-  font-size: 13px; font-weight: 700;
+  font-size: var(--fs-body); font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--call-green);
 }
 
-.empty { margin: 18px 0; text-align: center; font-size: 12px; color: var(--text-secondary); }
+.empty { margin: var(--s5) 0; text-align: center; font-size: var(--fs-body); color: var(--text-faint); }

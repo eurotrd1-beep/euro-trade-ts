@@ -13,17 +13,19 @@
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 12px;
-  margin-bottom: 8px;
-  border-radius: 11px;
-  font-size: 12.5px;
-  color: #0b1220;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-radius: var(--radius);
+  font-size: var(--fs-body);
   /* Amber, not green and not red. The trade has no outcome yet, and colouring
-     it either way would be reporting one. */
-  background: linear-gradient(180deg, #fcd34d, #f59e0b);
-  border: 1px solid rgba(180, 83, 9, 0.5);
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
+     it either way would be reporting one.
+     It used to be a filled amber gradient with a drop shadow — the brightest
+     object on the page, for a trade that is not on the chart in front of you.
+     The edge is enough to make it impossible to miss while it is sticky. */
+  color: var(--warning-orange);
+  background: color-mix(in srgb, var(--warning-orange) 10%, var(--space-bg));
+  border: 1px solid color-mix(in srgb, var(--warning-orange) 30%, transparent);
+  border-inline-start: 2px solid var(--warning-orange);
 }
 
 .icon { flex: none; font-size: 15px; }
@@ -39,30 +41,31 @@
 
 /* The pair name is the load-bearing word in the sentence — it is what makes
    every other number on the page unambiguous. */
-.text strong { font-weight: 800; }
+.text strong { font-weight: 700; color: var(--text-primary); }
 
 .dir { font-weight: 700; opacity: 0.8; }
 
 .clock {
   flex: none;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: var(--fs-body);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 
 .back {
   flex: none;
   padding: 5px 11px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 800;
+  border-radius: var(--radius-control);
+  font-size: var(--fs-label);
+  font-weight: 600;
   cursor: pointer;
-  color: #fef3c7;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(0, 0, 0, 0.3);
+  color: var(--warning-orange);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--warning-orange) 45%, transparent);
 }
 
-.back:hover { background: rgba(0, 0, 0, 0.72); }
+.back:hover { background: color-mix(in srgb, var(--warning-orange) 14%, transparent); }
 
 /* The others, when there are others. Lighter than the pair name — it is a
    count, not the thing the bar is about. */

@@ -24,7 +24,109 @@
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
+
+  /*
+   * ── THE SURFACE SYSTEM ────────────────────────────────────────────────
+   *
+   * The palette above is the identity and does not change. What follows is
+   * how it is APPLIED, and it exists because the signals screen had drifted
+   * into four corner radii, five tinted panels competing on one screen, and
+   * fourteen font sizes with no relationship between them. None of that was
+   * a wrong colour; all of it read as noise.
+   *
+   * So: one card shell, one hairline, one radius, one type scale. Colour is
+   * spent on the two things that are actually about money — the direction of
+   * an open trade and the result of a closed one — and on nothing else. A
+   * state that is merely *active* gets a dot, not a tinted panel.
+   *
+   * `--accent-cyan` and `--accent-blue` are still the admin's to override,
+   * and every token below is derived from the palette rather than hardcoded,
+   * so a theme change still moves the whole screen with it.
+   */
+  --surface: color-mix(in srgb, var(--card-bg) 62%, transparent);
+  --surface-raised: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  --surface-inset: color-mix(in srgb, var(--space-bg) 55%, transparent);
+  --hairline: color-mix(in srgb, var(--border-glow) 62%, transparent);
+  --hairline-strong: var(--border-glow);
+
+  /*
+   * One radius, and it is zero.
+   *
+   * The chart card was already square by request and the quota dialog too,
+   * while the cards beside them were 20px — so "consistent" had two possible
+   * answers and only one of them keeps a decision that was already made. Square
+   * surfaces also read the way a terminal reads: the corner stops being a
+   * styling choice and the eye goes to the numbers.
+   *
+   * Controls keep a small radius. A button that is perfectly square next to a
+   * square panel stops looking pressable.
+   */
+  --radius: 0;
+  --radius-control: 4px;
+
+  /* 4-point spacing. Every gap on the screen is one of these. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  /* A real scale, ratio ~1.2, instead of the fourteen sizes it replaces. */
+  --fs-micro: 10.5px;
+  --fs-label: 11.5px;
+  --fs-body: 12.5px;
+  --fs-title: 14px;
+  --fs-lead: 17px;
+  --fs-figure: 24px;
+  --fs-display: 32px;
+
+  /* Text tone, so "quieter" is a token rather than an opacity guess. */
+  --text-faint: color-mix(in srgb, var(--text-secondary) 72%, transparent);
 }
+
+/*
+ * The card shell, and the header every card wears.
+ *
+ * Global rather than per-module because the point is that they are identical:
+ * eight modules each defining "a card" is exactly how the screen ended up with
+ * four different ones.
+ */
+.panelShell {
+  padding: var(--s4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 22px;
+  margin-bottom: var(--s3);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.panelEyebrow {
+  margin: 0;
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Every figure on this screen lines up in its column. */
+.tabular { font-variant-numeric: tabular-nums; }
 
 *,
 *::before,

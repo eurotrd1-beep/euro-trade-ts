@@ -9,35 +9,34 @@
 .strip {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  color: var(--text, #e5e7eb);
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  font-size: var(--fs-label);
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
 }
 
 /* No setup at all. Dimmer, because "nothing to report" should not read as a
    status worth stopping on. */
-.quiet { color: var(--muted, #9ca3af); }
+.quiet { color: var(--text-faint); }
 
 .text { flex: none; }
 
 .bar {
   flex: 1;
-  height: 6px;
+  height: 3px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--hairline);
 }
 
 .fill {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #22d3ee, #34d399);
+  background: var(--accent-cyan);
   /* Longer than the gap between price updates, so the bar is always mid-travel
      rather than stepping from one value to the next. The number it shows moves
      with the price, and the price arrives when it arrives — this is what makes
@@ -47,10 +46,10 @@
 
 .pct {
   flex: none;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--fs-label);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #34d399;
+  color: var(--text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -5,21 +5,22 @@
  * see whether anything is close, and looks properly at the chart.
  */
 
+/* The hardcoded white overlays are gone: they ignored the palette, so an admin
+   changing the theme moved every card on the screen except this one. */
 .card {
-  padding: 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  composes: panelShell from global;
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s3);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.title { flex: 1; margin: 0; font-size: 13px; font-weight: 800; color: var(--text, #e5e7eb); }
+.title { flex: 1; margin: 0; font-size: var(--fs-title); font-weight: 700; color: var(--text-primary); }
 
 .total {
   padding: 2px 8px;

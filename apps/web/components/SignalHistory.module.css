@@ -1,151 +1,276 @@
+/*
+ * Statistics and the trade log.
+ *
+ * ── WHAT THIS CARD GOT WRONG ───────────────────────────────────────────────
+ *
+ * Every row said its outcome four times: a coloured row border, a filled pill,
+ * a coloured direction badge and a coloured origin badge. Four encodings of
+ * two facts, in a list you scan rather than read — so the list looked busy
+ * exactly where it needed to be scannable, and a losing row and a winning row
+ * were the same amount of visual weight.
+ *
+ * Now the outcome is said once, on the edge of the row, and the rest of the
+ * row is type. The direction is coloured text rather than a chip. The origin
+ * is a quiet label, because it qualifies the row rather than classifying it.
+ */
+
 .card {
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
-  border: 1px solid var(--border-glow);
+  composes: panelShell from global;
 }
 
-.head { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--hairline);
+}
 
-.headIcon { font-size: 20px; color: var(--accent-cyan); }
+.headIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+}
 
-.title { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
 
-/* ── Filter tabs (_buildFilterTab) ──────────────────────────────────────── */
+/* ── Filters ───────────────────────────────────────────────────────────────── */
 
-.filters { display: flex; gap: 8px; }
+.filters {
+  display: flex;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
 
 .filter {
   flex: 1;
   padding: 8px 4px;
-  border-radius: 10px;
-  font-size: 12px; font-weight: 700; text-align: center;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-align: center;
   color: var(--text-secondary);
   background: transparent;
-  border: 1px solid var(--border-glow);
+  border-inline-start: 1px solid var(--hairline);
+  transition: color 140ms ease, background-color 140ms ease;
 }
 
-.filterActive {
-  color: var(--text-primary);
-  border-color: var(--accent-cyan);
-  background: color-mix(in srgb, var(--accent-cyan) 16%, transparent);
+.filter:first-child { border-inline-start: none; }
+.filter:hover { color: var(--text-primary); }
+
+.filterActive,
+.filterActive:hover {
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
 }
 
-.rangeRow { display: flex; gap: 10px; margin-top: 12px; }
+.filter:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: -2px; }
+
+.rangeRow { display: flex; gap: var(--s2); margin-top: var(--s3); }
 
 .rangeField {
   flex: 1;
-  display: flex; flex-direction: column; gap: 5px;
-  font-size: 11px; color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
 }
 
 .dateInput {
-  padding: 9px 10px; border-radius: 9px;
-  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  font-size: var(--fs-body);
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--space-bg) 70%, transparent);
-  border: 1px solid var(--border-glow);
+  background: var(--surface-inset);
+  border: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
 }
 
 .dateInput:focus { outline: none; border-color: var(--accent-cyan); }
 
 .rangeBox {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  margin-top: 12px; padding: 10px 16px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--space-bg) 70%, transparent);
-  border: 1px solid var(--border-glow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface-inset);
+  border: 1px solid var(--hairline);
 }
 
-.rangeLabel { font-size: 12px; color: var(--text-secondary); }
-.rangeValue { font-size: 12px; font-weight: 700; color: var(--accent-cyan); }
+.rangeLabel { font-size: var(--fs-label); color: var(--text-faint); }
 
-/* ── Summary boxes ──────────────────────────────────────────────────────── */
+.rangeValue {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
 
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+/* ── The two figures ───────────────────────────────────────────────────────── */
+
+/* One grid with hairlines between, not two floating boxes. The success rate is
+   the number this card exists for, so it is the one that is large. */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: var(--s4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
 
 .stat {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 12px; border-radius: 12px; text-align: center;
-  background: color-mix(in srgb, var(--space-bg) 70%, transparent);
-  border: 1px solid var(--border-glow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+  text-align: start;
+  background: var(--surface-inset);
+  border-inline-start: 1px solid var(--hairline);
 }
 
-.statLabel { font-size: 11px; color: var(--text-secondary); }
+.stat:first-child { border-inline-start: none; }
 
-.statRate { font-size: 20px; font-weight: 900; }
+.statLabel {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.statRate {
+  font-size: var(--fs-figure);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  /* The em dash for "nothing settled yet" inherits this, so the empty state is
+     quiet rather than red. */
+  color: var(--text-faint);
+}
 
 .rateGood { color: var(--call-green); }
 .rateBad  { color: var(--put-red); }
 
-.statValue { font-size: 12px; font-weight: 700; color: var(--text-primary); }
-.statSub   { font-size: 9px; color: var(--text-secondary); }
+.statValue {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
 
-/* ── Rows ───────────────────────────────────────────────────────────────── */
+.statSub { font-size: var(--fs-micro); color: var(--text-faint); }
+
+/* ── Rows ──────────────────────────────────────────────────────────────────── */
 
 .list {
-  list-style: none; margin: 20px 0 0; padding: 0;
-  max-height: 200px; overflow-y: auto;
+  list-style: none;
+  margin: var(--s4) 0 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border-top: 1px solid var(--hairline);
 }
 
 .row {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 6px; padding: 8px 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--space-bg) 60%, transparent);
-  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s2);
+  border-bottom: 1px solid color-mix(in srgb, var(--hairline) 60%, transparent);
+  border-inline-start: 2px solid transparent;
 }
 
-.row_win  { border-color: color-mix(in srgb, var(--call-green) 32%, transparent); }
-.row_loss { border-color: color-mix(in srgb, var(--put-red) 32%, transparent); }
-.row_tie  { border-color: color-mix(in srgb, var(--warning-orange) 32%, transparent); }
+/* The outcome, said once. */
+.row_win  { border-inline-start-color: var(--call-green); }
+.row_loss { border-inline-start-color: var(--put-red); }
+.row_tie  { border-inline-start-color: var(--warning-orange); }
 
 /* A trade with no result yet — still running, or opened in a session that
    closed before it expired. Deliberately colourless: it is not an outcome, and
    painting it green or red would be inventing one. */
-.row_open { border-color: color-mix(in srgb, var(--text-secondary) 32%, transparent); }
+.row_open { border-inline-start-color: var(--hairline-strong); }
 
+/* Text, not a chip. The edge already carries the colour; the pill was the
+   second place the same fact was stated. */
 .pill {
   flex-shrink: 0;
-  padding: 4px 8px; border-radius: 6px;
-  font-size: 10px; font-weight: 700;
-  border: 1px solid;
+  min-width: 42px;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.pill_win  { color: var(--call-green);      background: color-mix(in srgb, var(--call-green) 8%, transparent);      border-color: color-mix(in srgb, var(--call-green) 32%, transparent); }
-.pill_loss { color: var(--put-red);         background: color-mix(in srgb, var(--put-red) 8%, transparent);         border-color: color-mix(in srgb, var(--put-red) 32%, transparent); }
-.pill_tie  { color: var(--warning-orange);  background: color-mix(in srgb, var(--warning-orange) 8%, transparent);  border-color: color-mix(in srgb, var(--warning-orange) 32%, transparent); }
-.pill_open { color: var(--text-secondary);  background: color-mix(in srgb, var(--text-secondary) 8%, transparent);  border-color: color-mix(in srgb, var(--text-secondary) 32%, transparent); }
+.pill_win  { color: var(--call-green); }
+.pill_loss { color: var(--put-red); }
+.pill_tie  { color: var(--warning-orange); }
+.pill_open { color: var(--text-faint); }
 
 .details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
-.detailsTop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.detailsTop { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
 
-.pair { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-
-.dirBadge { padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: 700; }
-
-.dirCall { color: var(--call-green); background: color-mix(in srgb, var(--call-green) 12%, transparent); }
-.dirPut  { color: var(--put-red);    background: color-mix(in srgb, var(--put-red) 12%, transparent); }
-
-.originBadge {
-  padding: 1px 5px; border-radius: 4px;
-  font-size: 9px; font-weight: 700;
-  border: 1px solid;
+.pair {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.originInstant { color: var(--accent-cyan);     background: color-mix(in srgb, var(--accent-cyan) 11%, transparent);     border-color: color-mix(in srgb, var(--accent-cyan) 35%, transparent); }
-.originMon     { color: var(--warning-orange);  background: color-mix(in srgb, var(--warning-orange) 11%, transparent);  border-color: color-mix(in srgb, var(--warning-orange) 35%, transparent); }
+.dirBadge {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
 
-.prices { font-size: 10px; color: var(--text-secondary); }
+.dirCall { color: var(--call-green); }
+.dirPut  { color: var(--put-red); }
 
-.time { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+/* How the trade was found. A qualifier, so it is quiet. */
+.originBadge {
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+}
+
+.originInstant { color: var(--text-faint); }
+.originMon     { color: var(--text-faint); }
+
+.prices {
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.time {
+  flex-shrink: 0;
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
 
 .empty {
-  display: grid; place-items: center;
-  height: 120px; margin: 20px 0 0;
-  border-radius: 12px;
-  font-size: 13px; color: var(--text-secondary);
-  background: color-mix(in srgb, var(--space-bg) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border-glow) 60%, transparent);
+  display: grid;
+  place-items: center;
+  height: 96px;
+  margin: var(--s4) 0 0;
+  border-radius: var(--radius);
+  font-size: var(--fs-body);
+  color: var(--text-faint);
+  background: var(--surface-inset);
+  border: 1px solid var(--hairline);
 }

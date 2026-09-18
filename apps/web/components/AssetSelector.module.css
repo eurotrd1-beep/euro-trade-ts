@@ -1,27 +1,33 @@
 .selector {
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
-  border: 1px solid var(--border-glow);
+  composes: panelShell from global;
 }
 
 .currentRow {
   display: flex; align-items: baseline; justify-content: space-between;
-  gap: 10px; margin-bottom: 12px;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s3);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.currentLabel { font-size: 11px; color: var(--text-secondary); }
+.currentLabel {
+  font-size: var(--fs-micro); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-faint);
+}
 
-.currentPair { font-size: 15px; font-weight: 700; color: var(--accent-cyan); }
+/* The pair, in plain text. It was cyan and 15px, which made the label of the
+   thing on screen compete with the thing on screen. */
+.currentPair { font-size: var(--fs-title); font-weight: 700; color: var(--text-primary); }
 
 .tabs { display: flex; flex-wrap: wrap; gap: 7px; }
 
 .tab {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px 14px; border-radius: 999px; white-space: nowrap;
-  font-size: 12px; font-weight: 600; color: var(--text-secondary);
-  border: 1px solid var(--border-glow);
-  background: color-mix(in srgb, var(--space-bg) 60%, transparent);
+  display: inline-flex; align-items: center; gap: var(--s2);
+  padding: 7px 12px; border-radius: var(--radius-control); white-space: nowrap;
+  font-size: var(--fs-body); font-weight: 600; color: var(--text-secondary);
+  border: 1px solid var(--hairline);
+  background: var(--surface-inset);
   transition: border-color 150ms ease, color 150ms ease;
 }
 
@@ -29,15 +35,17 @@
 
 /* Marks the category the current pair belongs to. */
 .tabActive {
-  color: var(--accent-cyan); border-color: var(--accent-cyan);
-  background: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
+  color: var(--accent-cyan);
+  border-color: color-mix(in srgb, var(--accent-cyan) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
 }
 
 .count {
-  padding: 1px 7px; border-radius: 999px;
-  font-size: 10px; font-weight: 700;
-  background: color-mix(in srgb, var(--border-glow) 80%, transparent);
-  color: var(--text-secondary);
+  padding: 1px 6px; border-radius: var(--radius-control);
+  font-size: var(--fs-micro); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--hairline) 80%, transparent);
+  color: var(--text-faint);
 }
 
 .tabActive .count { background: color-mix(in srgb, var(--accent-cyan) 22%, transparent); color: var(--accent-cyan); }

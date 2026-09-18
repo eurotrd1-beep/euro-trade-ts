@@ -21,6 +21,7 @@
 import { formatPrice, tr } from '@euro/shared';
 import type { TradingSignal } from '@euro/engine';
 import { formatElapsed, type MonitoringState } from '@/lib/useMonitoring';
+import { GearIcon, SignalIcon } from './UiIcons';
 import styles from './SignalPanel.module.css';
 
 const DURATIONS = [1, 2, 5, 10];
@@ -266,7 +267,7 @@ function IdleView({
     <section className={styles.panel}>
       <header className={styles.idleHead}>
         <span className={styles.brainIcon} aria-hidden="true">
-          🧠
+          <SignalIcon size={15} />
         </span>
         <div>
           <p className={styles.sensorTag}>VIP ALGORITHM SENSOR</p>
@@ -339,8 +340,8 @@ function IdleView({
       {nothingChosen && (
         <p className={styles.needPairs} role="status">
           {tr(
-            '⚙️ اختار الأزواج اللي عايز تتابعها الأول من الترس جنب الزرار.',
-            '⚙️ Choose the pairs you want to follow first, from the gear beside the button.',
+            'اختار الأزواج اللي عايز تتابعها الأول من الترس جنب الزرار.',
+            'Choose the pairs you want to follow first, from the gear beside the button.',
           )}
         </p>
       )}
@@ -348,8 +349,8 @@ function IdleView({
       {allShut && (
         <p className={styles.needPairs} role="status">
           {tr(
-            `كل الـ${watchedCount} زوج اللي مختارهم أسواقهم مقفولة دلوقتي. ضيف زوج OTC من ⚙️ — دي بتشتغل 24/7.`,
-            `All ${watchedCount} pairs you chose are closed right now. Add an OTC pair from ⚙️ — those trade 24/7.`,
+            `كل الـ${watchedCount} زوج اللي مختارهم أسواقهم مقفولة دلوقتي. ضيف زوج OTC من الترس — دي بتشتغل 24/7.`,
+            `All ${watchedCount} pairs you chose are closed right now. Add an OTC pair from the gear — those trade 24/7.`,
           )}
         </p>
       )}
@@ -372,7 +373,7 @@ function IdleView({
               : tr(`${watchedCount} زوج مختار`, `${watchedCount} pairs selected`)
           }
         >
-          <span aria-hidden="true">⚙️</span>
+          <GearIcon size={15} />
           {watchedCount > 0 && <span className={styles.gearCount}>{watchedCount}</span>}
         </button>
 
@@ -383,7 +384,7 @@ function IdleView({
               ? tr('محتاج تختار أزواج الأول', 'Choose your pairs first')
               : allShut
                 ? tr('أسواق أزواجك مقفولة', 'Your markets are closed')
-                : tr('حلّل وولّد إشارة ⚡', 'Analyse and generate a signal ⚡')}
+                : tr('حلّل وولّد إشارة', 'Analyse and generate a signal')}
         </button>
         <HelpButton
           text={tr(
@@ -450,14 +451,17 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
 
   if (active) {
     return (
-      <section className={styles.panel}>
+      /* No panel chrome around the trade card: the card has its own border and
+         its own colour, and a bordered box inside a bordered box put two
+         frames around the one thing on the screen that should read as single. */
+      <section className={`${styles.panel} ${styles.tradePanel}`}>
         {/* Stated before the card, not inside it: this trade exists because the
             last one lost, and that is the thing to read first. */}
         {isMartingale && (
           <div className={styles.martingale} role="status">
             {tr(
-              '🔁 مضاعفة — الصفقة دي تعويض عن اللي قبلها، وبمضاعفة واحدة بس. مفيش تالتة مهما حصل.',
-              '🔁 Martingale — this trade recovers the last one, doubled once. There is no second double.',
+              'مضاعفة — الصفقة دي تعويض عن اللي قبلها، وبمضاعفة واحدة بس. مفيش تالتة مهما حصل.',
+              'Martingale — this trade recovers the last one, doubled once. There is no second double.',
             )}
           </div>
         )}
@@ -492,12 +496,12 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
   const resultLabel =
     result === 'WIN'
       ? isMartingale
-        ? tr('المضاعفة عوّضت الخسارة ✅', 'The double recovered the loss ✅')
-        : tr('صفقة رابحة ✅', 'Winning trade ✅')
+        ? tr('المضاعفة عوّضت الخسارة', 'The double recovered the loss')
+        : tr('صفقة رابحة', 'Winning trade')
       : result === 'LOSS'
         ? isMartingale
-          ? tr('خسارة نهائية — الدورة انتهت ❌', 'Final loss — the cycle is over ❌')
-          : tr('صفقة خاسرة ❌', 'Losing trade ❌')
+          ? tr('خسارة نهائية — الدورة انتهت', 'Final loss — the cycle is over')
+          : tr('صفقة خاسرة', 'Losing trade')
         : result === 'UNRESOLVED'
           // Said plainly rather than dressed as a tie: the trade ran, and the
           // candle it ran on never arrived, so there is no price to judge it
@@ -506,7 +510,7 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
           : tr('تعادل — تم رد الرهان', 'Tie — stake refunded');
 
   return (
-    <section className={styles.panel}>
+    <section className={`${styles.panel} ${styles.tradePanel}`}>
       <div className={`${styles.signalCard} ${cls}`}>
         <p className={styles.signalPair}>{signal.pair}</p>
         <p className={styles.resultText}>{resultLabel}</p>
@@ -531,8 +535,8 @@ function TradeView({ signal, secondsRemaining, onClear }: SignalPanelProps) {
         {result === 'LOSS' && !isMartingale && (
           <p className={styles.doubleUp} role="status">
             {tr(
-              '🔁 ضاعِف مبلغ الصفقة دي في الصفقة الجاية على نفس الزوج — فرصة تعويض واحدة بس، مفيش تالتة.',
-              '🔁 Double this trade’s stake on the next one, same pair — one recovery attempt only, never a third.',
+              'ضاعِف مبلغ الصفقة دي في الصفقة الجاية على نفس الزوج — فرصة تعويض واحدة بس، مفيش تالتة.',
+              'Double this trade’s stake on the next one, same pair — one recovery attempt only, never a third.',
             )}
           </p>
         )}
